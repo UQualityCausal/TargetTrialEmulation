@@ -1,0 +1,27 @@
+﻿Study ID,Month,BL_Exposure-group,BL_Exposure-drug,BL_Exposure-dose ,FU_exposure-group ,FU_exposure-drug,FU_exposure-dose,BL_SBP,FU_SBP,FU_antihtn2-use,FU_antihtn2-class,FU_antihtn2-drug,FU_antihtn2 -dose
+1,0,0,lisinopril,20,.,.,.,150,.,.,.,.,.
+1,1,0,lisinopril,20,0,lisinopril,20,150,142,0,.,.,.
+1,2,0,lisinopril,20,0,lisinopril,20,150,142,0,.,.,.
+1,3,0,lisinopril,20,0,lisinopril,20,150,140,0,.,.,.
+1,4,0,lisinopril,20,0,lisinopril,20,150,140,0,.,.,.
+1,5,0,lisinopril,20,0,lisinopril,20,150,140,0,.,.,.
+1,6,0,lisinopril,20,0,lisinopril,20,150,148,0,.,.,.
+1,7,0,lisinopril,20,0,lisinopril,20,150,144,0,.,.,.
+1,8,0,lisinopril,20,1,losartan,100,150,144,1,thiazide,hctz,25
+1,9,0,lisinopril,20,1,losartan,100,150,135,1,thiazide,hctz,25
+1,10,0,lisinopril,20,1,losartan,100,150,135,1,thiazide,hctz,25
+1,11,0,lisinopril,20,1,losartan,100,150,135,1,thiazide,hctz,25
+1,12,0,lisinopril,20,1,losartan,100,150,130,1,thiazide,hctz,25
+2,0,1,losartan,25,.,.,.,168,.,.,.,.,.
+2,1,1,losartan,25,1,losartan,25,168,166,0,.,.,.
+2,2,1,losartan,25,1,losartan,50,168,164,0,.,.,.
+2,3,1,losartan,25,1,losartan,100,168,162,1,CCB,amlodipine,5
+2,4,1,losartan,25,1,losartan,100,168,152,1,CCB,amlodipine,5
+2,5,1,losartan,25,1,losartan,100,168,152,1,CCB,amlodipine,10
+2,6,1,losartan,25,1,losartan,100,168,148,1,CCB,amlodipine,10
+2,7,1,losartan,25,1,losartan,100,168,142,1,CCB,amlodipine,10
+2,8,1,losartan,25,1,losartan,100,168,138,1,CCB,amlodipine,10
+2,9,1,losartan,25,1,losartan,100,168,138,1,CCB,amlodipine,10
+2,10,1,losartan,25,1,losartan,100,168,138,1,CCB,amlodipine,10
+2,11,1,losartan,25,1,losartan,100,168,138,1,CCB,amlodipine,10
+2,12,1,losartan,25,1,losartan,100,168,146,1,CCB,amlodipine,10

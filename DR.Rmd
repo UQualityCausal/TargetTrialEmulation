@@ -1,0 +1,472 @@
+---
+title: "Doubly Robust Estimation of Causal Effects in Survival Analysis"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+bibliography: references_DR.bib  
+link-citations: yes
+vignette: >
+  \VignetteIndexEntry{Doubly Robust Estimation of Causal Effects in Survival Analysis}
+  %\VignetteEncoding{UTF-8}
+  %\VignetteEngine{knitr::rmarkdown}
+editor_options: 
+  markdown: 
+    wrap: sentence
+---
+
+```{r setup, message=FALSE, warning=FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+options(warn = -1)
+set.seed(123456)
+library(survival)
+library(pseudo)
+library(adjustedCurves)
+library(MASS)
+library(ggplot2)
+library(survminer)
+library(dplyr)
+library(knitr)
+library(kableExtra)
+```
+
+## Introduction
+
+As noted in @DR-main, estimating causal effects of a treatment in observational studies is challenging due to confounding bias.
+Common approaches to control for confounding include outcome regression and propensity score methods.
+Outcome regression methods model the conditional expectation of the outcome given treatment and covariates.
+Propensity score methods estimate the probability of receiving treatment given covariates.
+Inverse probability weighting uses propensity scores to create a pseudo-population in which treatment is independent of measured confounders.
+Both approaches rely on correct model specification because misspecification of either model can lead to biased estimates.
+
+## Doubly Robust Estimation
+
+Following @DR-main, doubly robust (DR) estimation combines outcome regression and propensity score methods.
+The DR estimator is consistent if either model is correctly specified.
+In this setting, we consider $n$ subject, and $i$ indexes individual subject.
+Let $D$ denote the treatment indicator (0 or 1), $Y$ the outcome of interest, and $\boldsymbol{Z} = (Z_1, Z_2, \ldots, Z_k)$ the vector of baseline covariates.
+$e(\boldsymbol{Z}_i)$ represents the estimated propensity score for each individual, and $m_d(\boldsymbol{Z}_i)$ is the predicted outcome given treatment and baseline covariates.
+The average treatment effect (ATE) can be estimated as $\hat{\tau}_{DR} = \frac{1}{n} \sum_{i=1}^n \left[ \frac{D_i Y_i}{e(\boldsymbol{Z}_i)} - \frac{(D_i - e(\boldsymbol{Z}_i)) }{e(\boldsymbol{Z}_i)} m_1(\boldsymbol{Z}_i) \right] - \left[ \frac{(1 - D_i) Y_i}{1 - e(\boldsymbol{Z}_i)} + \frac{(D_i - e(\boldsymbol{Z}_i)) }{1 - e(\boldsymbol{Z}_i)} m_0(\boldsymbol{Z}_i) \right]$.
+Fundamental causal inference assumptions—exchangeability, positivity, consistency, and no interference—still hold.
+The DR method still assumes that all confounders are measured, since unmeasured confounding can introduce bias.
+For detailed mathematical derivations, please refer to @DR-main.
+According to @DR-semiparam, the estimator can achieve semiparametric efficiency bounds when both models are correctly specified.
+
+## Extension to Survival Analysis
+
+Time-to-event outcomes are common in biomedical research and are often subject to right censoring due to loss to follow-up.
+When treatment assignment depends on covariates, the Kaplan–Meier (KM) estimator may be biased.
+To address this issue, @DR-pseudo discusses a pseudo-observation-based DR approach.
+Let $T$ denote the survival time and $C$ the censoring time.
+The survival function for subject $i$ under treatment $d$ at time $t$ is denoted as $S_d^i(t)$.
+The pseudo-observation for the survival function is defined as $\hat{S}_d^{i}(t) = n \hat{S}_d(t) - (n - 1) \hat{S}^{-i}_{d}(t)$, where $\hat{S}_d(t)$ is the KM estimator based on all subjects, and $\hat{S}^{-i}_d(t)$ is the KM estimator excluding subject $i$.
+In the formula above, the $Y_i$ is now replaced with $\hat{S}_d^i(t)$.
+Additionally, $m_d(\boldsymbol{Z}_i)$ becomes the individual survival prediction at time $t$, conditional on treatment and baseline covariates.
+The updated formula is as follows $\hat{\tau}_{DR} = \frac{1}{n} \sum_{i=1}^n \left[ \frac{D_i \hat{S}_d^i(t)}{e(\boldsymbol{Z}_i)} - \frac{(D_i - e(\boldsymbol{Z}_i)) }{e(\boldsymbol{Z}_i)} m_1(t,\boldsymbol{Z}_i) \right] - \left[ \frac{(1 - D_i) \hat{S}_d^i(t)}{1 - e(\boldsymbol{Z}_i)} + \frac{(D_i - e(\boldsymbol{Z}_i)) }{1 - e(\boldsymbol{Z}_i)} m_0(t,\boldsymbol{Z}_i) \right]$.
+Under the commonly used Cox proportional hazards model, the survival function for subject $i$ under treatment $d$ at time $t$ can be expressed as ${S}_d(t|\boldsymbol{Z}_i) = S_{d0}(t)^{\beta_d^T\boldsymbol{Z_i}}$, where $S_{d0}(t)$ is the baseline survival function for treatment $d$, and $\boldsymbol{\beta}_d$ is the vector of estimated regression coefficients.
+$\hat{S}_d(t)$ can then be approximated as the average of ${S}_d(t|\boldsymbol{Z}_i)$s.
+
+## R Code Demo
+
+This demonstration starts with data simulation.
+
+```{r}
+generate_data <- function(n = 3000) {
+  mu <- rep(0, 3)
+  sigma <- matrix(c(1, 0, 0, 0, 1, 0, 0, 0, 1), nrow = 3)
+  Z <- mvrnorm(n, mu, sigma)
+  Z1 <- Z[, 1]
+  Z2 <- Z[, 2]
+  Z3 <- Z[, 3]
+  
+  logit_p <- (0.35 * Z1 + 0.7 * Z2 + 1.05 * Z3)/3
+  p <- exp(logit_p) / (1 + exp(logit_p))
+  D <- rbinom(n, 1, p) # Treatment indicator
+  
+  hazard <- exp(-1 + D + 1 * Z1 + 2 * Z2 + 1 * Z1 * Z2)
+
+  T_event <- rexp(n, rate = hazard) # Event time
+  T_censor <- rexp(n, rate = exp(-4.5)) # Censoring time
+  T_admin <- rep(7, n) # Administrative censoring at fixed time
+  
+  Time <- pmin(T_event, T_censor, T_admin) # Observed time
+  Event <- as.numeric(T_event <= T_censor & T_event <= T_admin) # Event indicator
+  
+  return(data.frame(Z1 = Z1, Z2 = Z2, Z3 = Z3, D = D, Time = Time, Event = Event))
+}
+
+# -----------------------------
+# Data Dictionary:
+# Z1, Z2, Z3: baseline covariates
+# D: treatment indicator (1 = treated, 0 = control)  
+# Time: observed time 
+# Event: event indicator (1 if event occurred, 0 otherwise)
+# -----------------------------
+
+data <- generate_data()
+summary(data$Time)
+
+table(data$Event)
+```
+
+It is important to check the proportional hazards assumption.
+```{r fig.width=5, fig.height=3}
+# 1. Schoenfeld Residuals plot: A flat middle line indicates that the proportional hazards assumption holds.
+cox_check_model <- coxph(Surv(Time, Event) ~ D, data = data)
+cox.zph(cox_check_model) #p-value
+plot(cox.zph(cox_check_model))
+```
+```{r}
+#Explanations from Copilot: The two dark horizontal lines around 2 and -2 are reference boundaries for the residuals. They help assess whether the residuals fall within an acceptable range: If most of the residuals lie within these boundaries, it suggests that the proportional hazards assumption is likely valid. If residuals consistently fall outside these lines, it may indicate a violation of the assumption.
+#remove later???
+```
+
+```{r fig.width=5, fig.height=3}
+# 2. Log-log plot: Parallel lines indicate proportional hazards assumption is met.
+surv_fit <- survfit(Surv(Time, Event) ~ D, data = data)
+ggsurvplot(surv_fit, data = data, fun = "cloglog", 
+           title = "Log-log Plot", xlab = "log(Time)",
+           legend.title = "Treatment Group", 
+           legend.labs = c("Control", "Treatment"),
+           ggtheme = theme(legend.text = element_text(size = 9),      
+              legend.title = element_text(size = 10)))
+```
+
+We will compare four model specification scenarios:
+
+-   Scenario 1: Both the outcome model and the propensity score model are correctly specified.
+
+-   Scenario 2: The propensity score model is correctly specified, but the outcome model is misspecified.
+
+-   Scenario 3: The outcome model is correctly specified, while the propensity score model is misspecified.
+
+-   Scenario 4: Both models are misspecified.
+
+Below is the DR estimation function using R packages.
+
+```{r}
+ps_model <- glm(D ~ Z1 + Z2 + Z3, data = data, family = "binomial")
+summary(ps_model)
+```
+
+```{r}
+dr_ate_package <- function(data, times, ps_correct = TRUE, or_correct = TRUE) {
+  
+  # Propensity score model
+  if (ps_correct) {
+    ps_model <- glm(D ~ Z1 + Z2 + Z3, data = data, family = "binomial")
+  } else {
+    ps_model <- glm(D ~ Z1, data = data, family = "binomial")
+  }
+
+  # Outcome regression covariates
+  if (or_correct) {
+    data$Z1_Z2 <- data$Z1 * data$Z2
+    or_covars <- c("Z1", "Z2", "Z1_Z2")
+  } else {
+    or_covars <- c("Z1", "Z3")
+  }
+  
+  data$D <- as.factor(data$D)
+
+  adj_surv <- adjustedsurv(
+    data = data,
+    variable = "D",
+    ev_time = "Time",
+    event = "Event",
+    method = "aiptw_pseudo",
+    treatment_model = ps_model,
+    outcome_vars = or_covars,
+    times = times,
+    conf_int = TRUE)
+  
+  # Survival probabilities and confidence intervals for the treated group 
+  surv_1 <- adj_surv$adj[adj_surv$adj$group == 1, c("surv", "ci_lower", "ci_upper")]
+  # Survival probabilities and confidence intervals for the control group
+  surv_0 <- adj_surv$adj[adj_surv$adj$group == 0, c("surv", "ci_lower", "ci_upper")]
+  
+  ATE <- surv_1$surv - surv_0$surv
+  ci_lower <- surv_1$ci_lower - surv_0$ci_upper
+  ci_upper <- surv_1$ci_upper - surv_0$ci_lower
+  
+  return(list(ATE = ATE, ci_lower = ci_lower, ci_upper = ci_upper))
+}
+
+# Note: package function "aiptw_pseudo" method uses a generalized estimation equation for outcome model, which is different from the manual implementation.
+```
+
+The analysis can be conducted at multiple time points.
+
+```{r}
+times <- c(3, 4, 5)
+results_package <- dr_ate_package(data, times)  
+
+results_package_tbl <- rbind(ATE = round(results_package$ATE, 2),
+  `CI lower` = round(results_package$ci_lower, 2),
+  `CI upper` = round(results_package$ci_upper, 2))
+
+colnames(results_package_tbl) <- c("T=3", "T=4", "T=5")
+kable(results_package_tbl, caption = "ATE and 95% Confidence Intervals") %>% 
+  kable_styling(full_width = FALSE, font_size = 12) 
+```
+
+Alternatively, the DR estimator can be implemented manually.
+
+```{r}
+dr_ate_manual <- function(data, times, ps_correct = TRUE, or_correct = TRUE) {
+  
+  # Split data by treatment group
+  data_1 <- data[data$D == 1, ]
+  data_0 <- data[data$D == 0, ]
+  
+  # Outcome regression (Cox proportional hazard model)
+  if (or_correct) {
+    or_model_1 <- coxph(Surv(Time, Event) ~ Z1 * Z2, data = data_1)
+    or_model_0 <- coxph(Surv(Time, Event) ~ Z1 * Z2, data = data_0)
+  } else {
+    or_model_1 <- coxph(Surv(Time, Event) ~ Z1 + Z3, data = data_1)
+    or_model_0 <- coxph(Surv(Time, Event) ~ Z1 + Z3, data = data_0)
+  }
+  
+  # Linear predictors (Beta^T * Z)
+  lp_1 <- predict(or_model_1, newdata = data, type = "lp")
+  lp_0 <- predict(or_model_0, newdata = data, type = "lp")
+  
+  # Baseline survival functions
+  base_surv_1 <- survfit(or_model_1, newdata = data.frame(Z1=0, Z2=0, Z3=0))
+  base_surv_0 <- survfit(or_model_0, newdata = data.frame(Z1=0, Z2=0, Z3=0))
+  
+  # Baseline survival probabilities at different times
+  s0_t_1 <- summary(base_surv_1, times = times, extend = TRUE)$surv
+  s0_t_0 <- summary(base_surv_0, times = times, extend = TRUE)$surv
+  
+  # Predicted survival probabilities
+  
+  m1 <- sapply(s0_t_1, function(s) s^exp(lp_1))
+  m0 <- sapply(s0_t_0, function(s) s^exp(lp_0))
+  
+  # Propensity scores
+  if (ps_correct) {
+    ps_model <- glm(D ~ Z1 + Z2 + Z3, data = data, family = "binomial")
+  } else {
+    ps_model <- glm(D ~ Z1, data = data, family = "binomial")
+  }
+  e <- predict(ps_model, type = "response")
+  
+  # Pseudo-observations (individual estimates of the survival function at specified time points)
+  pseudo_obs <- pseudo::pseudosurv(time = data$Time, event = data$Event, tmax = times)$pseudo
+  
+  surv_1 <- numeric(length(times))
+  surv_0 <- numeric(length(times))
+  
+  ATE <- numeric(length(times))
+  
+  for(j in 1:length(times)) {
+    # DR for treated group
+    term1_treated <- data$D * pseudo_obs[, j] / e
+    term2_treated <- (data$D - e) * m1[, j] / e
+    term_full_treated <- term1_treated - term2_treated
+    surv_1[j] <- mean(term_full_treated)
+    
+    # DR for control group  
+    term1_control <- (1 - data$D) * pseudo_obs[, j] / (1 - e)
+    term2_control <- (data$D - e) * m0[, j] / (1 - e)
+    term_full_control <- term1_control + term2_control
+    surv_0[j] <- mean(term_full_control) 
+    
+    # ATE
+    ATE[j] <- surv_1[j] - surv_0[j]
+  }
+  return(list(ATE = ATE))
+}
+```
+
+```{r}
+se_bootstrap <- function(data, times, num_boot = 100) {
+  
+  n <- nrow(data)
+  boot_results <- matrix(NA, nrow = num_boot, ncol = length(times))
+  
+  for (b in 1:num_boot) {
+    boot_indices <- sample(1:n, size = n, replace = TRUE)
+    boot_data <- data[boot_indices, ]
+    boot_results[b, ] <- dr_ate_manual(data = boot_data, times = times)$ATE
+  }
+
+  se <- apply(boot_results, 2, sd, na.rm = TRUE)
+  return(list(se = se))
+}
+```
+
+```{r}
+results_manual <- dr_ate_manual(data, times)  
+se_manual <- se_bootstrap(data, times)
+
+# Calculate 95% confidence intervals
+results_manual$ci_lower <- results_manual$ATE - 1.96 * se_manual$se
+results_manual$ci_upper <- results_manual$ATE + 1.96 * se_manual$se
+
+results_manual_tbl <- rbind(ATE = round(results_manual$ATE, 2),
+  `CI lower` = round(results_manual$ci_lower, 2),
+  `CI upper` = round(results_manual$ci_upper, 2))
+
+colnames(results_manual_tbl) <- c("T=3", "T=4", "T=5")
+kable(results_manual_tbl, caption = "ATE and 95% Confidence Intervals") %>% 
+  kable_styling(full_width = FALSE, font_size = 12) 
+```
+
+Next, we calculate the true ATE.
+
+```{r}
+get_true_survival <- function(data, t, d_level) {
+  hazard <- exp(-1 + d_level + 1 * data$Z1 + 2 * data$Z2 + 1 * data$Z1 * data$Z2)
+  survival_probs <- exp(-hazard * t)
+  return(mean(survival_probs)) 
+}
+
+true_surv_1 <- sapply(times, function(t) get_true_survival(data, t, d_level = 1))
+true_surv_0 <- sapply(times, function(t) get_true_survival(data, t, d_level = 0))
+results_true <- list(ATE = true_surv_1 - true_surv_0)
+```
+
+```{r}
+# Scenario 1: Both models correct
+results_1_package <- dr_ate_package(data, times, ps_correct = TRUE, or_correct = TRUE)
+results_1_manual <- dr_ate_manual(data, times, ps_correct = TRUE, or_correct = TRUE)
+
+# Scenario 2: PS correct, OR incorrect
+results_2_package <- dr_ate_package(data, times, ps_correct = TRUE, or_correct = FALSE)
+results_2_manual <- dr_ate_manual(data, times, ps_correct = TRUE, or_correct = FALSE)
+
+# Scenario 3: PS incorrect, OR correct
+results_3_package <- dr_ate_package(data, times, ps_correct = FALSE, or_correct = TRUE)
+results_3_manual <- dr_ate_manual(data, times, ps_correct = FALSE, or_correct = TRUE)
+
+# Scenario 4: Both models incorrect
+results_4_package <- dr_ate_package(data, times, ps_correct = FALSE, or_correct = FALSE)
+results_4_manual <- dr_ate_manual(data, times, ps_correct = FALSE, or_correct = FALSE)
+```
+
+```{r}
+# Crude Cox model: Cox regression without covariates, no propensity score
+crude_cox_estimator <- function(data, times) {
+
+  crude_cox <- coxph(Surv(Time, Event) ~ D, data = data)
+  treatment_effect <- coef(crude_cox)["D"]
+  
+  base_surv <- survfit(crude_cox)
+  s0 <- summary(base_surv, times = times, extend = TRUE)$surv
+  
+  # survival for treated group: S_baseline^exp(beta_D)
+  surv_1 <- s0^exp(treatment_effect)
+  
+  # survival for control group: S_baseline^exp(0) 
+  surv_0 <- s0
+  
+  # ATE
+  ATE <- surv_1 - surv_0
+
+  return(list(ATE = ATE))
+}
+results_crude <- crude_cox_estimator(data, times)
+```
+
+```{r}
+scenarios <- c(
+  "0: Crude Cox (Unadjusted)",
+  "1: Both Correct",
+  "2: PS Correct, OR Incorrect",
+  "3: PS Incorrect, OR Correct",
+  "4: Both Incorrect")
+
+# Combine bias values across all time points into a single string
+format_bias <- function(bias_vector) {
+  paste(sprintf("%.3f", bias_vector), collapse = ", ")
+}
+
+# Package column (bias at T=1, T=1.5, T=2)
+package_bias <- c("—",  
+  format_bias(sapply(1:length(times), function(i) results_1_package$ATE[i] - results_true$ATE[i])),
+  format_bias(sapply(1:length(times), function(i) results_2_package$ATE[i] - results_true$ATE[i])),
+  format_bias(sapply(1:length(times), function(i) results_3_package$ATE[i] - results_true$ATE[i])),
+  format_bias(sapply(1:length(times), function(i) results_4_package$ATE[i] - results_true$ATE[i]))
+)
+
+# Manual column (bias at T=1, T=1.5, T=2)
+manual_bias <- c(
+  format_bias(sapply(1:length(times), function(i) results_crude$ATE[i] - results_true$ATE[i])),
+  format_bias(sapply(1:length(times), function(i) results_1_manual$ATE[i] - results_true$ATE[i])),
+  format_bias(sapply(1:length(times), function(i) results_2_manual$ATE[i] - results_true$ATE[i])),
+  format_bias(sapply(1:length(times), function(i) results_3_manual$ATE[i] - results_true$ATE[i])),
+  format_bias(sapply(1:length(times), function(i) results_4_manual$ATE[i] - results_true$ATE[i]))
+)
+
+bias_table <- data.frame(
+  Scenario = scenarios,
+  Package = package_bias,
+  Manual = manual_bias
+)
+
+kable(bias_table, 
+      col.names = c("Scenario", "Package", "Manual"),
+      caption = "Bias of ATE Estimates (T = 3, 4, 5)",
+      align = c('l', 'c', 'c')) %>%
+  kable_styling(full_width = FALSE, font_size = 12) %>%
+  footnote(general = sprintf("True ATE: %.3f, %.3f, %.3f", 
+            results_true$ATE[1], results_true$ATE[2], results_true$ATE[3]),
+           general_title = "", footnote_as_chunk = TRUE)
+```
+
+```{r}
+# remove later???
+ps_model <- glm(D ~ Z1 + Z2 + Z3, data = data, family = "binomial")
+
+true_ps_coef <- c("(Intercept)" = 0, "Z1" = 0.35/3, "Z2" = 0.7/3, "Z3" = 1.05/3)
+fitted_ps_coef <- coef(ps_model)
+
+ps_comparison <- data.frame(
+  Variable = names(true_ps_coef),
+  True = round(true_ps_coef, 4),
+  Fitted = round(fitted_ps_coef, 4),
+  Difference = round(fitted_ps_coef - true_ps_coef, 4)
+)
+print(ps_comparison, row.names = FALSE)
+
+data_1 <- data[data$D == 1, ]
+cox_model_1 <- coxph(Surv(Time, Event) ~ Z1 * Z2, data = data_1)
+
+true_cox_coef <- c("Z1" = 1, "Z2" = 2, "Z1:Z2" = 1)
+fitted_cox_1 <- coef(cox_model_1)
+
+cox1_comparison <- data.frame(
+  Variable = names(true_cox_coef),
+  True = round(true_cox_coef, 4),
+  Fitted = round(fitted_cox_1, 4),
+  Difference = round(fitted_cox_1 - true_cox_coef, 4)
+)
+print(cox1_comparison, row.names = FALSE)
+
+data_0 <- data[data$D == 0, ]
+cox_model_0 <- coxph(Surv(Time, Event) ~ Z1 * Z2, data = data_0)
+
+fitted_cox_0 <- coef(cox_model_0)
+
+cox0_comparison <- data.frame(
+  Variable = names(true_cox_coef),
+  True = round(true_cox_coef, 4),
+  Fitted = round(fitted_cox_0, 4),
+  Difference = round(fitted_cox_0 - true_cox_coef, 4)
+)
+print(cox0_comparison, row.names = FALSE)
+```
+
+```{r}
+# remove later???
+logit_p <- (0.35 * data$Z1 + 0.7 * data$Z2 + 1.05 * data$Z3) / 3
+p_true <- exp(logit_p) / (1 + exp(logit_p))
+print(summary(p_true))
+mean(p_true < 0.1)
+```
+
+# References
