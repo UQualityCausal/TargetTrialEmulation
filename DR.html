@@ -1,0 +1,1288 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+<meta name="author" content="Peirong Hao (peirong.hao@hci.utah.edu), Ravinder Singh, Kevin Ying, Yizhe Xu (Crystal.Xu@hsc.utah.edu), Chong Zhang" />
+
+<meta name="date" content="2025-11-07" />
+
+<title>Doubly Robust Estimation of Causal Effects in Survival Analysis</title>
+
+<script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
+// be compatible with the behavior of Pandoc < 2.8).
+document.addEventListener('DOMContentLoaded', function(e) {
+  var hs = document.querySelectorAll("div.section[class*='level'] > :first-child");
+  var i, h, a;
+  for (i = 0; i < hs.length; i++) {
+    h = hs[i];
+    if (!/^h[1-6]$/i.test(h.tagName)) continue;  // it should be a header h1-h6
+    a = h.attributes;
+    while (a.length > 0) h.removeAttribute(a[0].name);
+  }
+});
+</script>
+<script>$(document).ready(function(){
+    if (typeof $('[data-toggle="tooltip"]').tooltip === 'function') {
+        $('[data-toggle="tooltip"]').tooltip();
+    }
+    if ($('[data-toggle="popover"]').popover === 'function') {
+        $('[data-toggle="popover"]').popover();
+    }
+});
+</script>
+<style type="text/css">
+.lightable-minimal {
+border-collapse: separate;
+border-spacing: 16px 1px;
+width: 100%;
+margin-bottom: 10px;
+}
+.lightable-minimal td {
+margin-left: 5px;
+margin-right: 5px;
+}
+.lightable-minimal th {
+margin-left: 5px;
+margin-right: 5px;
+}
+.lightable-minimal thead tr:last-child th {
+border-bottom: 2px solid #00000050;
+empty-cells: hide;
+}
+.lightable-minimal tbody tr:first-child td {
+padding-top: 0.5em;
+}
+.lightable-minimal.lightable-hover tbody tr:hover {
+background-color: #f5f5f5;
+}
+.lightable-minimal.lightable-striped tbody tr:nth-child(even) {
+background-color: #f5f5f5;
+}
+.lightable-classic {
+border-top: 0.16em solid #111111;
+border-bottom: 0.16em solid #111111;
+width: 100%;
+margin-bottom: 10px;
+margin: 10px 5px;
+}
+.lightable-classic tfoot tr td {
+border: 0;
+}
+.lightable-classic tfoot tr:first-child td {
+border-top: 0.14em solid #111111;
+}
+.lightable-classic caption {
+color: #222222;
+}
+.lightable-classic td {
+padding-left: 5px;
+padding-right: 5px;
+color: #222222;
+}
+.lightable-classic th {
+padding-left: 5px;
+padding-right: 5px;
+font-weight: normal;
+color: #222222;
+}
+.lightable-classic thead tr:last-child th {
+border-bottom: 0.10em solid #111111;
+}
+.lightable-classic.lightable-hover tbody tr:hover {
+background-color: #F9EEC1;
+}
+.lightable-classic.lightable-striped tbody tr:nth-child(even) {
+background-color: #f5f5f5;
+}
+.lightable-classic-2 {
+border-top: 3px double #111111;
+border-bottom: 3px double #111111;
+width: 100%;
+margin-bottom: 10px;
+}
+.lightable-classic-2 tfoot tr td {
+border: 0;
+}
+.lightable-classic-2 tfoot tr:first-child td {
+border-top: 3px double #111111;
+}
+.lightable-classic-2 caption {
+color: #222222;
+}
+.lightable-classic-2 td {
+padding-left: 5px;
+padding-right: 5px;
+color: #222222;
+}
+.lightable-classic-2 th {
+padding-left: 5px;
+padding-right: 5px;
+font-weight: normal;
+color: #222222;
+}
+.lightable-classic-2 tbody tr:last-child td {
+border-bottom: 3px double #111111;
+}
+.lightable-classic-2 thead tr:last-child th {
+border-bottom: 1px solid #111111;
+}
+.lightable-classic-2.lightable-hover tbody tr:hover {
+background-color: #F9EEC1;
+}
+.lightable-classic-2.lightable-striped tbody tr:nth-child(even) {
+background-color: #f5f5f5;
+}
+.lightable-material {
+min-width: 100%;
+white-space: nowrap;
+table-layout: fixed;
+font-family: Roboto, sans-serif;
+border: 1px solid #EEE;
+border-collapse: collapse;
+margin-bottom: 10px;
+}
+.lightable-material tfoot tr td {
+border: 0;
+}
+.lightable-material tfoot tr:first-child td {
+border-top: 1px solid #EEE;
+}
+.lightable-material th {
+height: 56px;
+padding-left: 16px;
+padding-right: 16px;
+}
+.lightable-material td {
+height: 52px;
+padding-left: 16px;
+padding-right: 16px;
+border-top: 1px solid #eeeeee;
+}
+.lightable-material.lightable-hover tbody tr:hover {
+background-color: #f5f5f5;
+}
+.lightable-material.lightable-striped tbody tr:nth-child(even) {
+background-color: #f5f5f5;
+}
+.lightable-material.lightable-striped tbody td {
+border: 0;
+}
+.lightable-material.lightable-striped thead tr:last-child th {
+border-bottom: 1px solid #ddd;
+}
+.lightable-material-dark {
+min-width: 100%;
+white-space: nowrap;
+table-layout: fixed;
+font-family: Roboto, sans-serif;
+border: 1px solid #FFFFFF12;
+border-collapse: collapse;
+margin-bottom: 10px;
+background-color: #363640;
+}
+.lightable-material-dark tfoot tr td {
+border: 0;
+}
+.lightable-material-dark tfoot tr:first-child td {
+border-top: 1px solid #FFFFFF12;
+}
+.lightable-material-dark th {
+height: 56px;
+padding-left: 16px;
+padding-right: 16px;
+color: #FFFFFF60;
+}
+.lightable-material-dark td {
+height: 52px;
+padding-left: 16px;
+padding-right: 16px;
+color: #FFFFFF;
+border-top: 1px solid #FFFFFF12;
+}
+.lightable-material-dark.lightable-hover tbody tr:hover {
+background-color: #FFFFFF12;
+}
+.lightable-material-dark.lightable-striped tbody tr:nth-child(even) {
+background-color: #FFFFFF12;
+}
+.lightable-material-dark.lightable-striped tbody td {
+border: 0;
+}
+.lightable-material-dark.lightable-striped thead tr:last-child th {
+border-bottom: 1px solid #FFFFFF12;
+}
+.lightable-paper {
+width: 100%;
+margin-bottom: 10px;
+color: #444;
+}
+.lightable-paper tfoot tr td {
+border: 0;
+}
+.lightable-paper tfoot tr:first-child td {
+border-top: 1px solid #00000020;
+}
+.lightable-paper thead tr:last-child th {
+color: #666;
+vertical-align: bottom;
+border-bottom: 1px solid #00000020;
+line-height: 1.15em;
+padding: 10px 5px;
+}
+.lightable-paper td {
+vertical-align: middle;
+border-bottom: 1px solid #00000010;
+line-height: 1.15em;
+padding: 7px 5px;
+}
+.lightable-paper.lightable-hover tbody tr:hover {
+background-color: #F9EEC1;
+}
+.lightable-paper.lightable-striped tbody tr:nth-child(even) {
+background-color: #00000008;
+}
+.lightable-paper.lightable-striped tbody td {
+border: 0;
+}
+</style>
+
+<style type="text/css">
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+span.underline{text-decoration: underline;}
+div.column{display: inline-block; vertical-align: top; width: 50%;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+</style>
+
+
+
+<style type="text/css">
+code {
+white-space: pre;
+}
+.sourceCode {
+overflow: visible;
+}
+</style>
+<style type="text/css" data-origin="pandoc">
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { display: inline-block; text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } 
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.at { color: #7d9029; } 
+code span.bn { color: #40a070; } 
+code span.bu { color: #008000; } 
+code span.cf { color: #007020; font-weight: bold; } 
+code span.ch { color: #4070a0; } 
+code span.cn { color: #880000; } 
+code span.co { color: #60a0b0; font-style: italic; } 
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.do { color: #ba2121; font-style: italic; } 
+code span.dt { color: #902000; } 
+code span.dv { color: #40a070; } 
+code span.er { color: #ff0000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #40a070; } 
+code span.fu { color: #06287e; } 
+code span.im { color: #008000; font-weight: bold; } 
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.kw { color: #007020; font-weight: bold; } 
+code span.op { color: #666666; } 
+code span.ot { color: #007020; } 
+code span.pp { color: #bc7a00; } 
+code span.sc { color: #4070a0; } 
+code span.ss { color: #bb6688; } 
+code span.st { color: #4070a0; } 
+code span.va { color: #19177c; } 
+code span.vs { color: #4070a0; } 
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    var j = 0;
+    while (j < rules.length) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") {
+        j++;
+        continue;
+      }
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') {
+        j++;
+        continue;
+      }
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+<style type="text/css">
+
+div.csl-bib-body { }
+div.csl-entry {
+clear: both;
+}
+.hanging div.csl-entry {
+margin-left:2em;
+text-indent:-2em;
+}
+div.csl-left-margin {
+min-width:2em;
+float:left;
+}
+div.csl-right-inline {
+margin-left:2em;
+padding-left:1em;
+}
+div.csl-indent {
+margin-left: 2em;
+}
+</style>
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+#TOC {
+clear: both;
+margin: 0 0 10px 10px;
+padding: 4px;
+width: 400px;
+border: 1px solid #CCCCCC;
+border-radius: 5px;
+background-color: #f6f6f6;
+font-size: 13px;
+line-height: 1.3;
+}
+#TOC .toctitle {
+font-weight: bold;
+font-size: 15px;
+margin-left: 5px;
+}
+#TOC ul {
+padding-left: 40px;
+margin-left: -1.5em;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+#TOC ul ul {
+margin-left: -2em;
+}
+#TOC li {
+line-height: 16px;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+
+code > span.kw { color: #555; font-weight: bold; } 
+code > span.dt { color: #902000; } 
+code > span.dv { color: #40a070; } 
+code > span.bn { color: #d14; } 
+code > span.fl { color: #d14; } 
+code > span.ch { color: #d14; } 
+code > span.st { color: #d14; } 
+code > span.co { color: #888888; font-style: italic; } 
+code > span.ot { color: #007020; } 
+code > span.al { color: #ff0000; font-weight: bold; } 
+code > span.fu { color: #900; font-weight: bold; } 
+code > span.er { color: #a61717; background-color: #e3d2d2; } 
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">Doubly Robust Estimation of Causal Effects
+in Survival Analysis</h1>
+<h4 class="author">Peirong Hao (<a href="mailto:peirong.hao@hci.utah.edu" class="email">peirong.hao@hci.utah.edu</a>), Ravinder Singh, Kevin Ying,
+Yizhe Xu (<a href="mailto:Crystal.Xu@hsc.utah.edu" class="email">Crystal.Xu@hsc.utah.edu</a>), Chong Zhang</h4>
+<h4 class="date">2025-11-07</h4>
+
+
+
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a>knitr<span class="sc">::</span>opts_chunk<span class="sc">$</span><span class="fu">set</span>(</span>
+<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a>  <span class="at">collapse =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a>  <span class="at">comment =</span> <span class="st">&quot;#&gt;&quot;</span></span>
+<span id="cb1-4"><a href="#cb1-4" tabindex="-1"></a>)</span>
+<span id="cb1-5"><a href="#cb1-5" tabindex="-1"></a><span class="co">#options(warn = -1)</span></span>
+<span id="cb1-6"><a href="#cb1-6" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">123456</span>)</span>
+<span id="cb1-7"><a href="#cb1-7" tabindex="-1"></a><span class="fu">library</span>(survival)</span>
+<span id="cb1-8"><a href="#cb1-8" tabindex="-1"></a><span class="fu">library</span>(pseudo)</span>
+<span id="cb1-9"><a href="#cb1-9" tabindex="-1"></a><span class="fu">library</span>(adjustedCurves)</span>
+<span id="cb1-10"><a href="#cb1-10" tabindex="-1"></a><span class="fu">library</span>(MASS)</span>
+<span id="cb1-11"><a href="#cb1-11" tabindex="-1"></a><span class="fu">library</span>(ggplot2)</span>
+<span id="cb1-12"><a href="#cb1-12" tabindex="-1"></a><span class="fu">library</span>(survminer)</span>
+<span id="cb1-13"><a href="#cb1-13" tabindex="-1"></a><span class="fu">library</span>(dplyr)</span>
+<span id="cb1-14"><a href="#cb1-14" tabindex="-1"></a><span class="fu">library</span>(knitr)</span>
+<span id="cb1-15"><a href="#cb1-15" tabindex="-1"></a><span class="fu">library</span>(kableExtra)</span></code></pre></div>
+<div id="introduction" class="section level2">
+<h2>Introduction</h2>
+<p>As noted in <span class="citation">Funk <em>et al.</em> (<a href="#ref-DR-main">2011</a>)</span>, estimating causal effects of a
+treatment in observational studies is challenging due to confounding
+bias. Common approaches to control for confounding include outcome
+regression and propensity score methods. Outcome regression methods
+model the conditional expectation of the outcome given treatment and
+covariates. Propensity score methods estimate the probability of
+receiving treatment given covariates. Inverse probability weighting uses
+propensity scores to create a pseudo-population in which treatment is
+independent of measured confounders. Both approaches rely on correct
+model specification because misspecification of either model can lead to
+biased estimates.</p>
+</div>
+<div id="doubly-robust-estimation" class="section level2">
+<h2>Doubly Robust Estimation</h2>
+<p>Following <span class="citation">Funk <em>et al.</em> (<a href="#ref-DR-main">2011</a>)</span>, doubly robust (DR) estimation
+combines outcome regression and propensity score methods. The DR
+estimator is consistent if either model is correctly specified. In this
+setting, we consider <span class="math inline">\(n\)</span> subject, and
+<span class="math inline">\(i\)</span> indexes individual subject. Let
+<span class="math inline">\(D\)</span> denote the treatment indicator (0
+or 1), <span class="math inline">\(Y\)</span> the outcome of interest,
+and <span class="math inline">\(\boldsymbol{Z} = (Z_1, Z_2, \ldots,
+Z_k)\)</span> the vector of baseline covariates. <span class="math inline">\(e(\boldsymbol{Z}_i)\)</span> represents the
+estimated propensity score for each individual, and <span class="math inline">\(m_d(\boldsymbol{Z}_i)\)</span> is the predicted
+outcome given treatment and baseline covariates. The average treatment
+effect (ATE) can be estimated as</p>
+<p><span class="math display">\[
+\hat{\tau}_{DR} = \frac{1}{n} \sum_{i=1}^n
+\left[
+  \frac{D_i Y_i}{e(\boldsymbol{Z}_i)}
+  - \frac{(D_i - e(\boldsymbol{Z}_i))}{e(\boldsymbol{Z}_i)}
+m_1(\boldsymbol{Z}_i)
+\right]
+-
+\left[
+  \frac{(1 - D_i) Y_i}{1 - e(\boldsymbol{Z}_i)}
+  + \frac{(D_i - e(\boldsymbol{Z}_i))}{1 - e(\boldsymbol{Z}_i)}
+m_0(\boldsymbol{Z}_i)
+\right].
+\]</span></p>
+<p>Fundamental causal inference assumptions—exchangeability, positivity,
+consistency, and no interference—still hold. The DR method still assumes
+that all confounders are measured, since unmeasured confounding can
+introduce bias. For detailed mathematical derivations, please refer to
+<span class="citation">Funk <em>et al.</em> (<a href="#ref-DR-main">2011</a>)</span>. According to <span class="citation">Tsiatis (<a href="#ref-DR-semiparam">2006</a>)</span>,
+the estimator can achieve semiparametric efficiency bounds when both
+models are correctly specified.</p>
+</div>
+<div id="extension-to-survival-analysis" class="section level2">
+<h2>Extension to Survival Analysis</h2>
+<p>Time-to-event outcomes are common in biomedical research and are
+often subject to right censoring due to loss to follow-up. When
+treatment assignment depends on covariates, the Kaplan–Meier (KM)
+estimator may be biased. To address this issue, <span class="citation">Wang (<a href="#ref-DR-pseudo">2018</a>)</span>
+discusses a pseudo-observation-based DR approach. Let <span class="math inline">\(T\)</span> denote the survival time and <span class="math inline">\(C\)</span> the censoring time. The survival
+function for subject <span class="math inline">\(i\)</span> under
+treatment <span class="math inline">\(d\)</span> at time <span class="math inline">\(t\)</span> is denoted as <span class="math inline">\(S_d^i(t)\)</span>. The pseudo-observation for the
+survival function is defined as <span class="math inline">\(\hat{S}_d^{i}(t) = n \hat{S}_d(t) - (n - 1)
+\hat{S}^{-i}_{d}(t)\)</span>, where <span class="math inline">\(\hat{S}_d(t)\)</span> is the KM estimator based on
+all subjects, and <span class="math inline">\(\hat{S}^{-i}_d(t)\)</span>
+is the KM estimator excluding subject <span class="math inline">\(i\)</span>. In the formula above, the <span class="math inline">\(Y_i\)</span> is now replaced with <span class="math inline">\(\hat{S}_d^i(t)\)</span>. The updated formula is as
+follows:</p>
+<p><span class="math display">\[
+\hat{\tau}_{DR} = \frac{1}{n} \sum_{i=1}^n
+\left[
+  \frac{D_i \hat{S}_d^i(t)}{e(\boldsymbol{Z}_i)}
+  - \frac{(D_i - e(\boldsymbol{Z}_i))}{e(\boldsymbol{Z}_i)} m_1(t,
+\boldsymbol{Z}_i)
+\right]
+-
+\left[
+  \frac{(1 - D_i) \hat{S}_d^i(t)}{1 - e(\boldsymbol{Z}_i)}
+  + \frac{(D_i - e(\boldsymbol{Z}_i))}{1 - e(\boldsymbol{Z}_i)} m_0(t,
+\boldsymbol{Z}_i)
+\right].
+\]</span></p>
+<p>Under the commonly used Cox proportional hazards model, the survival
+function for subject <span class="math inline">\(i\)</span> under
+treatment <span class="math inline">\(d\)</span> at time <span class="math inline">\(t\)</span> can be expressed as <span class="math inline">\({S}_d(t|\boldsymbol{Z}_i) =
+S_{d0}(t)^{\beta_d^T\boldsymbol{Z_i}}\)</span>, where <span class="math inline">\(S_{d0}(t)\)</span> is the baseline survival
+function for treatment <span class="math inline">\(d\)</span>, and <span class="math inline">\(\boldsymbol{\beta}_d\)</span> is the vector of
+estimated regression coefficients. <span class="math inline">\(\hat{S}_d(t)\)</span> can then be approximated as
+the average of <span class="math inline">\({S}_d(t|\boldsymbol{Z}_i)\)</span>s.</p>
+</div>
+<div id="r-code-demo" class="section level2">
+<h2>R Code Demo</h2>
+<div id="data-generation" class="section level3">
+<h3>Data Generation</h3>
+<p>This demonstration starts with data simulation.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a>generate_data <span class="ot">&lt;-</span> <span class="cf">function</span>(<span class="at">n =</span> <span class="dv">3000</span>) {</span>
+<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a>  mu <span class="ot">&lt;-</span> <span class="fu">rep</span>(<span class="dv">0</span>, <span class="dv">3</span>)</span>
+<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a>  sigma <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">1</span>, <span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">1</span>), <span class="at">nrow =</span> <span class="dv">3</span>)</span>
+<span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a>  Z <span class="ot">&lt;-</span> <span class="fu">mvrnorm</span>(n, mu, sigma)</span>
+<span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a>  Z1 <span class="ot">&lt;-</span> Z[, <span class="dv">1</span>]</span>
+<span id="cb2-6"><a href="#cb2-6" tabindex="-1"></a>  Z2 <span class="ot">&lt;-</span> Z[, <span class="dv">2</span>]</span>
+<span id="cb2-7"><a href="#cb2-7" tabindex="-1"></a>  Z3 <span class="ot">&lt;-</span> Z[, <span class="dv">3</span>]</span>
+<span id="cb2-8"><a href="#cb2-8" tabindex="-1"></a>  </span>
+<span id="cb2-9"><a href="#cb2-9" tabindex="-1"></a>  logit_p <span class="ot">&lt;-</span> (<span class="fl">0.35</span> <span class="sc">*</span> Z1 <span class="sc">+</span> <span class="fl">0.7</span> <span class="sc">*</span> Z2 <span class="sc">+</span> <span class="fl">1.05</span> <span class="sc">*</span> Z3)<span class="sc">/</span><span class="dv">3</span></span>
+<span id="cb2-10"><a href="#cb2-10" tabindex="-1"></a>  p <span class="ot">&lt;-</span> <span class="fu">exp</span>(logit_p) <span class="sc">/</span> (<span class="dv">1</span> <span class="sc">+</span> <span class="fu">exp</span>(logit_p))</span>
+<span id="cb2-11"><a href="#cb2-11" tabindex="-1"></a>  D <span class="ot">&lt;-</span> <span class="fu">rbinom</span>(n, <span class="dv">1</span>, p) <span class="co"># Treatment indicator</span></span>
+<span id="cb2-12"><a href="#cb2-12" tabindex="-1"></a>  </span>
+<span id="cb2-13"><a href="#cb2-13" tabindex="-1"></a>  hazard <span class="ot">&lt;-</span> <span class="fu">exp</span>(<span class="sc">-</span><span class="dv">1</span> <span class="sc">+</span> D <span class="sc">+</span> <span class="dv">1</span> <span class="sc">*</span> Z1 <span class="sc">+</span> <span class="dv">2</span> <span class="sc">*</span> Z2 <span class="sc">+</span> <span class="dv">1</span> <span class="sc">*</span> Z1 <span class="sc">*</span> Z2)</span>
+<span id="cb2-14"><a href="#cb2-14" tabindex="-1"></a></span>
+<span id="cb2-15"><a href="#cb2-15" tabindex="-1"></a>  T_event <span class="ot">&lt;-</span> <span class="fu">rexp</span>(n, <span class="at">rate =</span> hazard) <span class="co"># Event time</span></span>
+<span id="cb2-16"><a href="#cb2-16" tabindex="-1"></a>  T_censor <span class="ot">&lt;-</span> <span class="fu">rexp</span>(n, <span class="at">rate =</span> <span class="fu">exp</span>(<span class="sc">-</span><span class="fl">4.5</span>)) <span class="co"># Censoring time</span></span>
+<span id="cb2-17"><a href="#cb2-17" tabindex="-1"></a>  T_admin <span class="ot">&lt;-</span> <span class="fu">rep</span>(<span class="dv">7</span>, n) <span class="co"># Administrative censoring at fixed time</span></span>
+<span id="cb2-18"><a href="#cb2-18" tabindex="-1"></a>  </span>
+<span id="cb2-19"><a href="#cb2-19" tabindex="-1"></a>  Time <span class="ot">&lt;-</span> <span class="fu">pmin</span>(T_event, T_censor, T_admin) <span class="co"># Observed time</span></span>
+<span id="cb2-20"><a href="#cb2-20" tabindex="-1"></a>  Event <span class="ot">&lt;-</span> <span class="fu">as.numeric</span>(T_event <span class="sc">&lt;=</span> T_censor <span class="sc">&amp;</span> T_event <span class="sc">&lt;=</span> T_admin) <span class="co"># Event indicator</span></span>
+<span id="cb2-21"><a href="#cb2-21" tabindex="-1"></a>  </span>
+<span id="cb2-22"><a href="#cb2-22" tabindex="-1"></a>  <span class="fu">return</span>(<span class="fu">data.frame</span>(<span class="at">Z1 =</span> Z1, <span class="at">Z2 =</span> Z2, <span class="at">Z3 =</span> Z3, <span class="at">D =</span> D, <span class="at">Time =</span> Time, <span class="at">Event =</span> Event))</span>
+<span id="cb2-23"><a href="#cb2-23" tabindex="-1"></a>}</span>
+<span id="cb2-24"><a href="#cb2-24" tabindex="-1"></a></span>
+<span id="cb2-25"><a href="#cb2-25" tabindex="-1"></a><span class="co"># -----------------------------</span></span>
+<span id="cb2-26"><a href="#cb2-26" tabindex="-1"></a><span class="co"># Data Dictionary:</span></span>
+<span id="cb2-27"><a href="#cb2-27" tabindex="-1"></a><span class="co"># Z1, Z2, Z3: baseline covariates</span></span>
+<span id="cb2-28"><a href="#cb2-28" tabindex="-1"></a><span class="co"># D: treatment indicator (1 = treated, 0 = control)  </span></span>
+<span id="cb2-29"><a href="#cb2-29" tabindex="-1"></a><span class="co"># Time: observed time </span></span>
+<span id="cb2-30"><a href="#cb2-30" tabindex="-1"></a><span class="co"># Event: event indicator (1 if event occurred, 0 otherwise)</span></span>
+<span id="cb2-31"><a href="#cb2-31" tabindex="-1"></a><span class="co"># -----------------------------</span></span>
+<span id="cb2-32"><a href="#cb2-32" tabindex="-1"></a></span>
+<span id="cb2-33"><a href="#cb2-33" tabindex="-1"></a>data <span class="ot">&lt;-</span> <span class="fu">generate_data</span>()</span>
+<span id="cb2-34"><a href="#cb2-34" tabindex="-1"></a><span class="fu">summary</span>(data<span class="sc">$</span>Time)</span>
+<span id="cb2-35"><a href="#cb2-35" tabindex="-1"></a><span class="co">#&gt;      Min.   1st Qu.    Median      Mean   3rd Qu.      Max. </span></span>
+<span id="cb2-36"><a href="#cb2-36" tabindex="-1"></a><span class="co">#&gt; 0.0000012 0.1550828 1.1591579 2.5427131 5.3168373 7.0000000</span></span>
+<span id="cb2-37"><a href="#cb2-37" tabindex="-1"></a></span>
+<span id="cb2-38"><a href="#cb2-38" tabindex="-1"></a><span class="fu">table</span>(data<span class="sc">$</span>Event)</span>
+<span id="cb2-39"><a href="#cb2-39" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb2-40"><a href="#cb2-40" tabindex="-1"></a><span class="co">#&gt;    0    1 </span></span>
+<span id="cb2-41"><a href="#cb2-41" tabindex="-1"></a><span class="co">#&gt;  729 2271</span></span></code></pre></div>
+</div>
+<div id="proportional-hazards-ph-assumption" class="section level3">
+<h3>Proportional Hazards (PH) Assumption</h3>
+<p>It is important to check the PH assumption.</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a><span class="co"># 1. Schoenfeld Residuals plot: A flat middle line indicates that the PH assumption holds.</span></span>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a>cox_check_model <span class="ot">&lt;-</span> <span class="fu">coxph</span>(<span class="fu">Surv</span>(Time, Event) <span class="sc">~</span> D, <span class="at">data =</span> data)</span>
+<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a><span class="fu">cox.zph</span>(cox_check_model) <span class="co">#p-value</span></span>
+<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a><span class="co">#&gt;        chisq df      p</span></span>
+<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a><span class="co">#&gt; D       7.07  1 0.0078</span></span>
+<span id="cb3-6"><a href="#cb3-6" tabindex="-1"></a><span class="co">#&gt; GLOBAL  7.07  1 0.0078</span></span>
+<span id="cb3-7"><a href="#cb3-7" tabindex="-1"></a><span class="fu">plot</span>(<span class="fu">cox.zph</span>(cox_check_model))</span>
+<span id="cb3-8"><a href="#cb3-8" tabindex="-1"></a><span class="fu">mtext</span>(<span class="st">&quot;Dark solid curves show ±2 SE bounds for the scaled Schoenfeld residuals.&quot;</span>, </span>
+<span id="cb3-9"><a href="#cb3-9" tabindex="-1"></a>      <span class="at">side =</span> <span class="dv">1</span>, <span class="at">line =</span> <span class="dv">4</span>, <span class="at">cex =</span> <span class="fl">0.7</span>)</span></code></pre></div>
+<p><img role="img" src="data:image/png;base64,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" /><!-- --></p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a><span class="co"># 2. Log-log plot: Parallel lines indicate proportional hazards assumption is met.</span></span>
+<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a>surv_fit <span class="ot">&lt;-</span> <span class="fu">survfit</span>(<span class="fu">Surv</span>(Time, Event) <span class="sc">~</span> D, <span class="at">data =</span> data)</span>
+<span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a><span class="fu">ggsurvplot</span>(surv_fit, <span class="at">data =</span> data, <span class="at">fun =</span> <span class="st">&quot;cloglog&quot;</span>, </span>
+<span id="cb4-4"><a href="#cb4-4" tabindex="-1"></a>           <span class="at">title =</span> <span class="st">&quot;Log-log Plot&quot;</span>, <span class="at">xlab =</span> <span class="st">&quot;log(Time)&quot;</span>,</span>
+<span id="cb4-5"><a href="#cb4-5" tabindex="-1"></a>           <span class="at">legend.title =</span> <span class="st">&quot;Treatment Group&quot;</span>, </span>
+<span id="cb4-6"><a href="#cb4-6" tabindex="-1"></a>           <span class="at">legend.labs =</span> <span class="fu">c</span>(<span class="st">&quot;Control&quot;</span>, <span class="st">&quot;Treatment&quot;</span>),</span>
+<span id="cb4-7"><a href="#cb4-7" tabindex="-1"></a>           <span class="at">ggtheme =</span> <span class="fu">theme</span>(<span class="at">legend.text =</span> <span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">9</span>),      </span>
+<span id="cb4-8"><a href="#cb4-8" tabindex="-1"></a>              <span class="at">legend.title =</span> <span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">10</span>)))</span></code></pre></div>
+<p><img role="img" src="data:image/png;base64,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" /><!-- --></p>
+</div>
+<div id="model-specification-scenarios" class="section level3">
+<h3>Model Specification Scenarios</h3>
+<p>To illustrate the robustness of the DR estimator to model
+misspecification, we compare 4 scenarios:</p>
+<ul>
+<li><p>Scenario 1: Both the outcome model and the propensity score model
+are correctly specified.</p></li>
+<li><p>Scenario 2: The propensity score model is correctly specified,
+but the outcome model is misspecified.</p></li>
+<li><p>Scenario 3: The outcome model is correctly specified, while the
+propensity score model is misspecified.</p></li>
+<li><p>Scenario 4: Both models are misspecified.</p></li>
+</ul>
+<p>Below is the DR estimation function using R packages.</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a>dr_ate_package <span class="ot">&lt;-</span> <span class="cf">function</span>(data, times, <span class="at">ps_correct =</span> <span class="cn">TRUE</span>, <span class="at">or_correct =</span> <span class="cn">TRUE</span>) {</span>
+<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a>  </span>
+<span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a>  <span class="co"># Propensity score model</span></span>
+<span id="cb5-4"><a href="#cb5-4" tabindex="-1"></a>  <span class="cf">if</span> (ps_correct) {</span>
+<span id="cb5-5"><a href="#cb5-5" tabindex="-1"></a>    ps_model <span class="ot">&lt;-</span> <span class="fu">glm</span>(D <span class="sc">~</span> Z1 <span class="sc">+</span> Z2 <span class="sc">+</span> Z3, <span class="at">data =</span> data, <span class="at">family =</span> <span class="st">&quot;binomial&quot;</span>)</span>
+<span id="cb5-6"><a href="#cb5-6" tabindex="-1"></a>  } <span class="cf">else</span> {</span>
+<span id="cb5-7"><a href="#cb5-7" tabindex="-1"></a>    ps_model <span class="ot">&lt;-</span> <span class="fu">glm</span>(D <span class="sc">~</span> Z1, <span class="at">data =</span> data, <span class="at">family =</span> <span class="st">&quot;binomial&quot;</span>)</span>
+<span id="cb5-8"><a href="#cb5-8" tabindex="-1"></a>  }</span>
+<span id="cb5-9"><a href="#cb5-9" tabindex="-1"></a></span>
+<span id="cb5-10"><a href="#cb5-10" tabindex="-1"></a>  <span class="co"># Covariates used in the outcome model</span></span>
+<span id="cb5-11"><a href="#cb5-11" tabindex="-1"></a>  <span class="cf">if</span> (or_correct) {</span>
+<span id="cb5-12"><a href="#cb5-12" tabindex="-1"></a>    data<span class="sc">$</span>Z1_Z2 <span class="ot">&lt;-</span> data<span class="sc">$</span>Z1 <span class="sc">*</span> data<span class="sc">$</span>Z2</span>
+<span id="cb5-13"><a href="#cb5-13" tabindex="-1"></a>    or_covars <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">&quot;Z1&quot;</span>, <span class="st">&quot;Z2&quot;</span>, <span class="st">&quot;Z1_Z2&quot;</span>)</span>
+<span id="cb5-14"><a href="#cb5-14" tabindex="-1"></a>  } <span class="cf">else</span> {</span>
+<span id="cb5-15"><a href="#cb5-15" tabindex="-1"></a>    or_covars <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">&quot;Z1&quot;</span>, <span class="st">&quot;Z3&quot;</span>)</span>
+<span id="cb5-16"><a href="#cb5-16" tabindex="-1"></a>  }</span>
+<span id="cb5-17"><a href="#cb5-17" tabindex="-1"></a>  </span>
+<span id="cb5-18"><a href="#cb5-18" tabindex="-1"></a>  data<span class="sc">$</span>D <span class="ot">&lt;-</span> <span class="fu">as.factor</span>(data<span class="sc">$</span>D)</span>
+<span id="cb5-19"><a href="#cb5-19" tabindex="-1"></a></span>
+<span id="cb5-20"><a href="#cb5-20" tabindex="-1"></a>  <span class="co"># Outcome model</span></span>
+<span id="cb5-21"><a href="#cb5-21" tabindex="-1"></a>  adj_surv <span class="ot">&lt;-</span> <span class="fu">adjustedsurv</span>(</span>
+<span id="cb5-22"><a href="#cb5-22" tabindex="-1"></a>    <span class="at">data =</span> data,</span>
+<span id="cb5-23"><a href="#cb5-23" tabindex="-1"></a>    <span class="at">variable =</span> <span class="st">&quot;D&quot;</span>,</span>
+<span id="cb5-24"><a href="#cb5-24" tabindex="-1"></a>    <span class="at">ev_time =</span> <span class="st">&quot;Time&quot;</span>,</span>
+<span id="cb5-25"><a href="#cb5-25" tabindex="-1"></a>    <span class="at">event =</span> <span class="st">&quot;Event&quot;</span>,</span>
+<span id="cb5-26"><a href="#cb5-26" tabindex="-1"></a>    <span class="at">method =</span> <span class="st">&quot;aiptw_pseudo&quot;</span>,</span>
+<span id="cb5-27"><a href="#cb5-27" tabindex="-1"></a>    <span class="at">treatment_model =</span> ps_model,</span>
+<span id="cb5-28"><a href="#cb5-28" tabindex="-1"></a>    <span class="at">outcome_vars =</span> or_covars,</span>
+<span id="cb5-29"><a href="#cb5-29" tabindex="-1"></a>    <span class="at">times =</span> times,</span>
+<span id="cb5-30"><a href="#cb5-30" tabindex="-1"></a>    <span class="at">conf_int =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb5-31"><a href="#cb5-31" tabindex="-1"></a>    <span class="at">bootstrap =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb5-32"><a href="#cb5-32" tabindex="-1"></a>    <span class="at">n_boot =</span> <span class="dv">100</span>) <span class="co"># In practice, set n_boot to a larger value (e.g., 1000).</span></span>
+<span id="cb5-33"><a href="#cb5-33" tabindex="-1"></a>  </span>
+<span id="cb5-34"><a href="#cb5-34" tabindex="-1"></a>  <span class="co"># Treatment effect is defined as the difference in survival probabilities.</span></span>
+<span id="cb5-35"><a href="#cb5-35" tabindex="-1"></a>  ate_results <span class="ot">&lt;-</span> <span class="fu">adjusted_curve_diff</span>(</span>
+<span id="cb5-36"><a href="#cb5-36" tabindex="-1"></a>    <span class="at">adj =</span> adj_surv,</span>
+<span id="cb5-37"><a href="#cb5-37" tabindex="-1"></a>    <span class="at">group_1 =</span> <span class="st">&quot;1&quot;</span>,  <span class="co"># Treated group</span></span>
+<span id="cb5-38"><a href="#cb5-38" tabindex="-1"></a>    <span class="at">group_2 =</span> <span class="st">&quot;0&quot;</span>,  <span class="co"># Control group</span></span>
+<span id="cb5-39"><a href="#cb5-39" tabindex="-1"></a>    <span class="at">conf_int =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb5-40"><a href="#cb5-40" tabindex="-1"></a>    <span class="at">conf_level =</span> <span class="fl">0.95</span>)</span>
+<span id="cb5-41"><a href="#cb5-41" tabindex="-1"></a>  </span>
+<span id="cb5-42"><a href="#cb5-42" tabindex="-1"></a>  ate_at_times <span class="ot">&lt;-</span> ate_results[ate_results<span class="sc">$</span>time <span class="sc">%in%</span> times, ]</span>
+<span id="cb5-43"><a href="#cb5-43" tabindex="-1"></a>  </span>
+<span id="cb5-44"><a href="#cb5-44" tabindex="-1"></a>  <span class="fu">return</span>(<span class="fu">list</span>(<span class="at">ATE =</span> ate_at_times<span class="sc">$</span>diff, <span class="at">ci_lower =</span> ate_at_times<span class="sc">$</span>ci_lower, <span class="at">ci_upper =</span> ate_at_times<span class="sc">$</span>ci_upper))</span>
+<span id="cb5-45"><a href="#cb5-45" tabindex="-1"></a>}</span>
+<span id="cb5-46"><a href="#cb5-46" tabindex="-1"></a></span>
+<span id="cb5-47"><a href="#cb5-47" tabindex="-1"></a><span class="co"># Note: package function &quot;aiptw_pseudo&quot; method uses a generalized estimation equation for outcome model, </span></span>
+<span id="cb5-48"><a href="#cb5-48" tabindex="-1"></a><span class="co"># which is different from the manual implementation.</span></span></code></pre></div>
+<p>The analysis can be conducted at multiple time points.</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a>times <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="dv">3</span>, <span class="dv">4</span>, <span class="dv">5</span>)</span>
+<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a>results_package <span class="ot">&lt;-</span> <span class="fu">dr_ate_package</span>(data, times)  </span>
+<span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a><span class="co">#&gt; Loading required namespace: prodlim</span></span>
+<span id="cb6-4"><a href="#cb6-4" tabindex="-1"></a></span>
+<span id="cb6-5"><a href="#cb6-5" tabindex="-1"></a>results_package_tbl <span class="ot">&lt;-</span> <span class="fu">rbind</span>(<span class="at">ATE =</span> <span class="fu">round</span>(results_package<span class="sc">$</span>ATE, <span class="dv">2</span>),</span>
+<span id="cb6-6"><a href="#cb6-6" tabindex="-1"></a>  <span class="st">`</span><span class="at">CI lower</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">round</span>(results_package<span class="sc">$</span>ci_lower, <span class="dv">2</span>),</span>
+<span id="cb6-7"><a href="#cb6-7" tabindex="-1"></a>  <span class="st">`</span><span class="at">CI upper</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">round</span>(results_package<span class="sc">$</span>ci_upper, <span class="dv">2</span>))</span>
+<span id="cb6-8"><a href="#cb6-8" tabindex="-1"></a></span>
+<span id="cb6-9"><a href="#cb6-9" tabindex="-1"></a><span class="fu">colnames</span>(results_package_tbl) <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">&quot;T=3&quot;</span>, <span class="st">&quot;T=4&quot;</span>, <span class="st">&quot;T=5&quot;</span>)</span>
+<span id="cb6-10"><a href="#cb6-10" tabindex="-1"></a><span class="fu">kable</span>(results_package_tbl, <span class="at">caption =</span> <span class="st">&quot;ATE and 95% Confidence Intervals&quot;</span>) <span class="sc">%&gt;%</span> </span>
+<span id="cb6-11"><a href="#cb6-11" tabindex="-1"></a>  <span class="fu">kable_styling</span>(<span class="at">full_width =</span> <span class="cn">FALSE</span>, <span class="at">font_size =</span> <span class="dv">12</span>) </span></code></pre></div>
+<table class="table" style="font-size: 12px; color: black; width: auto !important; margin-left: auto; margin-right: auto;">
+<caption style="font-size: initial !important;">
+ATE and 95% Confidence Intervals
+</caption>
+<thead>
+<tr>
+<th style="text-align:left;">
+</th>
+<th style="text-align:right;">
+T=3
+</th>
+<th style="text-align:right;">
+T=4
+</th>
+<th style="text-align:right;">
+T=5
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+ATE
+</td>
+<td style="text-align:right;">
+-0.16
+</td>
+<td style="text-align:right;">
+-0.17
+</td>
+<td style="text-align:right;">
+-0.16
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+CI lower
+</td>
+<td style="text-align:right;">
+-0.19
+</td>
+<td style="text-align:right;">
+-0.20
+</td>
+<td style="text-align:right;">
+-0.19
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+CI upper
+</td>
+<td style="text-align:right;">
+-0.13
+</td>
+<td style="text-align:right;">
+-0.14
+</td>
+<td style="text-align:right;">
+-0.14
+</td>
+</tr>
+</tbody>
+</table>
+<p>Alternatively, the DR estimator can be implemented manually.</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a>dr_ate_manual <span class="ot">&lt;-</span> <span class="cf">function</span>(data, times, <span class="at">ps_correct =</span> <span class="cn">TRUE</span>, <span class="at">or_correct =</span> <span class="cn">TRUE</span>) {</span>
+<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a>  </span>
+<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a>  <span class="co"># Split data by treatment group</span></span>
+<span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a>  data_1 <span class="ot">&lt;-</span> data[data<span class="sc">$</span>D <span class="sc">==</span> <span class="dv">1</span>, ]</span>
+<span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a>  data_0 <span class="ot">&lt;-</span> data[data<span class="sc">$</span>D <span class="sc">==</span> <span class="dv">0</span>, ]</span>
+<span id="cb7-6"><a href="#cb7-6" tabindex="-1"></a>  </span>
+<span id="cb7-7"><a href="#cb7-7" tabindex="-1"></a>  <span class="co"># Outcome regression (Cox proportional hazard model)</span></span>
+<span id="cb7-8"><a href="#cb7-8" tabindex="-1"></a>  <span class="cf">if</span> (or_correct) {</span>
+<span id="cb7-9"><a href="#cb7-9" tabindex="-1"></a>    or_model_1 <span class="ot">&lt;-</span> <span class="fu">coxph</span>(<span class="fu">Surv</span>(Time, Event) <span class="sc">~</span> Z1 <span class="sc">*</span> Z2, <span class="at">data =</span> data_1)</span>
+<span id="cb7-10"><a href="#cb7-10" tabindex="-1"></a>    or_model_0 <span class="ot">&lt;-</span> <span class="fu">coxph</span>(<span class="fu">Surv</span>(Time, Event) <span class="sc">~</span> Z1 <span class="sc">*</span> Z2, <span class="at">data =</span> data_0)</span>
+<span id="cb7-11"><a href="#cb7-11" tabindex="-1"></a>  } <span class="cf">else</span> {</span>
+<span id="cb7-12"><a href="#cb7-12" tabindex="-1"></a>    or_model_1 <span class="ot">&lt;-</span> <span class="fu">coxph</span>(<span class="fu">Surv</span>(Time, Event) <span class="sc">~</span> Z1 <span class="sc">+</span> Z3, <span class="at">data =</span> data_1)</span>
+<span id="cb7-13"><a href="#cb7-13" tabindex="-1"></a>    or_model_0 <span class="ot">&lt;-</span> <span class="fu">coxph</span>(<span class="fu">Surv</span>(Time, Event) <span class="sc">~</span> Z1 <span class="sc">+</span> Z3, <span class="at">data =</span> data_0)</span>
+<span id="cb7-14"><a href="#cb7-14" tabindex="-1"></a>  }</span>
+<span id="cb7-15"><a href="#cb7-15" tabindex="-1"></a>  </span>
+<span id="cb7-16"><a href="#cb7-16" tabindex="-1"></a>  <span class="co"># Linear predictors (Beta^T * Z)</span></span>
+<span id="cb7-17"><a href="#cb7-17" tabindex="-1"></a>  lp_1 <span class="ot">&lt;-</span> <span class="fu">predict</span>(or_model_1, <span class="at">newdata =</span> data, <span class="at">type =</span> <span class="st">&quot;lp&quot;</span>)</span>
+<span id="cb7-18"><a href="#cb7-18" tabindex="-1"></a>  lp_0 <span class="ot">&lt;-</span> <span class="fu">predict</span>(or_model_0, <span class="at">newdata =</span> data, <span class="at">type =</span> <span class="st">&quot;lp&quot;</span>)</span>
+<span id="cb7-19"><a href="#cb7-19" tabindex="-1"></a>  </span>
+<span id="cb7-20"><a href="#cb7-20" tabindex="-1"></a>  <span class="co"># Baseline survival functions</span></span>
+<span id="cb7-21"><a href="#cb7-21" tabindex="-1"></a>  base_surv_1 <span class="ot">&lt;-</span> <span class="fu">survfit</span>(or_model_1, <span class="at">newdata =</span> <span class="fu">data.frame</span>(<span class="at">Z1=</span><span class="dv">0</span>, <span class="at">Z2=</span><span class="dv">0</span>, <span class="at">Z3=</span><span class="dv">0</span>))</span>
+<span id="cb7-22"><a href="#cb7-22" tabindex="-1"></a>  base_surv_0 <span class="ot">&lt;-</span> <span class="fu">survfit</span>(or_model_0, <span class="at">newdata =</span> <span class="fu">data.frame</span>(<span class="at">Z1=</span><span class="dv">0</span>, <span class="at">Z2=</span><span class="dv">0</span>, <span class="at">Z3=</span><span class="dv">0</span>))</span>
+<span id="cb7-23"><a href="#cb7-23" tabindex="-1"></a>  </span>
+<span id="cb7-24"><a href="#cb7-24" tabindex="-1"></a>  <span class="co"># Baseline survival probabilities at different times</span></span>
+<span id="cb7-25"><a href="#cb7-25" tabindex="-1"></a>  s0_t_1 <span class="ot">&lt;-</span> <span class="fu">summary</span>(base_surv_1, <span class="at">times =</span> times, <span class="at">extend =</span> <span class="cn">TRUE</span>)<span class="sc">$</span>surv</span>
+<span id="cb7-26"><a href="#cb7-26" tabindex="-1"></a>  s0_t_0 <span class="ot">&lt;-</span> <span class="fu">summary</span>(base_surv_0, <span class="at">times =</span> times, <span class="at">extend =</span> <span class="cn">TRUE</span>)<span class="sc">$</span>surv</span>
+<span id="cb7-27"><a href="#cb7-27" tabindex="-1"></a>  </span>
+<span id="cb7-28"><a href="#cb7-28" tabindex="-1"></a>  <span class="co"># Predicted survival probabilities</span></span>
+<span id="cb7-29"><a href="#cb7-29" tabindex="-1"></a>  m1 <span class="ot">&lt;-</span> <span class="fu">sapply</span>(s0_t_1, <span class="cf">function</span>(s) s<span class="sc">^</span><span class="fu">exp</span>(lp_1))</span>
+<span id="cb7-30"><a href="#cb7-30" tabindex="-1"></a>  m0 <span class="ot">&lt;-</span> <span class="fu">sapply</span>(s0_t_0, <span class="cf">function</span>(s) s<span class="sc">^</span><span class="fu">exp</span>(lp_0))</span>
+<span id="cb7-31"><a href="#cb7-31" tabindex="-1"></a>  </span>
+<span id="cb7-32"><a href="#cb7-32" tabindex="-1"></a>  <span class="co"># Propensity scores</span></span>
+<span id="cb7-33"><a href="#cb7-33" tabindex="-1"></a>  <span class="cf">if</span> (ps_correct) {</span>
+<span id="cb7-34"><a href="#cb7-34" tabindex="-1"></a>    ps_model <span class="ot">&lt;-</span> <span class="fu">glm</span>(D <span class="sc">~</span> Z1 <span class="sc">+</span> Z2 <span class="sc">+</span> Z3, <span class="at">data =</span> data, <span class="at">family =</span> <span class="st">&quot;binomial&quot;</span>)</span>
+<span id="cb7-35"><a href="#cb7-35" tabindex="-1"></a>  } <span class="cf">else</span> {</span>
+<span id="cb7-36"><a href="#cb7-36" tabindex="-1"></a>    ps_model <span class="ot">&lt;-</span> <span class="fu">glm</span>(D <span class="sc">~</span> Z1, <span class="at">data =</span> data, <span class="at">family =</span> <span class="st">&quot;binomial&quot;</span>)</span>
+<span id="cb7-37"><a href="#cb7-37" tabindex="-1"></a>  }</span>
+<span id="cb7-38"><a href="#cb7-38" tabindex="-1"></a>  e <span class="ot">&lt;-</span> <span class="fu">predict</span>(ps_model, <span class="at">type =</span> <span class="st">&quot;response&quot;</span>)</span>
+<span id="cb7-39"><a href="#cb7-39" tabindex="-1"></a>  </span>
+<span id="cb7-40"><a href="#cb7-40" tabindex="-1"></a>  <span class="co"># Pseudo-observations (individual estimates of the survival function at specified time points)</span></span>
+<span id="cb7-41"><a href="#cb7-41" tabindex="-1"></a>  pseudo_obs <span class="ot">&lt;-</span> pseudo<span class="sc">::</span><span class="fu">pseudosurv</span>(<span class="at">time =</span> data<span class="sc">$</span>Time, <span class="at">event =</span> data<span class="sc">$</span>Event, <span class="at">tmax =</span> times)<span class="sc">$</span>pseudo</span>
+<span id="cb7-42"><a href="#cb7-42" tabindex="-1"></a>  </span>
+<span id="cb7-43"><a href="#cb7-43" tabindex="-1"></a>  surv_1 <span class="ot">&lt;-</span> <span class="fu">numeric</span>(<span class="fu">length</span>(times))</span>
+<span id="cb7-44"><a href="#cb7-44" tabindex="-1"></a>  surv_0 <span class="ot">&lt;-</span> <span class="fu">numeric</span>(<span class="fu">length</span>(times))</span>
+<span id="cb7-45"><a href="#cb7-45" tabindex="-1"></a>  ATE <span class="ot">&lt;-</span> <span class="fu">numeric</span>(<span class="fu">length</span>(times))</span>
+<span id="cb7-46"><a href="#cb7-46" tabindex="-1"></a>  </span>
+<span id="cb7-47"><a href="#cb7-47" tabindex="-1"></a>  <span class="cf">for</span>(j <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span><span class="fu">length</span>(times)) {</span>
+<span id="cb7-48"><a href="#cb7-48" tabindex="-1"></a>    <span class="co"># DR for treated group</span></span>
+<span id="cb7-49"><a href="#cb7-49" tabindex="-1"></a>    term1_treated <span class="ot">&lt;-</span> data<span class="sc">$</span>D <span class="sc">*</span> pseudo_obs[, j] <span class="sc">/</span> e</span>
+<span id="cb7-50"><a href="#cb7-50" tabindex="-1"></a>    term2_treated <span class="ot">&lt;-</span> (data<span class="sc">$</span>D <span class="sc">-</span> e) <span class="sc">*</span> m1[, j] <span class="sc">/</span> e</span>
+<span id="cb7-51"><a href="#cb7-51" tabindex="-1"></a>    term_full_treated <span class="ot">&lt;-</span> term1_treated <span class="sc">-</span> term2_treated</span>
+<span id="cb7-52"><a href="#cb7-52" tabindex="-1"></a>    surv_1[j] <span class="ot">&lt;-</span> <span class="fu">mean</span>(term_full_treated)</span>
+<span id="cb7-53"><a href="#cb7-53" tabindex="-1"></a>    </span>
+<span id="cb7-54"><a href="#cb7-54" tabindex="-1"></a>    <span class="co"># DR for control group  </span></span>
+<span id="cb7-55"><a href="#cb7-55" tabindex="-1"></a>    term1_control <span class="ot">&lt;-</span> (<span class="dv">1</span> <span class="sc">-</span> data<span class="sc">$</span>D) <span class="sc">*</span> pseudo_obs[, j] <span class="sc">/</span> (<span class="dv">1</span> <span class="sc">-</span> e)</span>
+<span id="cb7-56"><a href="#cb7-56" tabindex="-1"></a>    term2_control <span class="ot">&lt;-</span> (data<span class="sc">$</span>D <span class="sc">-</span> e) <span class="sc">*</span> m0[, j] <span class="sc">/</span> (<span class="dv">1</span> <span class="sc">-</span> e)</span>
+<span id="cb7-57"><a href="#cb7-57" tabindex="-1"></a>    term_full_control <span class="ot">&lt;-</span> term1_control <span class="sc">+</span> term2_control</span>
+<span id="cb7-58"><a href="#cb7-58" tabindex="-1"></a>    surv_0[j] <span class="ot">&lt;-</span> <span class="fu">mean</span>(term_full_control) </span>
+<span id="cb7-59"><a href="#cb7-59" tabindex="-1"></a>    </span>
+<span id="cb7-60"><a href="#cb7-60" tabindex="-1"></a>    <span class="co"># ATE</span></span>
+<span id="cb7-61"><a href="#cb7-61" tabindex="-1"></a>    ATE[j] <span class="ot">&lt;-</span> surv_1[j] <span class="sc">-</span> surv_0[j]</span>
+<span id="cb7-62"><a href="#cb7-62" tabindex="-1"></a>  }</span>
+<span id="cb7-63"><a href="#cb7-63" tabindex="-1"></a>  <span class="fu">return</span>(<span class="fu">list</span>(<span class="at">ATE =</span> ATE))</span>
+<span id="cb7-64"><a href="#cb7-64" tabindex="-1"></a>}</span></code></pre></div>
+<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a>se_bootstrap <span class="ot">&lt;-</span> <span class="cf">function</span>(data, times, <span class="at">num_boot =</span> <span class="dv">100</span>) {</span>
+<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a>  <span class="co"># In practice, set n_boot to a larger value (e.g., 1000).</span></span>
+<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a>  n <span class="ot">&lt;-</span> <span class="fu">nrow</span>(data)</span>
+<span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a>  boot_results <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="cn">NA</span>, <span class="at">nrow =</span> num_boot, <span class="at">ncol =</span> <span class="fu">length</span>(times))</span>
+<span id="cb8-5"><a href="#cb8-5" tabindex="-1"></a>  </span>
+<span id="cb8-6"><a href="#cb8-6" tabindex="-1"></a>  <span class="cf">for</span> (b <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>num_boot) {</span>
+<span id="cb8-7"><a href="#cb8-7" tabindex="-1"></a>    boot_indices <span class="ot">&lt;-</span> <span class="fu">sample</span>(<span class="dv">1</span><span class="sc">:</span>n, <span class="at">size =</span> n, <span class="at">replace =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb8-8"><a href="#cb8-8" tabindex="-1"></a>    boot_data <span class="ot">&lt;-</span> data[boot_indices, ]</span>
+<span id="cb8-9"><a href="#cb8-9" tabindex="-1"></a>    boot_results[b, ] <span class="ot">&lt;-</span> <span class="fu">dr_ate_manual</span>(<span class="at">data =</span> boot_data, <span class="at">times =</span> times)<span class="sc">$</span>ATE</span>
+<span id="cb8-10"><a href="#cb8-10" tabindex="-1"></a>  }</span>
+<span id="cb8-11"><a href="#cb8-11" tabindex="-1"></a></span>
+<span id="cb8-12"><a href="#cb8-12" tabindex="-1"></a>  se <span class="ot">&lt;-</span> <span class="fu">apply</span>(boot_results, <span class="dv">2</span>, sd, <span class="at">na.rm =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb8-13"><a href="#cb8-13" tabindex="-1"></a>  <span class="fu">return</span>(<span class="fu">list</span>(<span class="at">se =</span> se))</span>
+<span id="cb8-14"><a href="#cb8-14" tabindex="-1"></a>}</span></code></pre></div>
+<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a>results_manual <span class="ot">&lt;-</span> <span class="fu">dr_ate_manual</span>(data, times)  </span>
+<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a>se_manual <span class="ot">&lt;-</span> <span class="fu">se_bootstrap</span>(data, times)</span>
+<span id="cb9-3"><a href="#cb9-3" tabindex="-1"></a></span>
+<span id="cb9-4"><a href="#cb9-4" tabindex="-1"></a><span class="co"># Calculate 95% confidence intervals</span></span>
+<span id="cb9-5"><a href="#cb9-5" tabindex="-1"></a>results_manual<span class="sc">$</span>ci_lower <span class="ot">&lt;-</span> results_manual<span class="sc">$</span>ATE <span class="sc">-</span> <span class="fl">1.96</span> <span class="sc">*</span> se_manual<span class="sc">$</span>se</span>
+<span id="cb9-6"><a href="#cb9-6" tabindex="-1"></a>results_manual<span class="sc">$</span>ci_upper <span class="ot">&lt;-</span> results_manual<span class="sc">$</span>ATE <span class="sc">+</span> <span class="fl">1.96</span> <span class="sc">*</span> se_manual<span class="sc">$</span>se</span>
+<span id="cb9-7"><a href="#cb9-7" tabindex="-1"></a></span>
+<span id="cb9-8"><a href="#cb9-8" tabindex="-1"></a>results_manual_tbl <span class="ot">&lt;-</span> <span class="fu">rbind</span>(<span class="at">ATE =</span> <span class="fu">round</span>(results_manual<span class="sc">$</span>ATE, <span class="dv">2</span>),</span>
+<span id="cb9-9"><a href="#cb9-9" tabindex="-1"></a>  <span class="st">`</span><span class="at">CI lower</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">round</span>(results_manual<span class="sc">$</span>ci_lower, <span class="dv">2</span>),</span>
+<span id="cb9-10"><a href="#cb9-10" tabindex="-1"></a>  <span class="st">`</span><span class="at">CI upper</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">round</span>(results_manual<span class="sc">$</span>ci_upper, <span class="dv">2</span>))</span>
+<span id="cb9-11"><a href="#cb9-11" tabindex="-1"></a></span>
+<span id="cb9-12"><a href="#cb9-12" tabindex="-1"></a><span class="fu">colnames</span>(results_manual_tbl) <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">&quot;T=3&quot;</span>, <span class="st">&quot;T=4&quot;</span>, <span class="st">&quot;T=5&quot;</span>)</span>
+<span id="cb9-13"><a href="#cb9-13" tabindex="-1"></a><span class="fu">kable</span>(results_manual_tbl, <span class="at">caption =</span> <span class="st">&quot;ATE and 95% Confidence Intervals&quot;</span>) <span class="sc">%&gt;%</span> </span>
+<span id="cb9-14"><a href="#cb9-14" tabindex="-1"></a>  <span class="fu">kable_styling</span>(<span class="at">full_width =</span> <span class="cn">FALSE</span>, <span class="at">font_size =</span> <span class="dv">12</span>) </span></code></pre></div>
+<table class="table" style="font-size: 12px; color: black; width: auto !important; margin-left: auto; margin-right: auto;">
+<caption style="font-size: initial !important;">
+ATE and 95% Confidence Intervals
+</caption>
+<thead>
+<tr>
+<th style="text-align:left;">
+</th>
+<th style="text-align:right;">
+T=3
+</th>
+<th style="text-align:right;">
+T=4
+</th>
+<th style="text-align:right;">
+T=5
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+ATE
+</td>
+<td style="text-align:right;">
+-0.16
+</td>
+<td style="text-align:right;">
+-0.17
+</td>
+<td style="text-align:right;">
+-0.16
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+CI lower
+</td>
+<td style="text-align:right;">
+-0.19
+</td>
+<td style="text-align:right;">
+-0.19
+</td>
+<td style="text-align:right;">
+-0.19
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+CI upper
+</td>
+<td style="text-align:right;">
+-0.14
+</td>
+<td style="text-align:right;">
+-0.15
+</td>
+<td style="text-align:right;">
+-0.14
+</td>
+</tr>
+</tbody>
+</table>
+<p>Next, we calculate the true ATE.</p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" tabindex="-1"></a>get_true_survival <span class="ot">&lt;-</span> <span class="cf">function</span>(data, t, d_level) {</span>
+<span id="cb10-2"><a href="#cb10-2" tabindex="-1"></a>  hazard <span class="ot">&lt;-</span> <span class="fu">exp</span>(<span class="sc">-</span><span class="dv">1</span> <span class="sc">+</span> d_level <span class="sc">+</span> <span class="dv">1</span> <span class="sc">*</span> data<span class="sc">$</span>Z1 <span class="sc">+</span> <span class="dv">2</span> <span class="sc">*</span> data<span class="sc">$</span>Z2 <span class="sc">+</span> <span class="dv">1</span> <span class="sc">*</span> data<span class="sc">$</span>Z1 <span class="sc">*</span> data<span class="sc">$</span>Z2)</span>
+<span id="cb10-3"><a href="#cb10-3" tabindex="-1"></a>  survival_probs <span class="ot">&lt;-</span> <span class="fu">exp</span>(<span class="sc">-</span>hazard <span class="sc">*</span> t)</span>
+<span id="cb10-4"><a href="#cb10-4" tabindex="-1"></a>  <span class="fu">return</span>(<span class="fu">mean</span>(survival_probs)) </span>
+<span id="cb10-5"><a href="#cb10-5" tabindex="-1"></a>}</span>
+<span id="cb10-6"><a href="#cb10-6" tabindex="-1"></a></span>
+<span id="cb10-7"><a href="#cb10-7" tabindex="-1"></a>true_surv_1 <span class="ot">&lt;-</span> <span class="fu">sapply</span>(times, <span class="cf">function</span>(t) <span class="fu">get_true_survival</span>(data, t, <span class="at">d_level =</span> <span class="dv">1</span>))</span>
+<span id="cb10-8"><a href="#cb10-8" tabindex="-1"></a>true_surv_0 <span class="ot">&lt;-</span> <span class="fu">sapply</span>(times, <span class="cf">function</span>(t) <span class="fu">get_true_survival</span>(data, t, <span class="at">d_level =</span> <span class="dv">0</span>))</span>
+<span id="cb10-9"><a href="#cb10-9" tabindex="-1"></a>results_true <span class="ot">&lt;-</span> <span class="fu">list</span>(<span class="at">ATE =</span> true_surv_1 <span class="sc">-</span> true_surv_0)</span></code></pre></div>
+<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" tabindex="-1"></a><span class="co"># Scenario 1: Both models correct</span></span>
+<span id="cb11-2"><a href="#cb11-2" tabindex="-1"></a>results_1_package <span class="ot">&lt;-</span> <span class="fu">dr_ate_package</span>(data, times, <span class="at">ps_correct =</span> <span class="cn">TRUE</span>, <span class="at">or_correct =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb11-3"><a href="#cb11-3" tabindex="-1"></a>results_1_manual <span class="ot">&lt;-</span> <span class="fu">dr_ate_manual</span>(data, times, <span class="at">ps_correct =</span> <span class="cn">TRUE</span>, <span class="at">or_correct =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb11-4"><a href="#cb11-4" tabindex="-1"></a></span>
+<span id="cb11-5"><a href="#cb11-5" tabindex="-1"></a><span class="co"># Scenario 2: PS correct, OR incorrect</span></span>
+<span id="cb11-6"><a href="#cb11-6" tabindex="-1"></a>results_2_package <span class="ot">&lt;-</span> <span class="fu">dr_ate_package</span>(data, times, <span class="at">ps_correct =</span> <span class="cn">TRUE</span>, <span class="at">or_correct =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb11-7"><a href="#cb11-7" tabindex="-1"></a>results_2_manual <span class="ot">&lt;-</span> <span class="fu">dr_ate_manual</span>(data, times, <span class="at">ps_correct =</span> <span class="cn">TRUE</span>, <span class="at">or_correct =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb11-8"><a href="#cb11-8" tabindex="-1"></a></span>
+<span id="cb11-9"><a href="#cb11-9" tabindex="-1"></a><span class="co"># Scenario 3: PS incorrect, OR correct</span></span>
+<span id="cb11-10"><a href="#cb11-10" tabindex="-1"></a>results_3_package <span class="ot">&lt;-</span> <span class="fu">dr_ate_package</span>(data, times, <span class="at">ps_correct =</span> <span class="cn">FALSE</span>, <span class="at">or_correct =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb11-11"><a href="#cb11-11" tabindex="-1"></a>results_3_manual <span class="ot">&lt;-</span> <span class="fu">dr_ate_manual</span>(data, times, <span class="at">ps_correct =</span> <span class="cn">FALSE</span>, <span class="at">or_correct =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb11-12"><a href="#cb11-12" tabindex="-1"></a></span>
+<span id="cb11-13"><a href="#cb11-13" tabindex="-1"></a><span class="co"># Scenario 4: Both models incorrect</span></span>
+<span id="cb11-14"><a href="#cb11-14" tabindex="-1"></a>results_4_package <span class="ot">&lt;-</span> <span class="fu">dr_ate_package</span>(data, times, <span class="at">ps_correct =</span> <span class="cn">FALSE</span>, <span class="at">or_correct =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb11-15"><a href="#cb11-15" tabindex="-1"></a>results_4_manual <span class="ot">&lt;-</span> <span class="fu">dr_ate_manual</span>(data, times, <span class="at">ps_correct =</span> <span class="cn">FALSE</span>, <span class="at">or_correct =</span> <span class="cn">FALSE</span>)</span></code></pre></div>
+<div class="sourceCode" id="cb12"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" tabindex="-1"></a><span class="co"># Crude Cox model: Cox regression without covariates, no propensity score</span></span>
+<span id="cb12-2"><a href="#cb12-2" tabindex="-1"></a>crude_cox_estimator <span class="ot">&lt;-</span> <span class="cf">function</span>(data, times) {</span>
+<span id="cb12-3"><a href="#cb12-3" tabindex="-1"></a></span>
+<span id="cb12-4"><a href="#cb12-4" tabindex="-1"></a>  crude_cox <span class="ot">&lt;-</span> <span class="fu">coxph</span>(<span class="fu">Surv</span>(Time, Event) <span class="sc">~</span> D, <span class="at">data =</span> data)</span>
+<span id="cb12-5"><a href="#cb12-5" tabindex="-1"></a>  treatment_effect <span class="ot">&lt;-</span> <span class="fu">coef</span>(crude_cox)[<span class="st">&quot;D&quot;</span>]</span>
+<span id="cb12-6"><a href="#cb12-6" tabindex="-1"></a>  </span>
+<span id="cb12-7"><a href="#cb12-7" tabindex="-1"></a>  base_surv <span class="ot">&lt;-</span> <span class="fu">survfit</span>(crude_cox)</span>
+<span id="cb12-8"><a href="#cb12-8" tabindex="-1"></a>  s0 <span class="ot">&lt;-</span> <span class="fu">summary</span>(base_surv, <span class="at">times =</span> times, <span class="at">extend =</span> <span class="cn">TRUE</span>)<span class="sc">$</span>surv</span>
+<span id="cb12-9"><a href="#cb12-9" tabindex="-1"></a>  </span>
+<span id="cb12-10"><a href="#cb12-10" tabindex="-1"></a>  <span class="co"># survival for treated group: S_baseline^exp(beta_D)</span></span>
+<span id="cb12-11"><a href="#cb12-11" tabindex="-1"></a>  surv_1 <span class="ot">&lt;-</span> s0<span class="sc">^</span><span class="fu">exp</span>(treatment_effect)</span>
+<span id="cb12-12"><a href="#cb12-12" tabindex="-1"></a>  </span>
+<span id="cb12-13"><a href="#cb12-13" tabindex="-1"></a>  <span class="co"># survival for control group: S_baseline^exp(0) </span></span>
+<span id="cb12-14"><a href="#cb12-14" tabindex="-1"></a>  surv_0 <span class="ot">&lt;-</span> s0</span>
+<span id="cb12-15"><a href="#cb12-15" tabindex="-1"></a>  </span>
+<span id="cb12-16"><a href="#cb12-16" tabindex="-1"></a>  <span class="co"># ATE</span></span>
+<span id="cb12-17"><a href="#cb12-17" tabindex="-1"></a>  ATE <span class="ot">&lt;-</span> surv_1 <span class="sc">-</span> surv_0</span>
+<span id="cb12-18"><a href="#cb12-18" tabindex="-1"></a></span>
+<span id="cb12-19"><a href="#cb12-19" tabindex="-1"></a>  <span class="fu">return</span>(<span class="fu">list</span>(<span class="at">ATE =</span> ATE))</span>
+<span id="cb12-20"><a href="#cb12-20" tabindex="-1"></a>}</span>
+<span id="cb12-21"><a href="#cb12-21" tabindex="-1"></a>results_crude <span class="ot">&lt;-</span> <span class="fu">crude_cox_estimator</span>(data, times)</span></code></pre></div>
+</div>
+<div id="bias-comparison" class="section level3">
+<h3>Bias Comparison</h3>
+<div class="sourceCode" id="cb13"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" tabindex="-1"></a>scenarios <span class="ot">&lt;-</span> <span class="fu">c</span>(</span>
+<span id="cb13-2"><a href="#cb13-2" tabindex="-1"></a>  <span class="st">&quot;0: Crude Cox (Unadjusted)&quot;</span>,</span>
+<span id="cb13-3"><a href="#cb13-3" tabindex="-1"></a>  <span class="st">&quot;1: Both Correct&quot;</span>,</span>
+<span id="cb13-4"><a href="#cb13-4" tabindex="-1"></a>  <span class="st">&quot;2: PS Correct, OR Incorrect&quot;</span>,</span>
+<span id="cb13-5"><a href="#cb13-5" tabindex="-1"></a>  <span class="st">&quot;3: PS Incorrect, OR Correct&quot;</span>,</span>
+<span id="cb13-6"><a href="#cb13-6" tabindex="-1"></a>  <span class="st">&quot;4: Both Incorrect&quot;</span>)</span>
+<span id="cb13-7"><a href="#cb13-7" tabindex="-1"></a></span>
+<span id="cb13-8"><a href="#cb13-8" tabindex="-1"></a><span class="co"># Combine bias values across all time points into a single string</span></span>
+<span id="cb13-9"><a href="#cb13-9" tabindex="-1"></a>format_bias <span class="ot">&lt;-</span> <span class="cf">function</span>(bias_vector) {</span>
+<span id="cb13-10"><a href="#cb13-10" tabindex="-1"></a>  <span class="fu">paste</span>(<span class="fu">sprintf</span>(<span class="st">&quot;%.3f&quot;</span>, bias_vector), <span class="at">collapse =</span> <span class="st">&quot;, &quot;</span>)</span>
+<span id="cb13-11"><a href="#cb13-11" tabindex="-1"></a>}</span>
+<span id="cb13-12"><a href="#cb13-12" tabindex="-1"></a></span>
+<span id="cb13-13"><a href="#cb13-13" tabindex="-1"></a><span class="co"># Package column (bias at T = 3, 4, 5)</span></span>
+<span id="cb13-14"><a href="#cb13-14" tabindex="-1"></a>package_bias <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">&quot;—&quot;</span>,  </span>
+<span id="cb13-15"><a href="#cb13-15" tabindex="-1"></a>  <span class="fu">format_bias</span>(<span class="fu">sapply</span>(<span class="dv">1</span><span class="sc">:</span><span class="fu">length</span>(times), <span class="cf">function</span>(i) results_1_package<span class="sc">$</span>ATE[i] <span class="sc">-</span> results_true<span class="sc">$</span>ATE[i])),</span>
+<span id="cb13-16"><a href="#cb13-16" tabindex="-1"></a>  <span class="fu">format_bias</span>(<span class="fu">sapply</span>(<span class="dv">1</span><span class="sc">:</span><span class="fu">length</span>(times), <span class="cf">function</span>(i) results_2_package<span class="sc">$</span>ATE[i] <span class="sc">-</span> results_true<span class="sc">$</span>ATE[i])),</span>
+<span id="cb13-17"><a href="#cb13-17" tabindex="-1"></a>  <span class="fu">format_bias</span>(<span class="fu">sapply</span>(<span class="dv">1</span><span class="sc">:</span><span class="fu">length</span>(times), <span class="cf">function</span>(i) results_3_package<span class="sc">$</span>ATE[i] <span class="sc">-</span> results_true<span class="sc">$</span>ATE[i])),</span>
+<span id="cb13-18"><a href="#cb13-18" tabindex="-1"></a>  <span class="fu">format_bias</span>(<span class="fu">sapply</span>(<span class="dv">1</span><span class="sc">:</span><span class="fu">length</span>(times), <span class="cf">function</span>(i) results_4_package<span class="sc">$</span>ATE[i] <span class="sc">-</span> results_true<span class="sc">$</span>ATE[i]))</span>
+<span id="cb13-19"><a href="#cb13-19" tabindex="-1"></a>)</span>
+<span id="cb13-20"><a href="#cb13-20" tabindex="-1"></a></span>
+<span id="cb13-21"><a href="#cb13-21" tabindex="-1"></a><span class="co"># Manual column (bias at T = 3, 4, 5)</span></span>
+<span id="cb13-22"><a href="#cb13-22" tabindex="-1"></a>manual_bias <span class="ot">&lt;-</span> <span class="fu">c</span>(</span>
+<span id="cb13-23"><a href="#cb13-23" tabindex="-1"></a>  <span class="fu">format_bias</span>(<span class="fu">sapply</span>(<span class="dv">1</span><span class="sc">:</span><span class="fu">length</span>(times), <span class="cf">function</span>(i) results_crude<span class="sc">$</span>ATE[i] <span class="sc">-</span> results_true<span class="sc">$</span>ATE[i])),</span>
+<span id="cb13-24"><a href="#cb13-24" tabindex="-1"></a>  <span class="fu">format_bias</span>(<span class="fu">sapply</span>(<span class="dv">1</span><span class="sc">:</span><span class="fu">length</span>(times), <span class="cf">function</span>(i) results_1_manual<span class="sc">$</span>ATE[i] <span class="sc">-</span> results_true<span class="sc">$</span>ATE[i])),</span>
+<span id="cb13-25"><a href="#cb13-25" tabindex="-1"></a>  <span class="fu">format_bias</span>(<span class="fu">sapply</span>(<span class="dv">1</span><span class="sc">:</span><span class="fu">length</span>(times), <span class="cf">function</span>(i) results_2_manual<span class="sc">$</span>ATE[i] <span class="sc">-</span> results_true<span class="sc">$</span>ATE[i])),</span>
+<span id="cb13-26"><a href="#cb13-26" tabindex="-1"></a>  <span class="fu">format_bias</span>(<span class="fu">sapply</span>(<span class="dv">1</span><span class="sc">:</span><span class="fu">length</span>(times), <span class="cf">function</span>(i) results_3_manual<span class="sc">$</span>ATE[i] <span class="sc">-</span> results_true<span class="sc">$</span>ATE[i])),</span>
+<span id="cb13-27"><a href="#cb13-27" tabindex="-1"></a>  <span class="fu">format_bias</span>(<span class="fu">sapply</span>(<span class="dv">1</span><span class="sc">:</span><span class="fu">length</span>(times), <span class="cf">function</span>(i) results_4_manual<span class="sc">$</span>ATE[i] <span class="sc">-</span> results_true<span class="sc">$</span>ATE[i]))</span>
+<span id="cb13-28"><a href="#cb13-28" tabindex="-1"></a>)</span>
+<span id="cb13-29"><a href="#cb13-29" tabindex="-1"></a></span>
+<span id="cb13-30"><a href="#cb13-30" tabindex="-1"></a>bias_table <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb13-31"><a href="#cb13-31" tabindex="-1"></a>  <span class="at">Scenario =</span> scenarios,</span>
+<span id="cb13-32"><a href="#cb13-32" tabindex="-1"></a>  <span class="at">Package =</span> package_bias,</span>
+<span id="cb13-33"><a href="#cb13-33" tabindex="-1"></a>  <span class="at">Manual =</span> manual_bias</span>
+<span id="cb13-34"><a href="#cb13-34" tabindex="-1"></a>)</span>
+<span id="cb13-35"><a href="#cb13-35" tabindex="-1"></a></span>
+<span id="cb13-36"><a href="#cb13-36" tabindex="-1"></a><span class="fu">kable</span>(bias_table,</span>
+<span id="cb13-37"><a href="#cb13-37" tabindex="-1"></a>      <span class="at">col.names =</span> <span class="fu">c</span>(<span class="st">&quot;Scenario&quot;</span>, <span class="st">&quot;T = 3, 4, 5&quot;</span>, <span class="st">&quot;T = 3, 4, 5&quot;</span>),</span>
+<span id="cb13-38"><a href="#cb13-38" tabindex="-1"></a>      <span class="at">caption =</span> <span class="st">&quot;Bias of ATE Estimates&quot;</span>,</span>
+<span id="cb13-39"><a href="#cb13-39" tabindex="-1"></a>      <span class="at">align =</span> <span class="fu">c</span>(<span class="st">&#39;l&#39;</span>, <span class="st">&#39;c&#39;</span>, <span class="st">&#39;c&#39;</span>)) <span class="sc">%&gt;%</span></span>
+<span id="cb13-40"><a href="#cb13-40" tabindex="-1"></a>  <span class="fu">kable_styling</span>(<span class="at">full_width =</span> <span class="cn">FALSE</span>, <span class="at">font_size =</span> <span class="dv">12</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb13-41"><a href="#cb13-41" tabindex="-1"></a>  <span class="fu">add_header_above</span>(<span class="fu">c</span>(<span class="st">&quot; &quot;</span> <span class="ot">=</span> <span class="dv">1</span>, <span class="st">&quot;Package&quot;</span> <span class="ot">=</span> <span class="dv">1</span>, <span class="st">&quot;Manual&quot;</span> <span class="ot">=</span> <span class="dv">1</span>)) <span class="sc">%&gt;%</span></span>
+<span id="cb13-42"><a href="#cb13-42" tabindex="-1"></a>  <span class="fu">footnote</span>(<span class="at">general =</span> <span class="fu">sprintf</span>(<span class="st">&quot;True ATE: %.3f, %.3f, %.3f&quot;</span>,</span>
+<span id="cb13-43"><a href="#cb13-43" tabindex="-1"></a>           results_true<span class="sc">$</span>ATE[<span class="dv">1</span>], results_true<span class="sc">$</span>ATE[<span class="dv">2</span>], results_true<span class="sc">$</span>ATE[<span class="dv">3</span>]),</span>
+<span id="cb13-44"><a href="#cb13-44" tabindex="-1"></a>           <span class="at">general_title =</span> <span class="st">&quot;&quot;</span>, <span class="at">footnote_as_chunk =</span> <span class="cn">TRUE</span>)</span></code></pre></div>
+<table class="table" style="font-size: 12px; color: black; width: auto !important; margin-left: auto; margin-right: auto;border-bottom: 0;">
+<caption style="font-size: initial !important;">
+Bias of ATE Estimates
+</caption>
+<thead>
+<tr>
+<th style="empty-cells: hide;border-bottom:hidden;" colspan="1">
+</th>
+<th style="border-bottom:hidden;padding-bottom:0; padding-left:3px;padding-right:3px;text-align: center; " colspan="1">
+<div style="border-bottom: 1px solid #ddd; padding-bottom: 5px; ">
+Package
+</div>
+</th>
+<th style="border-bottom:hidden;padding-bottom:0; padding-left:3px;padding-right:3px;text-align: center; " colspan="1">
+<div style="border-bottom: 1px solid #ddd; padding-bottom: 5px; ">
+Manual
+</div>
+</th>
+</tr>
+<tr>
+<th style="text-align:left;">
+Scenario
+</th>
+<th style="text-align:center;">
+T = 3, 4, 5
+</th>
+<th style="text-align:center;">
+T = 3, 4, 5
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+0: Crude Cox (Unadjusted)
+</td>
+<td style="text-align:center;">
+—
+</td>
+<td style="text-align:center;">
+-0.086, -0.085, -0.083
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+1: Both Correct
+</td>
+<td style="text-align:center;">
+-0.002, -0.013, -0.009
+</td>
+<td style="text-align:center;">
+-0.003, -0.013, -0.009
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+2: PS Correct, OR Incorrect
+</td>
+<td style="text-align:center;">
+-0.008, -0.019, -0.015
+</td>
+<td style="text-align:center;">
+-0.008, -0.019, -0.015
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+3: PS Incorrect, OR Correct
+</td>
+<td style="text-align:center;">
+-0.004, -0.015, -0.010
+</td>
+<td style="text-align:center;">
+-0.005, -0.015, -0.010
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+4: Both Incorrect
+</td>
+<td style="text-align:center;">
+-0.074, -0.081, -0.073
+</td>
+<td style="text-align:center;">
+-0.073, -0.081, -0.072
+</td>
+</tr>
+</tbody>
+<tfoot>
+<tr>
+<td style="padding: 0; " colspan="100%">
+<sup></sup> True ATE: -0.161, -0.158, -0.154
+</td>
+</tr>
+</tfoot>
+</table>
+</div>
+</div>
+<div id="references" class="section level1 unnumbered">
+<h1 class="unnumbered">References</h1>
+<div id="refs" class="references csl-bib-body">
+<div id="ref-DR-main" class="csl-entry">
+Funk, M.J. <em>et al.</em> (2011) <span>“Doubly robust estimation of
+causal effects,”</span> <em>American journal of epidemiology</em>,
+173(7), pp. 761–767.
+</div>
+<div id="ref-DR-semiparam" class="csl-entry">
+Tsiatis, A.A. (2006) <em>Semiparametric theory and missing data</em>.
+New York, NY: Springer (Springer series in statistics). Available at: <a href="https://doi.org/10.1007/0-387-37345-4">https://doi.org/10.1007/0-387-37345-4</a>.
+</div>
+<div id="ref-DR-pseudo" class="csl-entry">
+Wang, J. (2018) <span>“A simple, doubly robust, efficient estimator for
+survival functions using pseudo observations,”</span> <em>Pharmaceutical
+statistics</em>, 17(1), pp. 38–48.
+</div>
+</div>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>
