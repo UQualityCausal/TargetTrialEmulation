@@ -1,0 +1,166 @@
+
+---
+title: "Target Trial Emulation"
+author: "Kevin Ying, Peirong Hao, Yizhe Xu*"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+bibliography: reference_ITT.bib  
+link-citations: yes
+objective: To apply the target trial emulation framework to create an analysis-ready data set
+vignette: >
+  %\VignetteIndexEntry{Target Trial Emulation}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+options(warn = -1)
+```
+
+```{r setup, include=FALSE}
+working_dir <- getwd()
+knitr::opts_knit$set(root.dir = working_dir)
+library(dplyr)
+```
+
+We have explained how to implement TTE for an active-comparator study design through [manual coding](https://github.com/UQualityCausal/TargetTrialEmulation/TTEdemoSin.Rmd). In this tutorial, we focus on a placebo-control design, where subjects in the control group may meet the eligibility criteria multiple times, so **emulating a sequence of trials** may be needed especially with a small sample size or low event rate. 
+
+# Implementation of TTE framework
+## A Placebo-control Design 
+We continue to use the previous example where we compare the effectiveness of ARB versus ACEI anti-hypertensive medications on reducing the risk of cardiovascular disease (CVD). **Table 1** shows the protocol of the target trial that I wish to run and my emulating plan with observational data side by side 
+
+![](documents/sidebysideTTE.png){width=95%}
+
+
+Recall the three key steps before implementing TTE: 
+
+- **Step 1: Clearly define the research questions of interest**. In our case, they are:
+  - Primary: What is the effect of initiating ARBs versus ACEIs on CVD risk?
+  - Secondary: What is the effect of initiating and continuously using ARBs versus ACEIs on CVD risk?
+  - *Vaguely defined questions are troublesome as they impact the study design, data preparation, and analysis methods used to answer these questions, leading to biased and misleading findings. 
+
+- **Step 2: Clarify study design**
+  - Our example uses an observational, new-user, active comparator, retrospective cohort design. Thanks to active comparator, the time zero for both treatment groups is straightforward, that is, the time of initiating ARBs or ACEIs
+  - In a placebo-control design, subjects in the control group may meet the eligibility criteria multiple times, so emulating a sequence of trials may be needed especially with a small sample size or low event rate. 
+  
+- **Step 3: Build a data set that fits the purpose of the study**
+  - A data set can be used to answer these questions with minimal bias
+  - It is a false believe that one data set can be used to answer any questions 
+  - To build a fit-for-purpose dataset, we demonstrate how to implement TTE framework with observational data using the _TrialEmulation_ R package [@Danaei2013]  
+
+This time we directly work with the pre-processed observational dataset from the [active comparator design ](https://github.com/UQualityCausal/TargetTrialEmulation/TTEdemoSin.Rmd) session that contains the eligibility information of patients. 
+```{r}
+obsdata2 <- readRDS("obsdata2.rds")
+
+get_label <- function(x) {
+  lbl <- attr(x, "label", exact = TRUE)
+  if (is.null(lbl)) "" else as.character(lbl)
+}
+
+dict <- data.frame(
+  Variable = names(obsdata2),
+  Meaning  = vapply(obsdata2, get_label, character(1)),
+  check.names = FALSE
+)
+
+knitr::kable(dict, caption = "Data Dictionary", row.names = FALSE)
+```
+
+
+## Use TrialEmulation R package
+Another option is to use every time they are eligible (reference).  
+The function data_preparation() in the R package TrialEmulation can handle this option. But in order to demonstrate what is done, we use our own code to prepare the data step by step. To make it simple, we will only enroll subjects at time 2,3 and 4. 
+Trial 2
+```{r}
+iligible2 <- obsdata2 %>%
+  filter(eligible == 1 & time ==2) %>%
+  select(id,A, X1, X2, X3,X4,age) %>%
+  rename(assigned_treatment=A, X1_0=X1,X2_0=X2, X3_0=X3, X4_0=X4, age_0=age)%>%
+  mutate(trial = 2)
+trial.2 <- obsdata2 %>%
+  filter(id %in% iligible2$id & time >= 2) %>%
+  mutate(trial = 2, follow_up = time - 2) %>%
+  select(-first_eligible_time, -eligible, -ever_eligible)%>%left_join(iligible2)
+```
+Trial 3
+```{r}
+iligible3=obsdata2 %>%
+  filter(eligible == 1 & time ==3) %>%
+  select(id,A, X1, X2, X3,X4,age) %>%rename(assigned_treatment=A, X1_0=X1,X2_0=X2, X3_0=X3, X4_0=X4, age_0=age )%>%
+  mutate(trial = 3)
+trial.3=obsdata2 %>%
+  filter(id %in% iligible3$id & time >= 3) %>%
+  mutate(trial = 3, follow_up = time - 3) %>%
+  select(-first_eligible_time, -eligible, -ever_eligible)%>%left_join(iligible3)
+```
+Trial 4
+```{r}
+iligible4=obsdata2 %>%
+  filter(eligible == 1 & time ==4) %>%
+  select(id,A, X1, X2, X3,X4,age) %>%rename(assigned_treatment=A, X1_0=X1,X2_0=X2, X3_0=X3, X4_0=X4, age_0=age )%>%
+  mutate(trial = 4)
+trial.4=obsdata2 %>%
+  filter(id %in% iligible4$id & time >= 4) %>%
+  mutate(trial = 4, follow_up = time - 4) %>%
+  select(-first_eligible_time, -eligible, -ever_eligible)%>%left_join(iligible4)
+```
+Combine the trials together, we get a data set for ITT analysis of sequential trials. 
+```{r}
+obsdata2.all.trials <- bind_rows(trial.2, trial.3, trial.4)
+```
+Rename the variables to make it have the same variable names as the data prepared by the package.
+```{r}
+obsdata2.all.trials=obsdata2.all.trials%>%
+  rename(
+    trial_period = trial,
+    followup_time = follow_up,
+    treatment = A,
+    outcome = Y,
+    censoring = C,
+    age = age
+  )%>%arrange(trial_period,id,  followup_time)
+```
+Now use the R package TrialEmulation to prepare the data for ITT analysis.
+```{r}
+library(TrialEmulation)
+prep_ITT_data <- data_preparation(
+  data = obsdata2,
+  id = "id", period = "time", treatment = "A",
+  outcome = "Y", eligible = "eligible", # Exclude data before a patient becomes eligible
+  estimand_type = "ITT",
+  outcome_cov = ~ X1 + X2 + X3 + X4 + age,
+  model_var = "assigned_treatment",
+  use_censor_weights = F, 
+  first_period = 2,
+  last_period = 4,
+  quiet = TRUE,control = list(maxit = 100))
+dt=prep_ITT_data$data
+dt=data.frame(dt)
+dt=dt%>%rename(X1_0=X1,X2_0=X2, X3_0=X3, X4_0=X4, age_0=age )%>%
+  arrange(trial_period,id,  followup_time)
+```
+Below we compare the data sets prepared by the two ways.
+```{r}
+table(dt$trial_period==obsdata2.all.trials$trial_period)
+table(dt$id==obsdata2.all.trials$id)
+table(dt$followup_time==obsdata2.all.trials$followup_time)
+table(dt$treatment==obsdata2.all.trials$treatment)
+table(dt$outcome==obsdata2.all.trials$outcome)
+table(dt$age_0==obsdata2.all.trials$age_0)
+table(dt$X1_0==obsdata2.all.trials$X1_0)
+table(dt$X2_0==obsdata2.all.trials$X2_0)
+table(dt$X3_0==obsdata2.all.trials$X3_0)
+table(dt$X4_0==obsdata2.all.trials$X4_0)
+```
+We see that all are TRUE, so the two data sets are the same.
+Now we can use the data for analysis.
+
+
+## Funding
+This work was supported by Utah Clinical & Translational Science Institute (CTSI) Translational Innovation Pilot (TIP) Program Award (NCATS UM1TR004409).
+
+## References
