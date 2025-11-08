@@ -694,10 +694,13 @@ follow-up.</p>
 <p>Filter out ineligible subjects</p>
 <div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a>obsdata2 <span class="ot">&lt;-</span> obsdata1 <span class="sc">%&gt;%</span></span>
 <span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a>  <span class="fu">left_join</span>(eligible_info, <span class="at">by =</span> <span class="st">&quot;id&quot;</span>) <span class="co"># merge the eligibility information to our observational data</span></span>
-<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a></span>
-<span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a>obsdata3 <span class="ot">&lt;-</span> obsdata2 <span class="sc">%&gt;%</span></span>
-<span id="cb8-5"><a href="#cb8-5" tabindex="-1"></a>  <span class="fu">filter</span>(time <span class="sc">&gt;=</span> first_eligible_time) <span class="sc">%&gt;%</span> <span class="co"># include only eligible subjects</span></span>
-<span id="cb8-6"><a href="#cb8-6" tabindex="-1"></a>  <span class="fu">select</span>(<span class="sc">-</span>ever_eligible)</span></code></pre></div>
+<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a><span class="fu">attr</span>(obsdata2<span class="sc">$</span>eligible, <span class="st">&quot;label&quot;</span>) <span class="ot">&lt;-</span> <span class="st">&quot;Eligibility indicator at each time in records&quot;</span></span>
+<span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a><span class="fu">attr</span>(obsdata2<span class="sc">$</span>ever_eligible, <span class="st">&quot;label&quot;</span>) <span class="ot">&lt;-</span> <span class="st">&quot;Whether a subject ever becomes eligible&quot;</span></span>
+<span id="cb8-5"><a href="#cb8-5" tabindex="-1"></a><span class="fu">attr</span>(obsdata2<span class="sc">$</span>first_eligible_time, <span class="st">&quot;label&quot;</span>) <span class="ot">&lt;-</span> <span class="st">&quot;When is the first time a subject becomes eligible&quot;</span></span>
+<span id="cb8-6"><a href="#cb8-6" tabindex="-1"></a></span>
+<span id="cb8-7"><a href="#cb8-7" tabindex="-1"></a>obsdata3 <span class="ot">&lt;-</span> obsdata2 <span class="sc">%&gt;%</span></span>
+<span id="cb8-8"><a href="#cb8-8" tabindex="-1"></a>  <span class="fu">filter</span>(time <span class="sc">&gt;=</span> first_eligible_time) <span class="sc">%&gt;%</span> <span class="co"># include only eligible subjects</span></span>
+<span id="cb8-9"><a href="#cb8-9" tabindex="-1"></a>  <span class="fu">select</span>(<span class="sc">-</span>ever_eligible)</span></code></pre></div>
 <p>Now, we create the follow-up time variable for each participant,
 using the previously defined time zero (<span class="math inline">\(T_0\)</span>) as the start of follow-up.</p>
 <div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a>obsdata4 <span class="ot">&lt;-</span> obsdata3 <span class="sc">%&gt;%</span></span>
