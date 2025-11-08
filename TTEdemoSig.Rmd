@@ -85,7 +85,7 @@ Suppose we are interested in comparing the effectiveness of ARB versus ACEI anti
 
 - **Step 2: Clarify study design**
   - Our example uses an observational, new-user, active comparator, retrospective cohort design. Thanks to the active-comparator design, the time zero for both treatment groups is straightforward, that is, the time of initiating ARBs or ACEIs. Therefore, we only need to **emulate a single trial**
-  - In contrast, in a placebo-control design, subjects in the control group may meet the eligibility criteria multiple times, so **emulating a sequence of trials** may be needed especially with a small sample size or low event rate. We will explain how to implement TTE for [a placebo-control design](https://github.com/UQualityCausal/TargetTrialEmulation/TTEdemoSeq.Rmd) using the _TrialEmulation_ R package [@Danaei2013]
+  - In contrast, in a placebo-control design, subjects in the control group may meet the eligibility criteria multiple times, so **emulating a sequence of trials** may be needed especially with a small sample size or low event rate. We will explain how to implement TTE for [a placebo-control design](https://github.com/UQualityCausal/TargetTrialEmulation/TTEdemoSeq.html) using the _TrialEmulation_ R package [@Danaei2013]
 
 - **Step 3: Build a data set that fits the purpose of the study**
   - A data set can be used to answer these questions with minimal bias
@@ -120,7 +120,10 @@ knitr::kable(dict, caption = "Data Dictionary", row.names = FALSE)
 
 ![](documents/sidebysideTTE.png){width=95%}
 
-First, we apply the eligibility criteria in the target trial (Table 1) to our observational data by creating a "eligible" indicator
+**Component 1: Eligibility criteria** 
+
+- Patients without hypertension and with CVD are already excluded from our observational data in another pre-processing step
+- We apply the rest of eligibility criteria (the first two) in Table 1 to our data and create a "eligible" indicator
 ```{r}
 obsdata1 <- obsdata %>%
   group_by(id) %>%
@@ -169,14 +172,37 @@ obsdata3 <- obsdata2 %>%
   select(-ever_eligible)
 ```
 
-Now, we create the follow-up time variable for each participant, using the previously defined time zero ($T_0$) as the start of follow-up.
+
+**Component 2: Treatment strategies**
+
+- We group patients into ARB or ACEI initiators based on their outpatient pharmacy dispense
+- ARB initiators are coded as 1 and ACEI initiators are coded as 0 in our data (code is not shown)
+- Individuals initiated both ARB and ACEI medications are excluded 
+
+
+**Component 3: Treatment assignment**
+
+- Although ARBs and ACEIs are both first-line treatment and used interchangeably at clinic, they are not completly randomized to patients in our observational data, which may lead to imbalance in patient characteristics between treatment groups
+- It is perhaps more plausible to consider ARB or ACEI medications are randomized among patients with the same age, sex, blood pressure, and other antihypertensive medication use
+- Formally, we assume treatment assignment is independent of the CVD outcome conditional on all the baseline covariates mentioned above, i.e., conditional changeability assumption
+- We mostly worry about the baseline covariates that impact treatment assignment and outcome and they are called **confounders**
+- The conditional changeability assumption becomes more plausible as more confounders are measured and considered though we can never verify the assumption completely holds true
+- We will demonstrate how to restore the conditional changeability using causal inference methods in the tutorial of [Intetion-to-treat Analysis](https://github.com/UQualityCausal/TargetTrialEmulation/IntentionToTreat.html).
+
+
+**Components 4 & 5: Follow-up and Outcome**
+
+- The start of follow-up or time zero ($T_0$) is when individuals first become eligible and initiate ARB or ACEI
+- In our long-format data, the follow-up at each month is the number of months being followed up to the current month
+- In an one-row-per-patient data (?? I think we need a version of this), the end of follow-up is the time of CVD event, death, loss-to-follow-up, or the end of the study, whichever occurs first 
 ```{r}
 obsdata4 <- obsdata3 %>%
   mutate(follow_up = time - first_eligible_time) %>% # 
   select(-first_eligible_time, -eligible) 
 ```
 
-Save the data for downstream statistical analysis 
+
+Finally, we save the data for downstream statistical analysis 
 ```{r}
 # Extract baseline data 
 baseline <- obsdata4 %>%
@@ -194,6 +220,7 @@ obsdata5 %>% slice_head(n=10)
 # Save the data 
 saveRDS(obsdata5, "obsdata5.rds")
 ```
+
 
 ## Funding
 This work was supported by Utah Clinical & Translational Science Institute (CTSI) Translational Innovation Pilot (TIP) Program Award (NCATS UM1TR004409).

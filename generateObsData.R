@@ -126,7 +126,7 @@ obsdata <- simdata0 %>%
 
 attr(obsdata$age, "label") <- "Age over time (years)"
 attr(obsdata$X3, "label") <- "Biological sex (F/M)"
-attr(obsdata$X4, "label") <- "Standardized systolic blood pressure at baseline"
+attr(obsdata$X4, "label") <- "Standardized diastolic blood pressure at baseline"
 attr(obsdata$id, "label") <- "Patient ID"
 attr(obsdata$time, "label") <- "Time index for longitudinal records"
 attr(obsdata$age_s, "label") <- "Standardized age over time (years)"
