@@ -1,12 +1,12 @@
 
 ---
 title: "Target Trial Emulation"
-author: "Kevin Ying, Peirong Hao, Yizhe Xu"
+author: "Kevin Ying, Peirong Hao, Yizhe Xu*"
 date: "`r Sys.Date()`"
 output: rmarkdown::html_vignette
 bibliography: reference_ITT.bib  
 link-citations: yes
-objective: To apply the target trial emulation framework to create a analysis-ready data set
+objective: To apply the target trial emulation framework to create an analysis-ready data set
 vignette: >
   %\VignetteIndexEntry{Target Trial Emulation}
   %\VignetteEngine{knitr::rmarkdown}
@@ -18,103 +18,126 @@ knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>"
 )
-set.seed(2009)
 options(warn = -1)
 ```
-# Introduction
-Randomized controlled trials (RCTs) are the gold standard for evaluating medical interventions, but they are often impractical, slow, or costly. Modern causal inference methods, coupled with real-world data (RWD), provide a faster, well-powered alternative for estimating treatment effects across diverse patient populations.Despite this potential, several barriers hinder their effective use in transnational research. A key challenge is aligning "time zero," the point at which a patient cohort is defined, eligibility, and treatment assignment, which leads to intractable bias. Target trial emulation (TTE) is a major innovation that addresses these barriers by emulating RCT protocols using observational data [@Hernn2016, @Hernan2022-sp]. The TTE framework has proven especially useful in fostering improved communication between statisticians and clinicians to align sound study design, incisive data analysis and clinical insight to improve the quality of research. Furthermore, high-quality observational studies can complement findings from RCTs and provide actionable evidence [@Wang2023]. <br>
 
-This vignette aims to demonstrate how to create a fit-for-purpose study sample with minimal bias. We briefly review the five key components in TTE framework and explain why it is crucial to define a clear definition for each component.  
+```{r setup, include=FALSE}
+working_dir <- getwd()
+knitr::opts_knit$set(root.dir = working_dir)
+```
+
+# Introduction
+Randomized controlled trials (RCTs) are the gold standard for evaluating medical interventions, but they are often impractical, slow, or costly. Modern causal inference methods, coupled with real-world data (RWD), provide a faster, well-powered approach to estimating treatment effects in diverse patient populations. Yet several barriers hinder their effective use in translational research. A key challenge is aligning "time zero," the moment the cohort is defined, eligibility is assessed, and treatment strategies are assigned, which leads to intractable bias. <br>
+
+Target trial emulation (TTE) addresses these barriers by emulating RCT protocols with observational data, e.g., electronic health records (EHRs) [@Hernn2016; @Hernan2022-sp]. The TTE framework has proven especially useful in improving communication between statisticians and clinicians and better integrate clinical insight with sound study design and incisive data analysis to enhance the quality of research. High-quality observational studies built on TTE can complement findings from RCTs and provide actionable evidence [@Wang2023]. <br>
+
+This vignette shows how to build a fit-for-purpose dataset that minimizes bias. We briefly review the five key components of the TTE framework and explain why clear definitions for each are essential.   
 
 ## Eligibility Criteria
-- Eligibility criteria include inclusion and exclusion criteria and both need to be defined using **only information prior to or at baseline** 
-- Eligibility criteria that use post-baseline information induce selection bias
-- Not all trials of interest can be emulated using observational data, e.g., electronic health records (EHRs). TTE is only feasible when the observational data contains all the information needed to apply the pre-defined eligibility criteria
+- Both inclusion and exclusion criteria need to be defined using **only information prior to or at baseline** 
+- Eligibility criteria that use post-baseline information induce **selection bias**
+- Not all trials of interest can be emulated using observational data. TTE is only feasible when the observational data contains all the information needed to apply the pre-defined eligibility criteria
 
 ## Treatment Strategies 
 - Observational data is best used to emulate **a pragmatic trial** in the sense that 
+  - Open-label design: patients are aware of the treatment they are prescribed
   - Treatment are compared under the usual conditions used 
   - Cannot compare new treatment due to lack of data
 - New user design is highly recommended to avoid **prevalent user bias**
-  - Treatment of interest (Hernan, 2015): Hormone therapy versus no treatment, current users are likely to be CHD free
-  - Given that hormone therapy may cause a short-term increase in the risk of coronary heart disease (CHD)
-  - Biased results due to not including patients who initiated hormone therapy then switched due to side effects
+  - Treatment of interest: Hormone therapy versus no treatment [@Hernn2016]
+  - Given that hormone therapy may cause a short-term increase in the risk of coronary heart disease (CHD), current users are likely to be CHD free
+  - Including current users in the study cohort may introduce bias since patients who initiated hormone therapy then switched due to side effects are not included
+  - Prevalent user bias is a type of selection bias 
 - Benefits of using active control 
   - Treatment of interest:  ACEI versus ARB 
   - Both medications are first-line antihypertensive medications that are prescribed interchangeably by physicians
-  - Thus, patients in these two treatment groups are much more similar, which leads to smaller confounding by indication bias. We refer to this as **pseudo-randomized**
-  - In contrast, in the example where hormone therapy is compared to no therapy, patients who use the treatment can be very different than those do not use the therapy, such as socioeconomic status and body mass index
+  - Thus, patients in these two treatment groups are much more similar, which leads to smaller confounding by indication bias before any adjustment. We refer to this situation as **pseudo-randomization**
+  - In contrast, in the example of hormone therapy versus no treatment, patients who use hormone therapy can be very different than those do not use the therapy in terms of socioeconomic status and body mass index
 
 ## Assignment Procedures
-- Individuals are aware of the treatment they received, i.e., no blind assignment
-- To mimic the randomized treatment assignment in RCTs, we restore comparability between treatment groups within strata defined by baseline covariates, and we refer to this as conditional exchangeability
-- To achieve conditional exchangeability, we need to adjust for all confounding factors using methods in modern causal inference (see xx for more etails)
+- It is infeasible to emulation trials with blind assignment as individuals are aware of the treatment they received in observational data
+- To mimic the randomized treatment assignment in RCTs, we restore comparability between treatment groups within strata defined by baseline covariates, and we refer to this as **conditional exchangeability**
+- To achieve conditional exchangeability, we need to adjust for all confounding covariates using causal inference methods (see [@Hernan2020] for more etails)
 
 ## Outcome Identification and Validation 
-- Outcomes are typically identified using ICD 9/10 
-- It is challenging to conduct blind ascertainment for outcomes in observational data since healthcare providers are often aware of the treatment
+- Outcomes can be identified using International Classification of Disease (ICD) codes (Version 9 or 10), medication use, or natural language processing of clinical notes 
+- It is challenging to conduct blind outcome ascertainment in observational data since healthcare providers are often aware of the treatment
 a patient received
+  - Death outcome is an exception as it can be independently ascertained by death registry
 
 ## Time Zero
 - <span style="color:red">This is the most important component in TTE</span> 
 - Time zero is the start of follow-up, also referred to as baseline 
-- In RCTs, the time of treatment randomization/initiation (A), the time of meeting eligibility criteria (E), and the time of starting following up participants ($T_0$) are often well-aligned, which provides key advantages including preventing **selection bias** and **immortal time bias**
-- Check out the four classic failure modes in the figure below
+- In RCTs, the time of treatment assignment (A), the time of meeting eligibility criteria (E), and the start of follow-up ($T_0$) are typically well aligned. This alignment helps to reduce **selection bias** and **immortal time bias** significantly
+- Check out the four classic emulation failure modes below [@Hernan2016]
+  ![](documents/Failuremodes.png){width=95%}
 
 
+# Implementation of TTE framework
+Suppose we are interested in comparing the effectiveness of ARB versus ACEI anti-hypertensive medications on reducing the risk of cardiovascular disease (CVD). <br>
 
-the TTE framework using the TrialEmulation R package. We will use a simulated data set to illustrate how an analysis-ready data set for a target trial emulation, for either itenton to treatment (ITT) or per protocal(PP) analysis, is created under hood. Then we will demostrate how to utilze the functions in the TrialEmulation R package to create the analysis-ready data sets and analyze the data. 
+The first step of any study is to **clearly define the research questions of interest**. In our case, they are:
 
-```{r setup, include=FALSE}
-#knitr::opts_knit$set(root.dir = "/Users/kevinying/TTEvignette")
-working_dir <- getwd()
-knitr::opts_knit$set(root.dir = working_dir)
-```
-#Fist we will illustrate how to create an analysis-ready data set for a target trial emulation using our own code. 
-We developed a function that can simulate a data set that similar to what we would get from a real-world data source. The data set is a simulated cohort of patients with a chronic disease, such as diabetes or hypertension, who are followed over time. The data set includes baseline covariates, treatment assignment, and outcomes of interest. For details of the simulated data please refer to ????. The data set is used to illustrate how to create an analysis-ready data set for a target trial emulation.
-```{r echo=F}
+- Primary: What is the effect of initiating ARBs versus ACEIs on CVD risk?
+- Secondary: What is the effect of initiating and continuously using ARBs versus ACEIs on CVD risk?
+
+Vaguely defined questions are troublesome as they impact the study design, data preparation, and analysis methods used to answer these questions, leading to biased and misleading findings. <br>
+
+With clearly defined questions, the next key step is to **build a data set that fits the purpose of the study**, i.e., a data set can be used to answer these questions with minimal bias. It is a false believe that one data set can be used to answer any questions. To build a fit-for-purpose dataset, we demonstrate two approaches to implementing TTE framework with observational data: 
+
+- Manual coding 
+- Using the TrialEmulation R package [@Danaei2013]
+
+Before we begin, we first create a simulated data set to serve as our observational data. Using simulated data offers key advantages: it avoids data security concerns and allows us to know the true treatment effects, enabling us to evaluate the performance of different analytic strategies, including TTE and causal inference methods. <br>
+
+We developed the function below to simulate an observational dataset representing a cohort of patients with hypertension. The patients are followed over time to compare the risk of incident cardiovascular disease under ACEI or ARB medications. The dataset includes baseline covariates, treatment assignments, and outcomes of interest. For detailed descriptions of the data-generating mechanism and parameter settings, please refer to ???.
+
+?? Move these to a separate script
+- Input Parameters: 
+  - n: Number of patients
+  - J: Number of follow-up time points (in years)
+  - beta0.trt0: Intercept for initial treatment assignment
+  - beta.adherence: Coefficient for treatment adherence
+  - beta0.outcome: Intercept for outcome model
+  - beta.trt.effect: Effect of treatment on outcome
+  - beta0.censoring: Intercept for censoring model
+
+```{r echo = F}
 library(dplyr)
-library(TrialEmulation)
-generate.obs.data <- function(n, J, beta0.trt0,beta.adherence, beta0.outcome, beta.trt.effect, beta0.censoring) {
-  ###### Input Parameters: 
-  # n: Number of patients
-  # J: Number of time points
-  # beta0.trt0: Intercept for initial treatment assignment
-  # beta.adherence: Coefficient for treatment adherence
-  # beta0.outcome: Intercept for outcome model
-  # beta.trt.effect: Effect of treatment on outcome
-  # beta0.censoring: Intercept for censoring model
-  ###### 
-  
-  # Initialize baseline data
+
+generate.obs.data <- function(n, J, beta0.trt0, beta.adherence, beta0.outcome, beta.trt.effect, beta0.censoring) {
+
+  # Create baseline data
   baseline <- data.frame(
     id = 1:n, 
     X1_0 = rbinom(n, 1, 0.5), 
     X2_0 = rnorm(n, 0, 1), 
     age_0 = rnorm(n, 35, 12),
     X3 = rbinom(n, 1, 0.5),
-    X4 = rnorm(n, 0, 1)
-  )%>%rowwise()%>%mutate( logit_pi0 =beta0.trt0+ 0.5 * X1_0 + 0.5 * X2_0  - 0.2 * X3 + X4 - 0.03 * age_0,
-                          A0 = rbinom(1, 1, plogis(logit_pi0)))%>%select(-logit_pi0)%>%ungroup()
+    X4 = rnorm(n, 0, 1)) %>% 
+    rowwise() %>%
+    mutate(logit_pi0 = beta0.trt0 + 0.5 * X1_0 + 0.5 * X2_0 - 0.2 * X3 + X4 - 0.03 * age_0,
+           A0 = rbinom(1, 1, plogis(logit_pi0))) %>%
+    select(-logit_pi0) %>% 
+    ungroup()
   
-  # Expand to long format
+  # Expand baseline data to long format
   long_data <- baseline %>%
     slice(rep(1:n(), each = J)) %>% 
-    mutate(time = rep(0:(J - 1), times = n)) %>% # Add a time variable that repeats the time points sequence n times (for n patients)
+    mutate(time = rep(0:(J - 1), times = n)) %>% # Add a follow-up time variable for each patient
     group_by(id) %>%
     mutate(
-      age = age_0 + time, # Unit for time is year
+      age = age_0 + time, 
       age_s = (age - 35) / 12, # Standardized age
       A_prev = NA,
       Y_prev = NA,
       C_prev = NA,
-      A=if_else(time==0, A0, NA),
+      A=if_else(time == 0, A0, NA),
       Y = if_else(time == 0, 0, NA),
       C = if_else(time == 0, 0, NA),
       eligible = 1,
       X1 = if_else(time == 0, X1_0, NA),
-      X2 = if_else(time == 0, X2_0, NA)
-    ) %>%
+      X2 = if_else(time == 0, X2_0, NA)) %>%
     ungroup()
   
   # Simulate time-varying covariates, treatment, outcome, censoring, and eligibility
@@ -123,21 +146,24 @@ generate.obs.data <- function(n, J, beta0.trt0,beta.adherence, beta0.outcome, be
     group_modify(~ {
       df <- .x # Refer to the subset of rows for one patient
       for (j in 2:nrow(df)) {
-        # if (j > 1) {
+        
         df$X1[j] <- rbinom(1, 1, plogis(-df$A[j - 1])) # plogis(-0) = 0.5, plogis(-1) = 0.2689414
         df$X2[j] <- rnorm(1, mean = -0.3 * df$A[j - 1], sd = 1) 
         df$A_prev[j] <- df$A[j - 1]
         df$Y_prev[j] <- df$Y[j - 1]
         df$C_prev[j] <- df$C[j - 1]
-        # Treatment
-        logit_pi <-beta.adherence* (df$A_prev[j]-0.5 )+ 0.5 * df$X1[j] + 0.5 * df$X2[j] - 0.2 * df$X3[j] + df$X4[j] - 0.3 * df$age_s[j]
-        df$A[j] <- rbinom(1, 1, plogis(logit_pi)) # Treatment A is assigned based on previous adherence and covariates.
-        #}
+        
+        # ?? Treatment or treatment adherence: 
+        # The probability of adhering to treatment A at time j is a function of treatment adherence at time j-1 and covariates at time j
+        logit_pi <- beta.adherence* (df$A_prev[j]-0.5 ) + 0.5 * df$X1[j] + 0.5 * df$X2[j] - 0.2 * df$X3[j] + df$X4[j] - 0.3 * df$age_s[j]
+        df$A[j] <- rbinom(1, 1, plogis(logit_pi)) 
+      
         # Eligibility criteria: at least 18 years old, have not received treatment, and have not experienced the event of interest
         df$eligible[j] <- as.integer(df$age[j] >= 18 & all(df$A[1:j - 1] == 0) & all(df$Y[1:j - 1] == 0))
+        
         # Outcome
         if (df$Y_prev[j] == 0) {
-          logit_lambda <- beta0.outcome +beta.trt.effect * df$A[j] + 0.5 * df$X1[j] + 0.5 * df$X2[j] + df$X3[j] + df$X4[j] + 0.5 * df$age_s[j]
+          logit_lambda <- beta0.outcome + beta.trt.effect * df$A[j] + 0.5 * df$X1[j] + 0.5 * df$X2[j] + df$X3[j] + df$X4[j] + 0.5 * df$age_s[j]
           df$Y[j] <- rbinom(1, 1, plogis(logit_lambda))
         } else {
           df$Y[j] <- 1  # once outcome is positive, remain positive
@@ -150,149 +176,168 @@ generate.obs.data <- function(n, J, beta0.trt0,beta.adherence, beta0.outcome, be
         } else {
           df$C[j] <- 1  # once censored, remain censored
         }
-        
       }
       df
     }) %>%
     ungroup()
+  
   # Drop data after censoring or event
-  t0=long_data%>%filter(C==1 | Y==1)%>% group_by(id)%>%summarise(t0=min(time))
-  long_data=long_data%>%left_join(t0)%>%filter(is.na(t0)| time<=t0)%>%select(-t0)
+  t0 <- long_data %>%
+    filter(C==1 | Y==1) %>%
+    group_by(id) %>%
+    summarise(t0=min(time))
+  
+  long_data <- long_data %>%
+    left_join(t0) %>%
+    filter(is.na(t0)| time<=t0) %>%
+    select(-t0)
   
   # Drop data before first eligible
-  long_data=long_data %>%
+  long_data <- long_data %>%
     group_by(id) %>%
     mutate(first_eligible = min(time[eligible == 1], na.rm = TRUE)) %>%
     filter(time >= first_eligible) %>%
     ungroup() %>%
     select(-first_eligible)
+  
   # Ensure all variables are numeric
   long_data <- long_data %>%
     mutate(across(c(id, time, A, Y, C, eligible, X1, X2, X3, X4, age_s), as.numeric))
   
   long_data
-  
 }
+
 # Set seed for reproducibility
 set.seed(412)
-#simulate data
-simdata0=generate.obs.data(n=1000,J=20,beta0.trt0=1,beta.adherence=2, beta0.outcome=-5, beta.trt.effect=-1.2, beta0.censoring=-1)
-simdata=simdata0%>%select(id, time, X1, X2, X3, X4, age, A, Y, C, age_s) 
+simdata0 <- generate.obs.data(n=1000, J=20, beta0.trt0=1, beta.adherence=2, 
+                              beta0.outcome=-5, beta.trt.effect=-1.2, beta0.censoring=-1)
+obsdata <- simdata0 %>%
+  select(id, time, X1, X2, X3, X4, age, A, Y, C, age_s) 
 ```
-Now we start to create a analysis-ready from the simulated data. We will emulate a randomized clinic trial described below. 
-Add a table here to describe the trial design. 
 
-First, we create an eligible indicator. Our inclusion criteria are: 1)age >=50, 2)no history of Y by current time, and 3)no treatment in previous 2 years of current time
+## Write your own code to implement TTE
+**Table 1** shows the protocol of the target trial that I wish to run and my emulating plan with observational data side by side 
+
+![](documents/sidebysideTTE.png){width=95%}
+
+First, we apply the eligibility criteria in the target trial (Table 1) to our observational data by creating a "eligible" indicator
 ```{r}
-simdata <- simdata %>%
+obsdata1 <- obsdata %>%
   group_by(id) %>%
-  mutate(eligible = as.integer(age >= 50 & cumsum(Y) == 0 & (lag(A)+lag(A,2)) == 0)) %>% # lag(A) gives the treatment status from one time point ago, lag(A, 2) is from two time points ago.
+  mutate(eligible = as.integer(age >= 50 & cumsum(Y) == 0 & (lag(A)+lag(A,2)) == 0)) %>% 
+  # lag(A) and lag(A, 2) shows the treatment at one and two years ago, respectively.
   ungroup()
 ```
-Let's take a look on a sample. 
-```{r}
-simdata%>%filter(id==2)
 
-```
-We can see that:  
-At time 0 through 6, his age is below 50 and so e is not eligible for the study.
-At time 7 through 9, his age is over 50 and he has no history of Y but he has treatment within previous 2 years, so he is not eligible.
-At time 10 through 13, his age is 50 and he has no history of Y and no treatment in previous 2 years, so he is eligible.
-At time 14 and after, he has treatment in previous 2 years, so he is not eligible.
-Now we identify the subjects who are eligible ever and the first time they are eligible
+?? Simplify this to active comparator set up. 
+Let us see when Subject 2 becomes eligible: 
+- Subject 2 is not eligible from time 0 to 6 due to age below 50, and not eligible from time 7 to 9 due to the use of ARBs in previous 2 years. Subject 2 becomes eligible at time 10.
 ```{r}
-eligible_info <- simdata %>%
+obsdata1 %>% filter(id==2)
+```
+
+Now, we identify the subjects who are ever eligible and the first time of becoming eligible
+The first time of becoming eligible is the time zero
+```{r}
+eligible_info <- obsdata1 %>%
   group_by(id) %>%
   summarise(
-    #first_eligible_time = min(time[eligible == 1], na.rm = TRUE), ever_eligible = any(eligible == 1)
     ever_eligible = any(eligible == 1, na.rm = TRUE),
-    first_eligible_time = if (any(eligible == 1, na.rm = TRUE)) min(time[eligible == 1]) else NA_real_
-    ) %>%
+    first_eligible_time = if (any(eligible == 1, na.rm = TRUE)) min(time[eligible == 1]) else NA_real_) %>%
   ungroup()
 ```
+
 How many ever eligible? 
 ```{r}
 table(eligible_info$ever_eligible)
 ```
-Check a few of them. 
+
+Check a few of them: Subject 2 is first eligible at time 10 and Subjects 1 and 3 are never eligible. 
 ```{r}
 eligible_info %>% filter(id %in% 1:3)
 ```
-As we explained above, subject 2 is first eligible at time 10. And we can also see that subject 1 and 3 are never eligible. 
 
-Now merge the information
+Filter out ineligible subjects
 ```{r}
-simdata <- simdata %>%
-  left_join(eligible_info, by = "id") 
+obsdata2 <- obsdata1 %>%
+  left_join(eligible_info, by = "id") # merge the eligibility information to our observational data
+
+obsdata3 <- obsdata2 %>%
+  filter(time >= first_eligible_time) %>% # include only eligible subjects
+  select(-ever_eligible)
 ```
 
-now we are ready to do the analysis
-We will perform intention-to-treatment (ITT) analysis and per-protocol (PP) analysis.
-Explain ITT and PP here. 
-#Case I:  A new-user, active comparator design; Intention-to-treat analysis
- 
-Subjects become eligible at multiple times. One option is just use the first time they are eligible. Below we prepare the data for analysis using this option.
-In this option, we start follow up from the first eligible time
-Select the eligible subjects and keep rows at and after first eligible time.
+Create the follow-up time variable for the study using the time zero defined above
 ```{r}
-simdata1 <- simdata %>%
-  filter(time >= first_eligible_time) %>%
-  select(-ever_eligible)
-simdata.one.trial <- simdata1 %>%
-  mutate(follow_up = time - first_eligible_time) %>%
+obsdata4 <- obsdata3 %>%
+  mutate(follow_up = time - first_eligible_time) %>% # 
   select(-first_eligible_time, -eligible) 
-baseline=simdata.one.trial %>%filter(follow_up==0) %>%
+```
+
+Build the final data set 
+```{r}
+# Extract baseline data 
+baseline <- obsdata4 %>%
+  filter(follow_up==0) %>%
   select(id, A, X1, X2, X3, X4, age) %>%
   rename(assigned_treatment = A, X1_0 = X1, X2_0 = X2, X3_0 = X3, X4_0 = X4, age_0 = age) 
-simdata.one.trial=simdata.one.trial %>%
+
+# Merge baseline data to longitudinal data
+obsdata5 <- obsdata4 %>%
   left_join(baseline, by = "id") %>%
   arrange(id, follow_up)
 
+obsdata5 %>% slice_head(n=10)
 ```
-This data is ready for ITT analysis.
 
+
+
+
+
+
+## Use TrialEmulation R package
 Another option is to use every time they are eligible (reference).  
 The function data_preparation() in the R package TrialEmulation can handle this option. But in order to demonstrate what is done, we use our own code to prepare the data step by step. To make it simple, we will only enroll subjects at time 2,3 and 4. 
 Trial 2
 ```{r}
-iligible2=simdata %>%
+iligible2=obsdata2 %>%
   filter(eligible == 1 & time ==2) %>%
   select(id,A, X1, X2, X3,X4,age) %>%rename(assigned_treatment=A, X1_0=X1,X2_0=X2, X3_0=X3, X4_0=X4, age_0=age )%>%
   mutate(trial = 2)
-trial.2=simdata %>%
+trial.2=obsdata2 %>%
   filter(id %in% iligible2$id & time >= 2) %>%
   mutate(trial = 2, follow_up = time - 2) %>%
   select(-first_eligible_time, -eligible, -ever_eligible)%>%left_join(iligible2)
 ```
 Trial 3
 ```{r}
-iligible3=simdata %>%
+iligible3=obsdata2 %>%
   filter(eligible == 1 & time ==3) %>%
   select(id,A, X1, X2, X3,X4,age) %>%rename(assigned_treatment=A, X1_0=X1,X2_0=X2, X3_0=X3, X4_0=X4, age_0=age )%>%
   mutate(trial = 3)
-trial.3=simdata %>%
+trial.3=obsdata2 %>%
   filter(id %in% iligible3$id & time >= 3) %>%
   mutate(trial = 3, follow_up = time - 3) %>%
   select(-first_eligible_time, -eligible, -ever_eligible)%>%left_join(iligible3)
 ```
 Trial 4
 ```{r}
-iligible4=simdata %>%
+iligible4=obsdata2 %>%
   filter(eligible == 1 & time ==4) %>%
   select(id,A, X1, X2, X3,X4,age) %>%rename(assigned_treatment=A, X1_0=X1,X2_0=X2, X3_0=X3, X4_0=X4, age_0=age )%>%
   mutate(trial = 4)
-trial.4=simdata %>%
+trial.4=obsdata2 %>%
   filter(id %in% iligible4$id & time >= 4) %>%
   mutate(trial = 4, follow_up = time - 4) %>%
   select(-first_eligible_time, -eligible, -ever_eligible)%>%left_join(iligible4)
 ```
 Combine the trials together, we get a data set for ITT analysis of sequential trials. 
 ```{r}
-simdata.all.trials <- bind_rows(trial.2, trial.3, trial.4)
+obsdata2.all.trials <- bind_rows(trial.2, trial.3, trial.4)
 ```
 Rename the variables to make it have the same variable names as the data prepared by the package.
 ```{r}
-simdata.all.trials=simdata.all.trials%>%
+obsdata2.all.trials=obsdata2.all.trials%>%
   rename(
     trial_period = trial,
     followup_time = follow_up,
@@ -304,8 +349,9 @@ simdata.all.trials=simdata.all.trials%>%
 ```
 Now use the R package TrialEmulation to prepare the data for ITT analysis.
 ```{r}
+library(TrialEmulation)
 prep_ITT_data <- data_preparation(
-  data = simdata,
+  data = obsdata2,
   id = "id", period = "time", treatment = "A",
   outcome = "Y", eligible = "eligible", # Exclude data before a patient becomes eligible
   estimand_type = "ITT",
@@ -322,16 +368,16 @@ dt=dt%>%rename(X1_0=X1,X2_0=X2, X3_0=X3, X4_0=X4, age_0=age )%>%
 ```
 Below we compare the data sets prepared by the two ways.
 ```{r}
-table(dt$trial_period==simdata.all.trials$trial_period)
-table(dt$id==simdata.all.trials$id)
-table(dt$followup_time==simdata.all.trials$followup_time)
-table(dt$treatment==simdata.all.trials$treatment)
-table(dt$outcome==simdata.all.trials$outcome)
-table(dt$age_0==simdata.all.trials$age_0)
-table(dt$X1_0==simdata.all.trials$X1_0)
-table(dt$X2_0==simdata.all.trials$X2_0)
-table(dt$X3_0==simdata.all.trials$X3_0)
-table(dt$X4_0==simdata.all.trials$X4_0)
+table(dt$trial_period==obsdata2.all.trials$trial_period)
+table(dt$id==obsdata2.all.trials$id)
+table(dt$followup_time==obsdata2.all.trials$followup_time)
+table(dt$treatment==obsdata2.all.trials$treatment)
+table(dt$outcome==obsdata2.all.trials$outcome)
+table(dt$age_0==obsdata2.all.trials$age_0)
+table(dt$X1_0==obsdata2.all.trials$X1_0)
+table(dt$X2_0==obsdata2.all.trials$X2_0)
+table(dt$X3_0==obsdata2.all.trials$X3_0)
+table(dt$X4_0==obsdata2.all.trials$X4_0)
 ```
 We see that all are TRUE, so the two data sets are the same.
 Now we can use the data for analysis.
@@ -348,7 +394,7 @@ if (length(trial_files) > 0) {
 }
 
 prep_ITT_data <- data_preparation(
-   data = simdata,
+   data = obsdata2,
    id = "id", period = "time", treatment = "A",
    outcome = "Y", eligible = "eligible",
    estimand_type = "ITT",
@@ -374,18 +420,18 @@ model_cens_pool_n=prep_ITT_data$censor_models$cens_pool_n # Pooled numerator mod
 # Denominator models for different treatment arms:
 model_cens_d0=prep_ITT_data$censor_models$cens_d0
 model_cens_d1=prep_ITT_data$censor_models$cens_d1
-simdata.one.trial=simdata.one.trial%>%mutate(C_neg=1-C) # Not censored???
-fit.pooled.n=glm(C_neg~X3+X4, data=simdata.one.trial, family = "binomial")
+obsdata5=obsdata5%>%mutate(C_neg=1-C) # Not censored???
+fit.pooled.n=glm(C_neg~X3+X4, data=obsdata5, family = "binomial")
 fit.pooled.n
 model_cens_pool_n
 #fit.pooled.n and model_cens_pool_n are the same
 
-simdata.one.trial=simdata.one.trial%>%group_by(id) %>%mutate(prev_A=lag(A, default=0)) %>%
+obsdata5=obsdata5%>%group_by(id) %>%mutate(prev_A=lag(A, default=0)) %>%
   ungroup() 
-fit.d0=glm(C_neg~X1+X2+X3+X4+age_s, data=simdata.one.trial%>%filter(prev_A==0), family = "binomial")
+fit.d0=glm(C_neg~X1+X2+X3+X4+age_s, data=obsdata5%>%filter(prev_A==0), family = "binomial")
 fit.d0
 model_cens_d0
-fit.d1=glm(C_neg~X1+X2+X3+X4+age_s, data=simdata.one.trial%>%filter(prev_A==1), family = "binomial")
+fit.d1=glm(C_neg~X1+X2+X3+X4+age_s, data=obsdata5%>%filter(prev_A==1), family = "binomial")
 fit.d1
 model_cens_d1
 
@@ -421,7 +467,7 @@ Below we will illustrate how to create the data set for per-protocol analysis us
 # Prepare data for per-protocol analysis by adjusting for treatment switching and censoring
 # Fit models for both treatment switching (numerator and denominator) and censoring (numerator and denominator).
 prep_PP_data <- data_preparation(
- data = simdata,
+ data = obsdata2,
  id = "id", period = "time", treatment = "A",
  outcome = "Y", eligible = "eligible",
  estimand_type = "PP",
@@ -451,55 +497,55 @@ Check how these models are fitted
 #model.pp.cens.n=readRDS("/Users/kevinying/TTEvignette/cense_model_d0.rds")
 model.pp.cens.n=readRDS(file.path(working_dir, "cense_model_pool_n.rds"))
 dt.pp.cens.n=model.pp.cens.n$data
-check.cens.n=simdata.one.trial%>%left_join(dt.pp.cens.n%>%mutate(flag=1,time=period)%>%select(id,time,flag))
+check.cens.n=obsdata5%>%left_join(dt.pp.cens.n%>%mutate(flag=1,time=period)%>%select(id,time,flag))
 check.cens.n%>%filter(id==6)
-simdata%>%filter(id==6)
+obsdata2%>%filter(id==6)
 
 #model.pp.cens.d0=readRDS("/Users/kevinying/TTEvignette/cense_model_d0.rds")
 model.pp.cens.d0=readRDS(file.path(working_dir, "cense_model_d0.rds"))
 dt.pp.cens.d0=model.pp.cens.d0$data
-check.cens.d0=simdata.one.trial%>%left_join(dt.pp.cens.d0%>%mutate(flag=1,time=period)%>%select(id,time,flag))
+check.cens.d0=obsdata5%>%left_join(dt.pp.cens.d0%>%mutate(flag=1,time=period)%>%select(id,time,flag))
 check.cens.d0%>%filter(id==6)
-simdata%>%filter(id==6)
+obsdata2%>%filter(id==6)
 
 #model.pp.cens.d1=readRDS("/Users/kevinying/TTEvignette/cense_model_d1.rds")
 model.pp.cens.d1=readRDS(file.path(working_dir, "cense_model_d1.rds"))
 dt.pp.cens.d1=model.pp.cens.d1$data
-check.cens.d1=simdata.one.trial%>%left_join(dt.pp.cens.d1%>%mutate(flag=1,time=period)%>%select(id,time,flag))
+check.cens.d1=obsdata5%>%left_join(dt.pp.cens.d1%>%mutate(flag=1,time=period)%>%select(id,time,flag))
 check.cens.d1%>%filter(id==6)
-simdata%>%filter(id==6)
+obsdata2%>%filter(id==6)
 
 prep_PP_data$switch_models$switch_n0
 #model.pp.switch.n0=readRDS("/Users/kevinying/TTEvignette/weight_model_switch_d0.rds")
 model.pp.switch.n0=readRDS(file.path(working_dir, "weight_model_switch_n0.rds"))
 dt.pp.switch.n0=model.pp.switch.n0$data
-check.switch.n0=simdata.one.trial%>%left_join(dt.pp.switch.n0%>%mutate(flag=1,time=period)%>%select(id,time,flag))
+check.switch.n0=obsdata5%>%left_join(dt.pp.switch.n0%>%mutate(flag=1,time=period)%>%select(id,time,flag))
 check.switch.n0%>%filter(id==6)
-simdata%>%filter(id==6)
+obsdata2%>%filter(id==6)
 
 prep_PP_data$switch_models$switch_n1
 #model.pp.switch.n1=readRDS("/Users/kevinying/TTEvignette/weight_model_switch_d1.rds")
 model.pp.switch.n1=readRDS(file.path(working_dir, "weight_model_switch_n1.rds"))
 dt.pp.switch.n1=model.pp.switch.n1$data
-check.switch.n1=simdata.one.trial%>%left_join(dt.pp.switch.n1%>%mutate(flag=1,time=period)%>%select(id,time,flag))
+check.switch.n1=obsdata5%>%left_join(dt.pp.switch.n1%>%mutate(flag=1,time=period)%>%select(id,time,flag))
 check.switch.n1%>%filter(id==6)
-simdata%>%filter(id==6)
+obsdata2%>%filter(id==6)
 
 prep_PP_data$switch_models$switch_d0
 #model.pp.switch.d0=readRDS("/Users/kevinying/TTEvignette/weight_model_switch_d0.rds")
 model.pp.switch.d0=readRDS(file.path(working_dir, "weight_model_switch_d0.rds")) 
 dt.pp.switch.d0=model.pp.switch.d0$data
-check.switch.d0=simdata.one.trial%>%left_join(dt.pp.switch.d0%>%mutate(flag=1,time=period)%>%select(id,time,flag))
+check.switch.d0=obsdata5%>%left_join(dt.pp.switch.d0%>%mutate(flag=1,time=period)%>%select(id,time,flag))
 check.switch.d0%>%filter(id==6)
-simdata%>%filter(id==6)
+obsdata2%>%filter(id==6)
 
 prep_PP_data$switch_models$switch_d1
 #model.pp.switch.d1=readRDS("/Users/kevinying/TTEvignette/weight_model_switch_d1.rds")
 model.pp.switch.d1=readRDS(file.path(working_dir, "weight_model_switch_d1.rds"))
 dt.pp.switch.d1=model.pp.switch.d1$data
-check.switch.d1=simdata.one.trial%>%left_join(dt.pp.switch.d1%>%mutate(flag=1,time=period)%>%select(id,time,flag))
+check.switch.d1=obsdata5%>%left_join(dt.pp.switch.d1%>%mutate(flag=1,time=period)%>%select(id,time,flag))
 check.switch.d1%>%filter(id==6)
-simdata%>%filter(id==6)
+obsdata2%>%filter(id==6)
 ```
 
 ```{r}
@@ -513,7 +559,7 @@ for (i in 1:length(prep_PP_data$data)) {
 dt.pp=dt.pp%>%mutate(time=trial_period+followup_time)%>%arrange(id,time)
 ck=dt.pp[!duplicated(dt.pp%>%select(id,time)),]
 
-data_censored_simp_PP <- simdata.one.trial %>%
+data_censored_simp_PP <- obsdata5 %>%
   mutate(time = time + 1) %>%
   dplyr::rename(month = time, event = Y, LTFU = C, treatment=A, prev_treatment=prev_A) %>%
   dplyr::select( id, month,assigned_treatment, treatment,prev_treatment, X1,X2,X3,X4,age_s,event,LTFU) 
