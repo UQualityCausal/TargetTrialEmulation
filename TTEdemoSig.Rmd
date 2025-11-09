@@ -85,14 +85,14 @@ Suppose we are interested in comparing the effectiveness of ARB versus ACEI anti
 
 - **Step 2: Clarify study design**
   - Our example uses an observational, new-user, active comparator, retrospective cohort design. Thanks to the active-comparator design, the time zero for both treatment groups is straightforward, that is, the time of initiating ARBs or ACEIs. Therefore, we only need to **emulate a single trial**
-  - In contrast, in a placebo-control design, subjects in the control group may meet the eligibility criteria multiple times, so **emulating a sequence of trials** may be needed especially with a small sample size or low event rate. We will explain how to implement TTE for [a placebo-control design](https://github.com/UQualityCausal/TargetTrialEmulation/TTEdemoSeq.html) using the _TrialEmulation_ R package [@Danaei2013]
+  - In contrast, in a placebo-control design, subjects in the control group may meet the eligibility criteria multiple times, so **emulating a sequence of trials** may be needed especially with a small sample size or low event rate. We will explain how to implement TTE for [a placebo-control design](https://uqualitycausal.github.io/TTECausalR/TTEdemoSeq.html) using the _TrialEmulation_ R package [@Danaei2013]
 
 - **Step 3: Build a data set that fits the purpose of the study**
   - A data set can be used to answer these questions with minimal bias
   - It is a false believe that one data set can be used to answer any questions. 
   - To build a fit-for-purpose dataset, we demonstrate how to implement TTE framework with observational data through manual coding.  
 
-Before we begin, we import a simulated observational dataset representing patients with hypertension who are followed over time to compare the risk of incident cardiovascular disease (CVD) under ACEI versus ARB treatment. The dataset includes baseline covariates, time-varying covariates, treatment, and outcome indicators, allowing us to demonstrate the implementation of TTE and causal inference methods in a realistic longitudinal setting. For details on data-generating mechanism and parameter settings, please refer to the [data simulation function](https://github.com/UQualityCausal/TargetTrialEmulation/generateObsData.R).
+Before we begin, we import a simulated observational dataset representing patients with hypertension who are followed over time to compare the risk of incident cardiovascular disease (CVD) under ACEI versus ARB treatment. The dataset includes baseline covariates, time-varying covariates, treatment, and outcome indicators, allowing us to demonstrate the implementation of TTE and causal inference methods in a realistic longitudinal setting. For details on data-generating mechanism and parameter settings, please refer to the [data simulation function](https://github.com/UQualityCausal/TargetTrialEmulation/blob/main/generateObsData.R).
 ```{r}
 # Load data
 obsdata <- readRDS("obsdata.rds")
@@ -187,14 +187,15 @@ obsdata3 <- obsdata2 %>%
 - Formally, we assume treatment assignment is independent of the CVD outcome conditional on all the baseline covariates mentioned above, i.e., conditional changeability assumption
 - We mostly worry about the baseline covariates that impact treatment assignment and outcome and they are called **confounders**
 - The conditional changeability assumption becomes more plausible as more confounders are measured and considered though we can never verify the assumption completely holds true
-- We will demonstrate how to restore the conditional changeability using causal inference methods in the tutorial of [Intetion-to-treat Analysis](https://github.com/UQualityCausal/TargetTrialEmulation/IntentionToTreat.html).
+- We will demonstrate how to restore the conditional changeability using causal inference methods in the tutorial of [Intetion-to-treat Analysis](https://uqualitycausal.github.io/TTECausalR/IntentionToTreat.html).
 
 
 **Components 4 & 5: Follow-up and Outcome**
 
 - The start of follow-up or time zero ($T_0$) is when individuals first become eligible and initiate ARB or ACEI
 - In our long-format data, the follow-up at each month is the number of months being followed up to the current month
-- In an one-row-per-patient data (?? I think we need a version of this), the end of follow-up is the time of CVD event, death, loss-to-follow-up, or the end of the study, whichever occurs first 
+- In an one-row-per-patient data (?? I think we need a version of this), the end of follow-up is the time of CVD event, death, loss-to-follow-up, or the end of the study, whichever occurs first
+- ?? It is a good practice to prespecify a **index window**, say 01/01/2017 - 01/01/2020, and a study period say 01/01/2017 - 01/01/2024, so that individuals are followed up for a sufficient amount of time, i.e., 4 years
 ```{r}
 obsdata4 <- obsdata3 %>%
   mutate(follow_up = time - first_eligible_time) %>% # 

@@ -12,7 +12,7 @@
 
 <meta name="author" content="Kevin Ying, Peirong Hao, Yizhe Xu*" />
 
-<meta name="date" content="2025-11-08" />
+<meta name="date" content="2025-11-09" />
 
 <title>Target Trial Emulation</title>
 
@@ -363,7 +363,7 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 
 <h1 class="title toc-ignore">Target Trial Emulation</h1>
 <h4 class="author">Kevin Ying, Peirong Hao, Yizhe Xu*</h4>
-<h4 class="date">2025-11-08</h4>
+<h4 class="date">2025-11-09</h4>
 
 
 
@@ -525,7 +525,7 @@ time of initiating ARBs or ACEIs. Therefore, we only need to
 group may meet the eligibility criteria multiple times, so
 <strong>emulating a sequence of trials</strong> may be needed especially
 with a small sample size or low event rate. We will explain how to
-implement TTE for <a href="https://github.com/UQualityCausal/TargetTrialEmulation/TTEdemoSeq.html">a
+implement TTE for <a href="https://uqualitycausal.github.io/TTECausalR/TTEdemoSeq.html">a
 placebo-control design</a> using the <em>TrialEmulation</em> R package
 <span class="citation">(<a href="#ref-Danaei2013">Danaei et al.
 2013</a>)</span></li>
@@ -548,7 +548,7 @@ versus ARB treatment. The dataset includes baseline covariates,
 time-varying covariates, treatment, and outcome indicators, allowing us
 to demonstrate the implementation of TTE and causal inference methods in
 a realistic longitudinal setting. For details on data-generating
-mechanism and parameter settings, please refer to the <a href="https://github.com/UQualityCausal/TargetTrialEmulation/generateObsData.R">data
+mechanism and parameter settings, please refer to the <a href="https://github.com/UQualityCausal/TargetTrialEmulation/blob/main/generateObsData.R">data
 simulation function</a>.</p>
 <div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a><span class="co"># Load data</span></span>
 <span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a>obsdata <span class="ot">&lt;-</span> <span class="fu">readRDS</span>(<span class="st">&quot;obsdata.rds&quot;</span>)</span>
@@ -734,7 +734,7 @@ assignment and outcome and they are called
 more confounders are measured and considered though we can never verify
 the assumption completely holds true</li>
 <li>We will demonstrate how to restore the conditional changeability
-using causal inference methods in the tutorial of <a href="https://github.com/UQualityCausal/TargetTrialEmulation/IntentionToTreat.html">Intetion-to-treat
+using causal inference methods in the tutorial of <a href="https://uqualitycausal.github.io/TTECausalR/IntentionToTreat.html">Intetion-to-treat
 Analysis</a>.</li>
 </ul>
 <p><strong>Components 4 &amp; 5: Follow-up and Outcome</strong></p>
@@ -746,6 +746,10 @@ of months being followed up to the current month</li>
 <li>In an one-row-per-patient data (?? I think we need a version of
 this), the end of follow-up is the time of CVD event, death,
 loss-to-follow-up, or the end of the study, whichever occurs first</li>
+<li>?? It is a good practice to prespecify a <strong>index
+window</strong>, say 01/01/2017 - 01/01/2020, and a study period say
+01/01/2017 - 01/01/2024, so that individuals are followed up for a
+sufficient amount of time, i.e., 4 years</li>
 </ul>
 <div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a>obsdata4 <span class="ot">&lt;-</span> obsdata3 <span class="sc">%&gt;%</span></span>
 <span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">follow_up =</span> time <span class="sc">-</span> first_eligible_time) <span class="sc">%&gt;%</span> <span class="co"># </span></span>
