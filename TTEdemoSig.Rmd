@@ -1,7 +1,7 @@
 
 ---
 title: "Target Trial Emulation"
-author: "Kevin Ying, Peirong Hao, Yizhe Xu*"
+author: "Peirong Hao, Kevin Ying, Adam Bress, Tom Greene, Yizhe Xu*"
 date: "`r Sys.Date()`"
 output: rmarkdown::html_vignette
 bibliography: reference_ITT.bib  

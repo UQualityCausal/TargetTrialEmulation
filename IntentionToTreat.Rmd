@@ -1,6 +1,6 @@
 ---
 title: "A new-user, active comparator design; Intention-to-treat analysis"
-author: "Peirong Hao, Kevin Ying, Yizhe Xu"
+author: "Peirong Hao, Kevin Ying, Adam Bress, Tom Greene, Yizhe Xu*"
 date: "`r Sys.Date()`"
 output: rmarkdown::html_vignette
 bibliography: reference_ITT.bib  
@@ -20,35 +20,11 @@ knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>"
 )
-options(warn = -1) # Ignore all warnings
+options(warn = -1) 
 ```
 
-# Introduction
-
-The *intention-to-treat (ITT)* effect estimates the causal effect of initiating treatment regardless of patients adhere to their initial treatment or not.
-It estimates the difference in potential outcomes, which defined as the risk it would be if all individuals had been assigned to the treatment versus the control group, regardless of subsequent adherence to the assigned treatment.
-The *per-protocol (PP)* effect considers the sustained treatment effect on outcome from trial baseline, which is discussed in a separate vignette (add link).
-Identification of the ITT effect in observational studies relies on four assumptions listed below.
-
-### 1. No Interference
-
-One individual’s treatment assignment does not affect other individuals’ outcomes.
-
-### 2. Consistency
-
-The observed outcome is the potential outcome under the treatment one actually received.
-
-### 3. Positivity
-
-Every individual has a non-zero probability of receiving each treatment strategy.
-
-### 4. Conditional Exchangebility
-
-Treatment and outcome are assumed to be independent conditional on all measured confounders, under the assumption that all variables affecting both treatment assignment and outcome have been measured.
-
-## Load packages
-
 ```{r, message = FALSE, warning = FALSE}
+## Load packages
 library(TrialEmulation)
 library(dplyr)
 library(tidyr)
@@ -65,172 +41,125 @@ knitr::opts_knit$set(root.dir = working_dir)
 set.seed(412)
 ```
 
-## Simulate observational data
+# Introduction
 
-In this section, we simulate observational data that will be used in the next section for emulating target trials.
+The **intention-to-treat (ITT)** analysis estimates the effects of initiating one treatment versus another on an outcome of interest regardless of the subsequent adherence to the assigned treatment. In contrast, the **per-protocol (PP)** analysis estimates the effects of _initiating and continuously adhering to the initial treatment_, which is discussed in the [Per-protocol Analysis tutorial](https://uqualitycausal.github.io/TTECausalR/PerProtocol.html). 
 
-```{r, message=FALSE}
-# Load pre-built R function for simulating data
-source("generate_data_ITT.R")
 
-# Simulate data for n=1,000 eligible subjects over J=10 time points
-simdata0 <- generate.final.data(n=1000, J=10, n_ineligible=100) # 100 ineligible subjects never initiate treatment
-simdata <- simdata0 %>% select(id, Time, X1, X2, X3, X4, Age, A, Y, C) 
-# -----------------------------
-# Data Dictionary:
-# id: Subject identifier
-# Time: Follow-up time in years, starts from 0 (baseline) to 9 (end of the study)
-# X1: Time-varying categorical variable
-# X2: Time-varying numeric variable
-# X3: Fixed categorical variable
-# X4: Fixed numeric variable 
-# Age: Subject's age
-# A: Treatment indicator (0=one treatment, 1=another treatment)
-# Y: Outcome indicator (0=no event, 1=event occurred)
-# C: Censoring indicator (0=not censored, 1=censored). Note that censoring occurs in two scenarios: 
-### 1) administrative censoring, when participants are followed through
-###    until the study end time but do not develop an event.
-### 2) early dropout, when participants leave the study before developing 
-###    an event or the end of study.
-# -----------------------------
-summary(simdata$Time)
-```
+## Modern causal inference
+Counterfactual framework is the foundation of modern causal inference and it defines causal effects as the contrast in potential outcomes. Let us use the research question from @Hernn2016 as an example: 
 
-# Target Trial Emulation
-
-We need to specify the target trial we want to emulate and that would answer our research questions of interst before we build the dataset.
-Below, we present a side-by-side illustration of how to specify a hypothetical target trial and how to emulate such a trial using observational data, i.e., emulated target trial.
-The emulation process has several key components and we will go through each of them.
-In this emulation example, we estimate the ITT effect of ARB versus ACEI on all cause mortality.
-
-### Target Trial Design Table
-
-+--------------------------+-----------------------------------------------------------------------------------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------+
-| **Component**            | **Hypothetical Target Trial**                                                                                               | **Emulated Target Trial**                                                                                                                        |
-+==========================+=============================================================================================================================+==================================================================================================================================================+
-| **Eligibility Criteria** | 1.  Age ≥ 18 years.                                                                                                         | Same but with the following: Patients did not use ARB or ACEI in the past two years according to recorded data.                                  |
-|                          |                                                                                                                             |                                                                                                                                                  |
-|                          | 2.  No history of ARB or ACEI use.                                                                                          |                                                                                                                                                  |
-+--------------------------+-----------------------------------------------------------------------------------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------+
-| **Treatment Strategies** | One group initiates ACEI treatment, while the other group initiates ARB.                                                    | Classify patients as ACEI initiators vs. ARB initiators.                                                                                         |
-+--------------------------+-----------------------------------------------------------------------------------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------+
-| **Treatment Assignment** | Subjects are randomly assigned to ARB or ACEI and aware of the treatment assignment.                                        | Assignment is based on observed ARB or ACEI initiation using observed data. Randomization is emulated using propensity score weighting approach. |
-+--------------------------+-----------------------------------------------------------------------------------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------+
-| **Follow-up**            | Participants are followed from randomization until the earliest occurrence of: death, loss to follow-up, or study end date. | From treatment initiation until the earliest of: death, loss to follow-up, or study end date.                                                    |
-+--------------------------+-----------------------------------------------------------------------------------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------+
-| **Outcome**              | All-cause mortality.                                                                                                        | Same.                                                                                                                                            |
-+--------------------------+-----------------------------------------------------------------------------------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------+
-| **Causal Contrast**      | ITT effect of initiating ARB vs. ACEI on the risk of death.                                                                 | Observational analog.                                                                                                                            |
-+--------------------------+-----------------------------------------------------------------------------------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------+
-| **Statistical Analysis** | ITT analysis estimating risk differences at 5 and 8 years between treatment groups.                                         | Same, but apply propensity score weighting approach to account for baseline confounding by indication.                                           |
-+--------------------------+-----------------------------------------------------------------------------------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------+
-
-We now prepare an analysis-ready dataset using the simulated observational data by emulating the hypothetical randomized trial specified above.
-First, we create an eligibility indicator, denoted as $E$, based on the criteria defined under the first key component.
-
-```{r}
-simdata <- simdata %>%
-  group_by(id) %>%
-  filter((max(Time) - min(Time)) >= 2) %>% # Have at least two years of recorded data
-  ungroup()                    
+- What is the effect of hormone therapy on the 5-year risk of breast cancer among postmenopausal women? 
+- Note that this is a causal question rather than an associational question since we are interested in contrasting the outcomes under two hypothetical scenarios
+- At the individual level, the potential outcomes $Y(1)$ and $Y(0)$ under two treatment are the outcomes that would be observed if the subject had taken hormone therapy and had never taken the hormone therapy, respectively. The contrast in the potential outcomes, either on the absolute difference scale or relative scale, is referred to as **individual causal effect** (ITE)
+- In comparison, at the population level, the potential mean outcomes $E[Y(1)]$ and $E[Y(0)]$ under two treatment are the average of the outcomes that would be observed if all subjects had taken hormone therapy and had never taken the hormone therapy, respectively. The contrast in these potential outcomes is referred to as **average causal effect** (ATE)
+- For both ITE and ATE, if the potential outcomes under the two treatment are the same, then there is no causal effect; otherwise, this is a causal effect
   
-# Eligibility indicator E is binary (1=eligible, 0=not eligible)
-# lag(A) gives the treatment status from 1 period ago, lag(A, 2) is from 2 periods ago.
-simdata <- simdata %>%
-  group_by(id) %>%
-  mutate(E = case_when(
-      # First two observations per ID are not eligible
-      Time <= (min(Time) + 1) ~ NA, 
-      # At least 18 years old, have not experienced outcome of interest/censoring
-      .default = as.integer(Age >= 18 & cumsum(Y) == 0 & cumsum(C) == 0 & 
-                           (lag(A) + lag(A, 2)) == 0))) %>% 
-  ungroup()
-```
+  ![](documents/causal_effect.png){width=75%}
+  
+## The fundamental problem of counterfactual framework 
+For an individual, we can only observe the outcome under one scenario, either under hormone therapy or no hormone therapy, **but not both**. Although this is an obstacle at the individual level, we can resolve this barrier at the population level: 
 
-Let us examine how eligibility changes over time using the first subject as an example.
+- Consider an ideal randomized control trial (RCT) where patients are perfectly randomized to hormone therapy versus usual care treatment 
+- Under this set up, it is reasonable to say that patients from either treatment group can represent all the patients in the study since there is no difference in patient characteristics between treatment groups, thanks to randomization 
+- Given this, the mean outcome in the hormone therapy group equals to the potential outcome had everyone in the study taken hormone therapy. Similarly, the mean outcome in the usual care group equals to the potential outcome had everyone in the study never taken usual care
+
+  ![](documents/RCT_fig.png){width=60%}
+- Thus, we can observe both potential outcomes at the population level under an RCT design and estimate causal effects. This is a main reason why RCT is the gold standard for comparative effectiveness research (CER) 
+
+
+## From randomized control trials to observational studies
+Many researchers think observational data is messy and a more challenging place to find reliable evidence, so let us summarize the advantages and disadvantages of RCTs and observational studies on a list of key considerations of a study below:
+
+|  | Randomized Control Trial | Observational Study |
+|:---|:---:|:---:|
+| Time Zero | Clear and straightforward: Randomization | Not straightforward |
+| Selection Bias | Some is prevented, e.g., prevalent user bias | Exist if eligibility, treatment initiation, and start of follow up are misaligned |
+| Immortal-time bias | No | Yes if eligibility, treatment initiation, and start of follow up are misaligned |
+| Confounding Bias | No | Yes |
+| Missing Data | Less | More |
+| Measurement Error | Less | More |
+| Statistical Power | Limited | Rich |
+| Patient Information | Limited | Rich |
+| Generalizability | Limited | More generalizable |
+| Cost | Millions of dollars | Existing data |
+| Follow-up Time | Limited: 0.5-5 years | Long-term: 10-20 years |
+| Ethical Concerns | More | Much Less |
+
+According to the summary above, I argue that high-quality observational studies can complement findings from RCTs and provide actionable
+evidence when conducted robustly. Here are the reasons:
+
+- We explained in our [previous tutorials](https://uqualitycausal.github.io/TTECausalR/TTEdemoSig.html) that by emulating a target trial, either an existing or hypothetical trial, we are able to clearly define time zero of the study and align patient eligibility, treatment initiation, and start of follow up, leading to minimized selection bias and immortal time bias 
+- We have established data cleaning pipelines and statistical methods to handle missing data and measurement error 
+- Large-scale electronic health records (EHRs), as one of the main resource of observational data, provides much richer power than RCTs
+- RCTs are typically powered for primary estimand, e.g., average treatment effects, so study treatment effect heterogeneity using RCT data is challenging. This is where observational data can complement 
+- EHR data captures rich patient information on demographics, disease history, lab results, comorbidities, and so on 
+- EHR captures a much wider study population, from patients with minor health issues to patients in severe disease conditions, while RCTs often have strict eligibility criteria and exclude patients who are too sick 
+- RCTs cost several millions of dollars to run while EHR data already exists
+- Primarily due to the high cost of RCTs, participants are often follow up for a limited time, while EHR data includes patient's records for decades
+- In many situation, RCTs are not feasible due to ethical concerns, while EHR data captures a wide range of exposures and health events that occur naturally over a patient’s life course
+- @Wang2023 carefully emulated 32 RCTs using observational data
+  - Overall observed agreement between the RCT and the database emulation results was a Pearson correlation of 0.82 (95\%CI, 0.64-0.91), with 75% meeting statistical significance, 66% estimate agreement, and 75% standardized difference agreement
+  
+## Conduct high-quality observational studies
+To leverage observational data for estimating causal treatment effects, we need to make the following **identifibility assumptions**:
+
+- Stable Unit Treatment Value Assumption (SUTVA) 
+  - Treatment variation irrelevance and no interference, i.e., $Y_i(a_1, m_1, ..., a_n, m_n) = Y_i(a_i)$ 
+  - One individual’s outcomes $Y_i$ are not affected by others' treatment assignment $a_j$ and the mode treatment is delivered $m_j$, with $j \neq i$.
+- Consistency
+  - The potential outcome under the actual treatment is the same as the observed outcome, i.e., $Y_i(a_i) = Y_i$ if $A_i = a_i$
+- Positivity
+  - There are individuals in the treatment and control arms for every covariate space exist in the study population, i.e., $0<\pi<1$, where $\pi$ is the probability of receving the treatment
+- **Conditional Exchangeability**
+  - Treatment and potential outcomes are independent conditional on measured confounders $X$, under the assumption that all variables affecting both treatment assignment and outcome are included in $X$, i.e., $A \perp \{Y(1), Y(0)\}|X$
+  - Patients are exchangeable in each stratum defined by $X$ 
+  - Failing to statisfy conditional exchangeability is commonly referred to as _confounding by indication_ or _endogeneity_. 
+
+## Causal inference methods for restoring conditional exchangeability
+Various propensity score methods, including matching, weighting, stratification, regression, doubly robust methods [@VanDerLaan2006, @Wager2018], marginal structural models, are widely used to estimate ATEs and they well explained by @Hernan2020. We focus on the **inverse probability (IP) of treatment weighting** approach [@Horvitz1952] here and defer other methods to future tutorials:
+
+- Propensity score (PS) is defined as the probability of assigning the treatment given covariates, i.e., $\pi = P(A=1|X)$
+- The main idea is using the PSs to weigh the observed outcomes for each treatment group
+- IP weights: $\frac{1}{\pi}$ for treated units and $\frac{1}{1-\pi}$ for control units
+- The output of this weighting process is a pseudo-population where treatment assignment is random given $X=x$
+- Within this pseudo-population, we estimate the ATE as $\hat{\tau}_{\mathrm{ATE}} = \frac{1}{N}\sum_i^N \left(\frac{Y_iA_i}{\pi_i}-\frac{Y_i (1-A_i)}{1-\pi_i}\right)$
+
+
+## Implementation of intention-to-treat analysis
+Recall our previous example that aims to compare the effectiveness of ARB versus ACEI anti-hypertensive medications on reducing the risk of cardiovascular disease (CVD). 
+
+![](documents/sidebysideTTE.png){width=95%}
+
+We emulated the target trial specified in **Table 1** and prepared the dataset in the [single-trial emulation session](https://uqualitycausal.github.io/TTECausalR/TTEdemoSig.html). Thus, we directly load the pre-processed data. 
 
 ```{r}
-simdata %>%
-  filter(id == 1) %>%
-  select(id, Time, Age, A, Y, C, E)
+obsdata5 <- readRDS("obsdata5.rds")
+attr(obsdata5$X1_0, "label") <- "Baseline value of X1"
+attr(obsdata5$X2_0, "label") <- "Baseline value of X2"
+attr(obsdata5$X3_0, "label") <- "Baseline value of X3"
+attr(obsdata5$X4_0, "label") <- "Baseline value of X4"
+attr(obsdata5$age_0, "label") <- "Baseline value of age"
+
+get_label <- function(x) {
+  lbl <- attr(x, "label", exact = TRUE)
+  if (is.null(lbl)) "" else as.character(lbl)
+}
+
+dict <- data.frame(
+  Variable = names(obsdata5),
+  Meaning  = vapply(obsdata5, get_label, character(1)),
+  check.names = FALSE
+)
+
+knitr::kable(dict, caption = "Data Dictionary", row.names = FALSE)
 ```
 
-Subject 1's eligibility status over time:
-
--   Time -5 to -1: Not eligible due to missing historical treatment data.
--   Time 0 to 1: Not eligible due to fewer than 2 years of historical treatment data.
--   Time 2 to 7: Still not eligible. ARB treatment within the previous 2 years.
--   Time 8 to 9: Eligible because satisfies all criteria.
-
-The next step is to identify all individuals who were ever eligible and record the first time they met the eligibility criteria.
-
-```{r}
-eligible_info <- simdata %>%
-  group_by(id) %>%
-  summarise(ever_eligible = any(E == 1, na.rm = TRUE),
-            first_eligible_time = ifelse(any(E == 1, na.rm = TRUE),
-                                min(Time[E == 1], na.rm = TRUE), NA),
-            .groups = 'drop') 
-```
-
-In this data, 360 subjects are eligible.
-
-```{r}
-table(eligible_info$ever_eligible)
-```
-
-We now add the eligibility information to our main dataset.
-
-```{r}
-simdata <- simdata %>%
-  left_join(eligible_info, by = "id") 
-```
-
-In our example, follow-up begins at the time of patients become eligible and initiate ACEI or ARB.
-
-```{r}
-simdata.one.trial <- simdata %>% # Only include eligible times
-  filter(ever_eligible == TRUE & Time >= first_eligible_time) %>% 
-  mutate(follow_up = Time - first_eligible_time) %>% # Time since first eligibility
-  select(-ever_eligible, -first_eligible_time, -E)
-
-baseline <- simdata.one.trial %>% 
-  filter(follow_up == 0) %>% # Baseline is first eligible time
-  select(id, A, X1, X2, X3, X4, Age) %>% # Baseline treatment and covariate values
-  rename(assigned_treatment = A, X1_0 = X1, X2_0 = X2, 
-         X3_0 = X3, X4_0 = X4, Age_0 = Age) 
-
-simdata.one.trial <- simdata.one.trial %>%
-  filter(follow_up > 0) %>% # Exclude baseline info
-  select(-c(X3, X4)) %>% # Exclude fixed covariates
-  left_join(baseline, by = "id") %>% # Merge baseline information as columns
-  arrange(id, follow_up)
-```
-
-The appropriate statistical analysis depends on the censoring mechanisms:
-
-### Scenario 1: Non-informative Censoring
-
--   Example: Observational study where early dropout is independent of patient characteristics.
-
--   Method: 1) Inverse probability (IP) weighting of propensity score to account for baseline confounding, and 2) IP-weighted cox model to estimate hazard ratio or risk difference.
-
-### Scenario 2: Informative Censoring
-
--   Example: Observational study with sicker patients drop out early.
-
--   Method: 1) IP weighting of propensity score, 2) IP of censoring weighting (IPCW), and 3) weighted pooled logistic regression using both baseline treatment and censoring weights.
-
-Below, we demonstrate the analysis for each of the 2 scenarios.
-
-## Scenario 1: Non-informative Censoring
-
--   Step 1 Data Preparation: Convert long format data (multiple rows per subject) to wide format (one row per subject), retaining baseline covariates, treatment variable, follow-up time, and outcome status.
-
+We now convert the long format data (multiple rows per subject) to wide format (one row per subject), retaining baseline covariates, treatment variable, follow-up time, and outcome status
 ```{r}
 # Find event/censoring time (min time of the two) for subjects who experience it 
 # Find follow-up time (max time) for subjects who never experience event/censoring 
-simdata.short <- simdata.one.trial %>%
+obsdata6 <- obsdata5 %>%
   group_by(id) %>%
   summarise(
     event_or_cens = any(Y == 1 | C == 1, na.rm = TRUE),
@@ -239,36 +168,47 @@ simdata.short <- simdata.one.trial %>%
                        max(follow_up, na.rm = TRUE)),
     outcome = ifelse(any(Y == 1 & C == 0, na.rm = TRUE), 1, 0), 
     .groups = "drop") %>%
-  left_join(simdata.one.trial, by = c("id", "follow_up")) %>%
-  select(id, assigned_treatment, X1_0, X2_0, X3_0, X4_0, Age_0, follow_up, outcome) %>%
+  left_join(obsdata5, by = c("id", "follow_up")) %>%
+  select(id, assigned_treatment, X1_0, X2_0, X3_0, X4_0, age_0, follow_up, outcome) %>% #?? I think X3_0 and X4_0 are duplicate of X3 and X4, can we simplify?
   arrange(id)
 
 # Check if all subjects are included
-setequal(unique(simdata.one.trial$id), unique(simdata.short$id))
+setequal(unique(obsdata5$id), unique(obsdata6$id))
 ```
 
--   Step 2 Treatment Weights: Estimate propensity scores, i.e., the probabilities of initiating ARB using logistic regression with baseline covariates as predictors. Compute unstabilized IP of treatment weights (IPTW) as one over propensity scores. We evaluate covariate balance using the absolute standardized mean difference (ASMD) metric and examine overlap of treatment by visualizing the distributions of propensity score between two treatment groups.
+In a time-to-event outcome analysis, the censoring mechanism for individuals who dropped out early plays an important role in deciding the appropriate statistical analysis. We consider the two scenarios below:
 
+- **Non-informative Censoring**: Early dropout is completely at random
+- **Informative Censoring**: Early dropout is at random conditional on patients' pre- and post-treatment characteristics
+
+Below, we demonstrate the analysis procedures step-by-step for each scenario.
+
+### Scenario 1: Non-informative Censoring
+- **Step 1**: Estimate the propensity scores, i.e., the probabilities of initiating ARB, using logistic regression with baseline covariates as predictors. Compute unstabilized IP of treatment weights according to the IP weights formula above
+- Machine learning (ML) models are alternatives, e.g., gradient boosting machine, adaptive lasso; however, [doubly robust methods](https://uqualitycausal.github.io/TTECausalR/DR.html) should be used when PS is estimated using ML models [@Chernozhukov2018]
 ```{r fig.width=5, fig.height=3}
 # Fit a logistic regression
-ps_model <- glm(assigned_treatment ~ X1_0 + X2_0 + X3_0 + X4_0 + Age_0, 
-                 data = simdata.short, 
+ps_model <- glm(assigned_treatment ~ X1_0 + X2_0 + X3_0 + X4_0 + age_0, 
+                 data = obsdata6, 
                  family = binomial)
 
 # Calculate propensity scores
 p <- predict(ps_model, type = "response")
 
 # Calculate inverse probability of treatment weights (IPTW)
-simdata.short <- simdata.short %>%
+obsdata6 <- obsdata6 %>%
   mutate(
     trt_weight = if_else(
       assigned_treatment == 1, 
       1/p, # 1/P(treatment) for treated subjects
       1/(1-p) # 1/(1-P(treatment)) for control subjects
   ))
+```
 
+- **Step 2**: Examine overlap of treatment by visualizing the distributions of propensity score between two treatment groups
+```{r}
 # Visualize weight overlap
-trt_weight_plot <- simdata.short %>%
+trt_weight_plot <- obsdata6 %>%
   mutate(treatment_group = factor(assigned_treatment, 
                                   levels = c(0, 1), 
                                   labels = c("Control", "Treated"))) %>%
@@ -283,33 +223,37 @@ trt_weight_plot <- simdata.short %>%
   labs(fill = "Treatment Group",
        title = "Distribution of Treatment Weights") +
   theme(plot.title = element_text(size = 10, face = "bold"))
-print(trt_weight_plot)
 
-# Truncate weights above 99th percentile to improve stability
-# Alternative approaches for selecting a threshold: summary statistics/histogram
-trt_weight_cutoff <- quantile(simdata.short$trt_weight, 0.99)
-simdata.short <- simdata.short %>%
+print(trt_weight_plot) # ?? this overlap looks terrible now, I think it is due to we used Jian's earlier version of the data where age has to be >50, please work with Jian to resolve this issue. I am ok with either 18 or 50, but we need to be consistent across the tutorials to reduce confusion
+```
+
+- **Step 3**: IP weightng approach is unstable when there exists extreme weights, so we truncate the weights above 99th percentile to improve stability
+```{r}
+trt_weight_cutoff <- quantile(obsdata6$trt_weight, 0.99)
+obsdata6 <- obsdata6 %>%
   mutate(trt_weight = ifelse(trt_weight > trt_weight_cutoff, 
                              trt_weight_cutoff, trt_weight))
+```
 
-# Check covariate balance
-bal_s2 <- bal.tab(assigned_treatment ~ X1_0 + X2_0 + X3_0 + X4_0 + Age_0, 
-        data = simdata.short, estimand = "ATE", un = TRUE, # Include unadjusted balance
-        weights = simdata.short$trt_weight,
+- **Step 4**: Evaluate covariate balance using the absolute standardized mean difference (ASMD) metric and a threshold of 0.1 is used to determine an acceptable balance
+```{r}
+bal_s2 <- bal.tab(assigned_treatment ~ X1_0 + X2_0 + X3_0 + X4_0 + age_0, 
+        data = obsdata6, estimand = "ATE", un = TRUE,  # Include unadjusted balance
+        weights = obsdata6$trt_weight,
         disp.means = TRUE, disp.sds = TRUE)
-# A threshold of 0.1 is used to determine an acceptable balance.
+
+# ?? please fix this figure to show full title and also make it look nicer 
 love.plot(bal_s2, var.order = "unadjusted", abs = TRUE, thresholds = c(m = 0.1),
           stats = "mean.diffs", sample.names = c("Unweighted", "Weighted"),
           title = "Covariate Balance Before and After Weighting", 
-          stars = "raw") + theme(plot.title = element_text(size = 10))
+          stars = "raw") + theme(plot.title = element_text(size = 10)) 
 ```
 
--   Step 3 Outcome Model: Fit a IP weighted Cox Proportional Hazards (CPH) model.
-    
+- **Step 5**: Fit a IP weighted Cox Proportional Hazards (CPH) model
 ```{r fig.width=5, fig.height=3}
 # Fit weighted CPH model
 weighted_cox_model <- coxph(Surv(follow_up, outcome) ~ assigned_treatment, 
-                             data = simdata.short, weights = trt_weight)
+                             data = obsdata6, weights = trt_weight)
 summary(weighted_cox_model)
 
 ##### Interpretation:
@@ -319,16 +263,15 @@ summary(weighted_cox_model)
 # P-value <= alpha = 0.05 & 95% confidence interval excluding 1 suggest a statistically significant effect (not in this case).
 ```
 
--   Step 4 Assumption Check: Conduct visual checks for PH assumption in the Cox model.
-
+- **Step 6** Conduct visual checks for proportional hazard (PH) assumption in the Cox model.
 ```{r fig.width=5, fig.height=3}
 # Schoenfeld Residuals plot: A flat line indicates that the proportional hazards assumption holds.
 plot(cox.zph(weighted_cox_model))
 
 # Log-log plot: Parallel lines indicate proportional hazards assumption is met.
-simdata.short.nonzero <- simdata.short %>% filter(follow_up > 0)
-surv_fit <- survfit(Surv(follow_up, outcome) ~ assigned_treatment, data = simdata.short.nonzero)
-ggsurvplot(surv_fit, data = simdata.short, fun = "cloglog", 
+obsdata6.nonzero <- obsdata6 %>% filter(follow_up > 0)
+surv_fit <- survfit(Surv(follow_up, outcome) ~ assigned_treatment, data = obsdata6.nonzero)
+ggsurvplot(surv_fit, data = obsdata6, fun = "cloglog", 
            title = "Log-log Plot", xlab = "log(Time)",
            legend.title = "Treatment Group", 
            legend.labs = c("Control", "Treatment"),
@@ -336,23 +279,21 @@ ggsurvplot(surv_fit, data = simdata.short, fun = "cloglog",
               legend.title = element_text(size = 10)))
 ```
 
-## Scenario 2: Informative Censoring
 
--   Step 1 Data Preparation: Keep the data in long format.
+### Scenario 2: Informative Censoring
+We directly work with the long format data in this scenario since we need to explicitly model the censoring mechanism. 
 
--   Step 2 Treatment and Censoring Weights: Estimate censoring probabilities at each time point using logistic regression.
-    Use inverse probability of censoring weights (IPCW) to adjust for the bias caused by informative censoring.
-    Calculate cumulative censoring weights over time. Then, apply a combination of treatment and censoring weights.
-    
+- **Step 1**: Estimate propensity scores. We skip this step as it is the same as in Scenario 1
+- **Step 2**: Estimate censoring probabilities and censoring weights at each follow-up time using logistic regression
 ```{r fig.width=5, fig.height=3}
 # Fit logistic regression to predict censoring based on treatment and covariates
 # Skip baseline observations since baseline censoring weight is always 1
-# Recall C=1: censored, but we want to know the probability of not being censored (C_neg=0)
-simdata.one.trial <- simdata.one.trial %>% mutate(C_neg = 1-C)
-censor_model <- glm(C_neg ~ A + X1_0 + X2_0 + X3_0 + X4_0 + Age_0, 
-data = simdata.one.trial %>% filter(follow_up > 0), family = binomial)
+# Note C=1: censored, but we want to know the probability of not being censored (C_neg=0)
+obsdata5 <- obsdata5 %>% mutate(C_neg = 1-C)
+censor_model <- glm(C_neg ~ A + X1_0 + X2_0 + X3_0 + X4_0 + age_0, 
+data <- obsdata5 %>% filter(follow_up > 0), family = binomial)
 
-simdata.one.trial <- simdata.one.trial %>%
+obsdata5 <- obsdata5 %>%
   mutate(
     censor_probs = predict(censor_model, newdata = ., type = "response"), # Calculate censoring probabilities
     
@@ -360,16 +301,18 @@ simdata.one.trial <- simdata.one.trial %>%
                            1 / censor_probs,  # Not censored
                            1 / (1 - censor_probs))  # Censored
   )
+```
 
-# Calculate cumulative censoring weights up to current time
-simdata.one.trial <- simdata.one.trial %>%
+- **Step 3**: Compute cumulative censoring weights up to current time  
+```{r}
+obsdata5 <- obsdata5 %>%
   arrange(id, follow_up) %>%
   group_by(id) %>%
   mutate(cumulative_censor_weight = cumprod(censor_weight)) %>% 
   ungroup()
 
 # Calculate summary statistics for cumulative censoring weights by treatment group
-censor_weight_summary <- simdata.one.trial %>%
+censor_weight_summary <- obsdata5 %>%
   mutate(treatment_group = factor(assigned_treatment, 
                                   levels = c(0, 1), 
                                   labels = c("Control", "Treated"))) %>%
@@ -381,44 +324,50 @@ censor_weight_summary <- simdata.one.trial %>%
     sd = sd(cumulative_censor_weight, na.rm = TRUE),
     .groups = 'drop')%>%
   mutate(across(c(min, max, mean, sd), ~ round(.x, 2)))
+
 print(censor_weight_summary)
-
-# Truncate extreme censoring weights above 99th percentile
-censor_weight_cutoff <- quantile(simdata.one.trial$cumulative_censor_weight, 0.99, na.rm=T)
-simdata.one.trial <- simdata.one.trial %>%
-  mutate(cumulative_censor_weight = ifelse(cumulative_censor_weight > censor_weight_cutoff, 
-                                           censor_weight_cutoff, cumulative_censor_weight))
-
-# Combined weight
-simdata.one.trial <- simdata.one.trial %>%
-  left_join(simdata.short %>% select(id, trt_weight), by = "id") %>%
-  mutate(combi_weight = trt_weight * cumulative_censor_weight) 
 ```
-    
--   Step 3 Outcome Model: Fit a weighted pooled logistic regression.
 
+- **Step 4**: Combine censoring weights with baseline treatment weights. The censoring weights are used to adjust for the selection bias induced by informative censoring.
+```{r}
+# Combined weight
+obsdata5 <- obsdata5 %>%
+  left_join(obsdata6 %>% select(id, trt_weight), by = "id") %>%
+  mutate(combi_weight = trt_weight * cumulative_censor_weight) # ?? we want to truncate after combining the censoring with trt_weight, replace the trt_weight with the untruncated version
+```
+
+- **Step 5**: Truncate the final, combined weights at 99th percentile. 
+```{r}
+comb_weight_cutoff <- quantile(obsdata5$combi_weight, 0.99, na.rm=T)
+obsdata5 <- obsdata5 %>%
+  mutate(combi_weight = ifelse(combi_weight > comb_weight_cutoff, comb_weight_cutoff, combi_weight))
+```
+
+- **Step 6**: Fit a weighted pooled logistic regression to estimate the hazard of CVD at each follow-up time
 ```{r}
 # Fit weighted pooled logistic regression (start from baseline time)
 # Do not need to add X1_0 + X2_0 + X3_0 + X4_0 + age_0 as predictors for the unstablized weights case
 weighted_iptw_ipcw_model <- glm(Y ~ assigned_treatment + follow_up + I(follow_up^2), 
-  data = simdata.one.trial %>% filter(C != 1), # Exclude censored observations (C=1) because their outcomes are unknown
-  weights = combi_weight, family = binomial)
+                                data = obsdata5 %>% filter(C != 1), # Exclude censored observations (C=1) because their outcomes are unknown
+                                weights = combi_weight, 
+                                family = binomial)
+
 summary(weighted_iptw_ipcw_model)
 ```
 
--   Step 4 Output: Calculate cumulative incidences with each treatment group at specific time points and then compute risk differences and risk ratios between treatment groups.
-
+- **Step 7**: Create two counterfactual datasets such that all individuals are assigned to treatment/control 
 ```{r}
-# Create 2 counterfactual datasets such that all individuals are assigned to treatment/control
+# 
 gen_cf_data <- function(data, treatment_value) {
   data_cf <- data %>% mutate(assigned_treatment = treatment_value)
   return(data_cf)
 }
 
-data_all_treated <- gen_cf_data(simdata.one.trial %>% filter(C != 1), 1)
-data_all_untreated <- gen_cf_data(simdata.one.trial %>% filter(C != 1), 0)
+data_all_treated <- gen_cf_data(obsdata5 %>% filter(C != 1), 1)
+data_all_untreated <- gen_cf_data(obsdata5 %>% filter(C != 1), 0)
 ```
 
+- **Step 8**: Calculate cumulative incidences with each treatment group at specific time points 
 ```{r}
 # Calculate conditional cumulative incidences (combined weights)
 calc_condit_cum_inc <- function(outcome_model, data) {
@@ -446,9 +395,8 @@ condit_cum_inc_treated <- calc_condit_cum_inc(weighted_iptw_ipcw_model, data_all
 condit_cum_inc_untreated <- calc_condit_cum_inc(weighted_iptw_ipcw_model, data_all_untreated)
 ```
 
+- **Step 9**: Calculate marginal cumulative incidences: Average conditional cumulative incidence at each visit across all individuals in two datasets
 ```{r}
-# Calculate marginal cumulative incidences
-# Average conditional cumulative incidence at each visit across all individuals in two data sets
 marginal_res <- bind_rows(
   condit_cum_inc_treated %>% 
     group_by(follow_up) %>%
@@ -460,7 +408,10 @@ marginal_res <- bind_rows(
     summarise(mean_cum_inc = mean(cumulative_incidence, na.rm = TRUE), .groups = 'drop') %>%
     mutate(treatment = "Untreated")
 )
+```
 
+- **Step 10**: Compute risk differences and risk ratios between treatment groups.
+```{r}
 # Calculate incidence differences and ratios
 inc_comp <- marginal_res %>%
   select(follow_up, treatment, mean_cum_inc) %>%
@@ -468,6 +419,7 @@ inc_comp <- marginal_res %>%
   mutate(incidence_diff = Treated - Untreated, incidence_ratio = Treated / Untreated)
 ```
 
+- **Step 11**: Display risk differences and risk ratios at times of interest.
 ```{r}
 # Marginal Cumulative Incidences at different Time Points
 key_times <- c(4, 7)
@@ -481,3 +433,8 @@ inc_comp %>%
   filter(follow_up %in% key_times) %>%
   select(follow_up, Treated, Untreated, incidence_diff, incidence_ratio)
 ```
+
+## Funding
+This work was supported by Utah Clinical & Translational Science Institute (CTSI) Translational Innovation Pilot (TIP) Program Award (NCATS UM1TR004409).
+
+## References
