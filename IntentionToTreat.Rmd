@@ -1,5 +1,5 @@
 ---
-title: "A new-user, active comparator design, intention-to-treat analysis"
+title: "A new-user, active comparator design; Intention-to-treat analysis"
 author: "Peirong Hao, Kevin Ying, Adam Bress, Tom Greene, Yizhe Xu*"
 date: "`r Sys.Date()`"
 output: rmarkdown::html_vignette
