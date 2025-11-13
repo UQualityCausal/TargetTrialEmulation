@@ -1,9 +1,9 @@
 ---
-title: "A new-user, active comparator design; per-protocol analysis"
-author: "Peirong Hao, Kevin Ying, Adam Bress, Tom Greene, Yizhe (Crystal) Xu^[Corresponding author: yizhe.xu@utah.edu]"
+title: "A new-user, active comparator design; Per-protocol analysis"
+author: "Peirong Hao, Kevin Ying, Adam Bress, Tom Greene, Yizhe Crystal) Xu^[Corresponding author: crystal.xu@utah.edu]  "
 date: "`r Sys.Date()`"
 output: rmarkdown::html_vignette
-bibliography: reference_ITT.bib  
+bibliography: reference.bib  
 link-citations: yes
 objective: Estimate per-protocol effects on time-to-event outcomes using emulated trial data
 vignette: >
@@ -233,7 +233,3 @@ summary(plr.model)
 ```
 The true effect is still within the 95% CI but the point estimate is more biased. 
 
-## Funding
-This work was supported by Utah Clinical & Translational Science Institute (CTSI) Translational Innovation Pilot (TIP) Program Award (NCATS UM1TR004409).
-
-## References
