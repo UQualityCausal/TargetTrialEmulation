@@ -1,19 +1,15 @@
 ---
 title: "A new-user, active comparator design; Per-protocol analysis"
-author: "Kevin Ying, Peirong Hao, Yizhe Xu"
-date: "2025-07-21"
-output: html_document
----
-
+author: "Peirong Hao, Kevin Ying, Adam Bress, Tom Greene, Yizhe Crystal) Xu^[Corresponding author: crystal.xu@utah.edu]  "
 date: "`r Sys.Date()`"
 output: rmarkdown::html_vignette
 bibliography: reference.bib  
 link-citations: yes
-objective: To apply the target trial emulation framework to create a analysis-ready data set
+objective: Estimate per-protocol effects on time-to-event outcomes using emulated trial data
 vignette: >
-  %\VignetteIndexEntry{Target Trial Emulation}
-  %\VignetteEngine{knitr::rmarkdown}
-  %\VignetteEncoding{UTF-8}
+editor_options: 
+  markdown: 
+    wrap: sentence
 ---
 ```{r}
 knitr::opts_chunk$set(

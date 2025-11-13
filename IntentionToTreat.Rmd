@@ -5,11 +5,8 @@ date: "`r Sys.Date()`"
 output: rmarkdown::html_vignette
 bibliography: reference_ITT.bib  
 link-citations: yes
-objective: To apply the target trial emulation framework to create a analysis-ready data set
+objective: Estimate intention-to-treat effects on time-to-event outcomes using emulated trial data
 vignette: >
-  %\VignetteIndexEntry{Target Trial Emulation}
-  %\VignetteEncoding{UTF-8}
-  %\VignetteEngine{knitr::rmarkdown}
 editor_options: 
   markdown: 
     wrap: sentence
