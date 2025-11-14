@@ -1,11 +1,11 @@
 ---
-title: "A new-user, active comparator design; Intention-to-treat analysis"
-author: "Peirong Hao, Kevin Ying, Adam Bress, Tom Greene, Yizhe Xu*"
+title: "A new-user, active comparator design, intention-to-treat analysis"
+author: "Peirong Hao, Kevin Ying, Adam Bress, Tom Greene, Yizhe Xu^[Corresponding author: yizhe.xu@hsc.utah.edu]"
 date: "`r Sys.Date()`"
 output: rmarkdown::html_vignette
 bibliography: reference_ITT.bib  
 link-citations: yes
-objective: To apply the target trial emulation framework to create a analysis-ready data set
+objective: Estimate intention-to-treat effects on time-to-event outcomes using emulated trial data 
 vignette: >
   %\VignetteIndexEntry{Target Trial Emulation}
   %\VignetteEncoding{UTF-8}

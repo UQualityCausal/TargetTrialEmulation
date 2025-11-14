@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+<meta name="author" content="Kevin Ying, Peirong Hao, Adam Bress, Tom Greene, Yizhe Xu" />
+
+<meta name="date" content="2025-11-13" />
+
+<title>A new-user, active comparator design, per-protocol analysis</title>
+
+<script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
+// be compatible with the behavior of Pandoc < 2.8).
+document.addEventListener('DOMContentLoaded', function(e) {
+  var hs = document.querySelectorAll("div.section[class*='level'] > :first-child");
+  var i, h, a;
+  for (i = 0; i < hs.length; i++) {
+    h = hs[i];
+    if (!/^h[1-6]$/i.test(h.tagName)) continue;  // it should be a header h1-h6
+    a = h.attributes;
+    while (a.length > 0) h.removeAttribute(a[0].name);
+  }
+});
+</script>
+
+<style type="text/css">
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+span.underline{text-decoration: underline;}
+div.column{display: inline-block; vertical-align: top; width: 50%;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+</style>
+
+
+
+<style type="text/css">
+code {
+white-space: pre;
+}
+.sourceCode {
+overflow: visible;
+}
+</style>
+<style type="text/css" data-origin="pandoc">
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { display: inline-block; text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } 
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.at { color: #7d9029; } 
+code span.bn { color: #40a070; } 
+code span.bu { color: #008000; } 
+code span.cf { color: #007020; font-weight: bold; } 
+code span.ch { color: #4070a0; } 
+code span.cn { color: #880000; } 
+code span.co { color: #60a0b0; font-style: italic; } 
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.do { color: #ba2121; font-style: italic; } 
+code span.dt { color: #902000; } 
+code span.dv { color: #40a070; } 
+code span.er { color: #ff0000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #40a070; } 
+code span.fu { color: #06287e; } 
+code span.im { color: #008000; font-weight: bold; } 
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.kw { color: #007020; font-weight: bold; } 
+code span.op { color: #666666; } 
+code span.ot { color: #007020; } 
+code span.pp { color: #bc7a00; } 
+code span.sc { color: #4070a0; } 
+code span.ss { color: #bb6688; } 
+code span.st { color: #4070a0; } 
+code span.va { color: #19177c; } 
+code span.vs { color: #4070a0; } 
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    var j = 0;
+    while (j < rules.length) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") {
+        j++;
+        continue;
+      }
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') {
+        j++;
+        continue;
+      }
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+#TOC {
+clear: both;
+margin: 0 0 10px 10px;
+padding: 4px;
+width: 400px;
+border: 1px solid #CCCCCC;
+border-radius: 5px;
+background-color: #f6f6f6;
+font-size: 13px;
+line-height: 1.3;
+}
+#TOC .toctitle {
+font-weight: bold;
+font-size: 15px;
+margin-left: 5px;
+}
+#TOC ul {
+padding-left: 40px;
+margin-left: -1.5em;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+#TOC ul ul {
+margin-left: -2em;
+}
+#TOC li {
+line-height: 16px;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+
+code > span.kw { color: #555; font-weight: bold; } 
+code > span.dt { color: #902000; } 
+code > span.dv { color: #40a070; } 
+code > span.bn { color: #d14; } 
+code > span.fl { color: #d14; } 
+code > span.ch { color: #d14; } 
+code > span.st { color: #d14; } 
+code > span.co { color: #888888; font-style: italic; } 
+code > span.ot { color: #007020; } 
+code > span.al { color: #ff0000; font-weight: bold; } 
+code > span.fu { color: #900; font-weight: bold; } 
+code > span.er { color: #a61717; background-color: #e3d2d2; } 
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">A new-user, active comparator design,
+per-protocol analysis</h1>
+<h4 class="author">Kevin Ying, Peirong Hao, Adam Bress, Tom Greene,
+Yizhe Xu<a href="#fn1" class="footnote-ref" id="fnref1"><sup>1</sup></a></h4>
+<h4 class="date">2025-11-13</h4>
+
+
+
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a>knitr<span class="sc">::</span>opts_chunk<span class="sc">$</span><span class="fu">set</span>(</span>
+<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a>  <span class="at">collapse =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a>  <span class="at">comment =</span> <span class="st">&quot;#&gt;&quot;</span></span>
+<span id="cb1-4"><a href="#cb1-4" tabindex="-1"></a>)</span>
+<span id="cb1-5"><a href="#cb1-5" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">1234</span>)</span>
+<span id="cb1-6"><a href="#cb1-6" tabindex="-1"></a><span class="fu">options</span>(<span class="at">warn =</span> <span class="sc">-</span><span class="dv">1</span>)</span></code></pre></div>
+<p>Per-protocol (PP) analysis is a method used in the statistical
+evaluation of clinical trials to assess the effect of an intervention
+under ideal conditions. Unlike the intention-to-treat (ITT) approach
+which includes all randomized participants regardless of compliance with
+the trial protocol, PP analysis includes only those participants who
+fully comply with the trial protocol. This typically means excluding
+individuals who did not receive the assigned intervention, those who
+withdrew early, or those who deviated significantly from study
+procedures.</p>
+<p>The primary objective of per-protocol analysis is to estimate the
+effectiveness of a treatment; in other words, how well the treatment
+works when taken exactly as intended. While this can offer valuable
+insight into the potential benefits of a certain treatment, it may also
+introduce bias due to the non-random exclusion of participants.
+Therefore, PP analysis is often used as a complement to ITT analysis
+rather than a replacement, helping to provide a more intricate
+understanding of treatment effects.</p>
+<p>In both regulatory and clinical decision-making contexts,
+per-protocol analysis can be particularly relevant when determining the
+maximum achievable benefit of a treatment under optimal adherence
+conditions. However, careful consideration must be given to the
+drawbacks of PP, especially when it comes to the generalization of the
+study or internal validity.</p>
+<p>In this vignette, we will simulate a data set that mimics hospital
+records and then create a analysis-ready data set for a per-protocol
+analysis. The targeted trial we will emulate is a randomized clinical
+trial as described below: 1. Treatment:comparing an active treatment
+(A=1) with a active comparator (A=0) 2. The eligibility criteria are: 1)
+age &gt;= 40, 2) no history of outcome Y by the time of trial, and 3) no
+treatment in the previous 2 years before trial time. 3. The primary
+outcome is time to outcome Y. 4. The analysis will be a per-protocol
+analysis.</p>
+<div id="load-packages" class="section level1">
+<h1>Load packages</h1>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a><span class="fu">library</span>(TrialEmulation)</span>
+<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a><span class="fu">library</span>(dplyr)</span>
+<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a><span class="fu">library</span>(tidyr)</span>
+<span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a><span class="fu">library</span>(ggplot2)</span>
+<span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a><span class="fu">library</span>(survival)</span>
+<span id="cb2-6"><a href="#cb2-6" tabindex="-1"></a><span class="fu">library</span>(survminer)</span>
+<span id="cb2-7"><a href="#cb2-7" tabindex="-1"></a><span class="fu">library</span>(lubridate)</span>
+<span id="cb2-8"><a href="#cb2-8" tabindex="-1"></a><span class="fu">library</span>(survey)</span>
+<span id="cb2-9"><a href="#cb2-9" tabindex="-1"></a><span class="fu">source</span>(<span class="st">&quot;generate observed data version 0.R&quot;</span>)</span></code></pre></div>
+<p>Simulate data</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a></span>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a><span class="co">#simulate data. In this simulation the true treatment effect is -1.2</span></span>
+<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a>simdata<span class="ot">=</span><span class="fu">generate.2trt.obs.data</span>(<span class="at">n=</span><span class="dv">10000</span>,<span class="at">J=</span><span class="dv">20</span>,<span class="at">beta0.trt0=</span><span class="dv">1</span>,<span class="at">beta.adherence=</span><span class="dv">2</span>, <span class="at">beta0.outcome=</span><span class="sc">-</span><span class="dv">5</span>, <span class="at">beta.trt.effect=</span><span class="sc">-</span><span class="fl">1.2</span>, <span class="at">beta0.censoring=</span><span class="sc">-</span><span class="dv">1</span>)</span>
+<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a><span class="co">#&gt; Joining with `by = join_by(id)`</span></span>
+<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a><span class="co">#&gt; Joining with `by = join_by(id)`</span></span></code></pre></div>
+<p>Now we can start to create an analysis-ready from the simulated data.
+We will emulate a randomized clinic trial as described below. Add a
+table here to describe the trial design.</p>
+<p>First, we will create an eligible indicator. Our inclusion criteria
+are: 1)age &gt;=40, 2)no history of Y by the time of the trial
+beginning, 3)no history of treatment, and 4)at least 2 years of known
+treatment status</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a>simdata <span class="ot">&lt;-</span> simdata <span class="sc">%&gt;%</span><span class="fu">mutate</span>(<span class="at">on.trt=</span>A<span class="sc">%in%</span><span class="fu">c</span>(<span class="st">&quot;trt1&quot;</span>,<span class="st">&quot;trt2&quot;</span>))<span class="sc">%&gt;%</span></span>
+<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a>  <span class="fu">group_by</span>(id) <span class="sc">%&gt;%</span></span>
+<span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">eligible =</span> <span class="fu">as.integer</span>(age <span class="sc">&gt;=</span> <span class="dv">40</span> <span class="sc">&amp;</span> <span class="fu">cumsum</span>(Y) <span class="sc">==</span> <span class="dv">0</span> <span class="sc">&amp;</span> <span class="fu">cumsum</span>(on.trt) <span class="sc">&lt;=</span><span class="dv">1</span>) <span class="sc">&amp;</span> <span class="fu">row_number</span>() <span class="sc">&gt;</span> <span class="dv">2</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb4-4"><a href="#cb4-4" tabindex="-1"></a>  <span class="fu">ungroup</span>()</span></code></pre></div>
+<p>Let’s take a look on a sample.</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a>simdata<span class="sc">%&gt;%</span><span class="fu">filter</span>(id<span class="sc">==</span><span class="dv">34</span>)</span>
+<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a><span class="co">#&gt; # A tibble: 7 × 12</span></span>
+<span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a><span class="co">#&gt;      id  time    X1     X2    X3    X4   age A         Y     C on.trt eligible</span></span>
+<span id="cb5-4"><a href="#cb5-4" tabindex="-1"></a><span class="co">#&gt;   &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt;  &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;chr&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;lgl&gt;  &lt;lgl&gt;   </span></span>
+<span id="cb5-5"><a href="#cb5-5" tabindex="-1"></a><span class="co">#&gt; 1    34  2003     1 -1.05      1 -1.01  39.5 &lt;NA&gt;      0     0 FALSE  FALSE   </span></span>
+<span id="cb5-6"><a href="#cb5-6" tabindex="-1"></a><span class="co">#&gt; 2    34  2004     0 -0.197     1 -1.01  40.5 &lt;NA&gt;      0     0 FALSE  FALSE   </span></span>
+<span id="cb5-7"><a href="#cb5-7" tabindex="-1"></a><span class="co">#&gt; 3    34  2005     1  0.103     1 -1.01  41.5 &lt;NA&gt;      0     0 FALSE  TRUE    </span></span>
+<span id="cb5-8"><a href="#cb5-8" tabindex="-1"></a><span class="co">#&gt; 4    34  2006     1 -1.52      1 -1.01  42.5 &lt;NA&gt;      0     0 FALSE  TRUE    </span></span>
+<span id="cb5-9"><a href="#cb5-9" tabindex="-1"></a><span class="co">#&gt; 5    34  2007     1 -0.383     1 -1.01  43.5 trt1      0     0 TRUE   TRUE    </span></span>
+<span id="cb5-10"><a href="#cb5-10" tabindex="-1"></a><span class="co">#&gt; 6    34  2008     0 -1.26      1 -1.01  44.5 trt2      0     0 TRUE   FALSE   </span></span>
+<span id="cb5-11"><a href="#cb5-11" tabindex="-1"></a><span class="co">#&gt; 7    34  2009     0  0.811     1 -1.01  45.5 trt2      0     1 TRUE   FALSE</span></span></code></pre></div>
+<p>We can see that:<br />
+At time t = 2003, his age is below 40 and so he is not eligible for the
+study. At times t = 2003 and 2004, he doesn’t have 2 years of known
+treatment status, so he is not eligible. At time t = 2005 through 2007,
+his age is over 40, he has no history of Y, and he has no treatment
+history. Therefore, he is eligible. Thus, at t = 2007, he started
+treatment and he can be considered in the study at this time. After t =
+2007, he is no longer eligible to be considered because he now has a
+treatment history. However, his follow-up can continue until t = 2008
+when he deviates from the original treatment. Now we can identify the
+subjects who are ever eligible for treatment and the first time they are
+eligible.</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a>eligible_info <span class="ot">&lt;-</span> simdata <span class="sc">%&gt;%</span></span>
+<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a>  <span class="fu">group_by</span>(id) <span class="sc">%&gt;%</span></span>
+<span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a>  <span class="fu">summarise</span>(<span class="at">first_eligible_time =</span> <span class="fu">min</span>(time[eligible <span class="sc">==</span> <span class="dv">1</span>], <span class="at">na.rm =</span> <span class="cn">TRUE</span>),</span>
+<span id="cb6-4"><a href="#cb6-4" tabindex="-1"></a>            <span class="at">ever_eligible =</span> <span class="fu">any</span>(eligible <span class="sc">==</span> <span class="dv">1</span>)) <span class="sc">%&gt;%</span></span>
+<span id="cb6-5"><a href="#cb6-5" tabindex="-1"></a>  <span class="fu">ungroup</span>()</span></code></pre></div>
+<p>This table will show how many subjects are ever eligible.</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="fu">table</span>(eligible_info<span class="sc">$</span>ever_eligible)</span>
+<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a><span class="co">#&gt; FALSE  TRUE </span></span>
+<span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a><span class="co">#&gt; 11562  8438</span></span></code></pre></div>
+<p>Let’s check one of them.</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a>eligible_info <span class="sc">%&gt;%</span> <span class="fu">filter</span>(id<span class="sc">==</span><span class="dv">34</span>)</span>
+<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a><span class="co">#&gt; # A tibble: 1 × 3</span></span>
+<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a><span class="co">#&gt;      id first_eligible_time ever_eligible</span></span>
+<span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a><span class="co">#&gt;   &lt;dbl&gt;               &lt;dbl&gt; &lt;lgl&gt;        </span></span>
+<span id="cb8-5"><a href="#cb8-5" tabindex="-1"></a><span class="co">#&gt; 1    34                2005 TRUE</span></span></code></pre></div>
+<p>As explained above, Subject 4 is first eligible at time t = 2005.</p>
+<p>Now we can merge the eligibility information back to the original
+data.</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a>simdata <span class="ot">&lt;-</span> simdata <span class="sc">%&gt;%</span></span>
+<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a>  <span class="fu">left_join</span>(eligible_info, <span class="at">by =</span> <span class="st">&quot;id&quot;</span>) </span></code></pre></div>
+<p>Next, we enroll those eligible subjects and start the follow-up from
+the first time they are eligible. We also start treatment.</p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" tabindex="-1"></a>trt_info <span class="ot">&lt;-</span> simdata <span class="sc">%&gt;%</span></span>
+<span id="cb10-2"><a href="#cb10-2" tabindex="-1"></a>  <span class="fu">group_by</span>(id) <span class="sc">%&gt;%</span></span>
+<span id="cb10-3"><a href="#cb10-3" tabindex="-1"></a>  <span class="fu">summarise</span>(<span class="at">first_trt_time =</span> <span class="fu">min</span>(time[on.trt], <span class="at">na.rm =</span> <span class="cn">TRUE</span>)) <span class="sc">%&gt;%</span></span>
+<span id="cb10-4"><a href="#cb10-4" tabindex="-1"></a>  <span class="fu">ungroup</span>()</span>
+<span id="cb10-5"><a href="#cb10-5" tabindex="-1"></a>simdata<span class="ot">&lt;-</span>simdata<span class="sc">%&gt;%</span></span>
+<span id="cb10-6"><a href="#cb10-6" tabindex="-1"></a>  <span class="fu">left_join</span>(trt_info, <span class="at">by =</span> <span class="st">&quot;id&quot;</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb10-7"><a href="#cb10-7" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">first_eligible_time =</span> <span class="fu">pmax</span>(first_eligible_time, first_trt_time, <span class="at">na.rm =</span> <span class="cn">TRUE</span>)) <span class="sc">%&gt;%</span></span>
+<span id="cb10-8"><a href="#cb10-8" tabindex="-1"></a>  <span class="fu">select</span>(<span class="sc">-</span>first_trt_time)</span>
+<span id="cb10-9"><a href="#cb10-9" tabindex="-1"></a>workdata <span class="ot">&lt;-</span> simdata <span class="sc">%&gt;%</span><span class="fu">filter</span>(ever_eligible<span class="sc">==</span><span class="dv">1</span> <span class="sc">&amp;</span> time<span class="sc">&gt;=</span>first_eligible_time) <span class="sc">%&gt;%</span></span>
+<span id="cb10-10"><a href="#cb10-10" tabindex="-1"></a>  <span class="fu">group_by</span>(id) <span class="sc">%&gt;%</span></span>
+<span id="cb10-11"><a href="#cb10-11" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">followup_time =</span> time <span class="sc">-</span> first_eligible_time) <span class="sc">%&gt;%</span></span>
+<span id="cb10-12"><a href="#cb10-12" tabindex="-1"></a>  <span class="fu">ungroup</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb10-13"><a href="#cb10-13" tabindex="-1"></a>  <span class="fu">select</span>(id, time, X1, X2, X3, X4, age, A, Y, C, followup_time)<span class="sc">%&gt;%</span><span class="fu">mutate</span>(<span class="at">A=</span>(A<span class="sc">==</span><span class="st">&quot;trt1&quot;</span>)<span class="sc">*</span><span class="dv">1</span>) <span class="co">#A=1 for trt1 and A=0 for trt2</span></span></code></pre></div>
+<p>We are ready to do the analysis. We will first perform the per
+protocol (PP) analysis.<br />
+To do this, we will first create an artificial censoring that is defined
+as deviation from the assigned treatment. The data after our artificial
+censoring is dropped.</p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" tabindex="-1"></a>assigned.trt<span class="ot">=</span>workdata<span class="sc">%&gt;%</span><span class="fu">filter</span>(followup_time<span class="sc">==</span><span class="dv">0</span>)<span class="sc">%&gt;%</span><span class="fu">rename</span>(<span class="at">assigned.trt=</span>A)<span class="sc">%&gt;%</span><span class="fu">select</span>(id, assigned.trt)</span>
+<span id="cb11-2"><a href="#cb11-2" tabindex="-1"></a>workdata<span class="ot">=</span>workdata<span class="sc">%&gt;%</span><span class="fu">left_join</span>(assigned.trt)</span>
+<span id="cb11-3"><a href="#cb11-3" tabindex="-1"></a><span class="co">#&gt; Joining with `by = join_by(id)`</span></span>
+<span id="cb11-4"><a href="#cb11-4" tabindex="-1"></a>workdata<span class="ot">=</span>workdata<span class="sc">%&gt;%</span> <span class="fu">mutate</span>(<span class="at">adherence =</span> <span class="fu">ifelse</span>(A <span class="sc">==</span> assigned.trt, <span class="dv">1</span>, <span class="dv">0</span>),</span>
+<span id="cb11-5"><a href="#cb11-5" tabindex="-1"></a>                            <span class="at">art_censored=</span><span class="dv">1</span><span class="sc">-</span>adherence)</span>
+<span id="cb11-6"><a href="#cb11-6" tabindex="-1"></a></span>
+<span id="cb11-7"><a href="#cb11-7" tabindex="-1"></a> workdata<span class="ot">=</span>workdata<span class="sc">%&gt;%</span> </span>
+<span id="cb11-8"><a href="#cb11-8" tabindex="-1"></a>  <span class="fu">group_by</span>(id) <span class="sc">%&gt;%</span> </span>
+<span id="cb11-9"><a href="#cb11-9" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">cum_art_censored =</span> <span class="fu">cumsum</span>(art_censored)) <span class="sc">%&gt;%</span> </span>
+<span id="cb11-10"><a href="#cb11-10" tabindex="-1"></a>   <span class="fu">mutate</span>(<span class="at">cum_cum_art_censored=</span><span class="fu">cumsum</span>(cum_art_censored))<span class="sc">%&gt;%</span> <span class="co">#This is right. In order to drop the rows the subject returned to assigned treatment after deviate from the assigned treatment.  </span></span>
+<span id="cb11-11"><a href="#cb11-11" tabindex="-1"></a>  <span class="fu">filter</span>(cum_cum_art_censored <span class="sc">%in%</span> <span class="fu">c</span>(<span class="dv">0</span>,<span class="dv">1</span>)) <span class="sc">%&gt;%</span> </span>
+<span id="cb11-12"><a href="#cb11-12" tabindex="-1"></a>  <span class="fu">select</span>(<span class="sc">-</span><span class="fu">one_of</span>(<span class="fu">c</span>(<span class="st">&quot;cum_art_censored&quot;</span>,<span class="st">&quot;cum_cum_art_censored&quot;</span>)))</span>
+<span id="cb11-13"><a href="#cb11-13" tabindex="-1"></a> </span></code></pre></div>
+<p>Now we calculate treatment weight, censoring weight, and adherence
+weight. To do this, we will use stabilized weights. This means for each
+weight we will fit a numerator model and a denominator model. For
+adherence weight and censoring weight we will fit a model for the
+numerator and for the denominator for each treatment arm.</p>
+<div class="sourceCode" id="cb12"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" tabindex="-1"></a><span class="co"># Fit models for treatment, adherence, and censoring weights</span></span>
+<span id="cb12-2"><a href="#cb12-2" tabindex="-1"></a>baseline<span class="ot">=</span>workdata<span class="sc">%&gt;%</span><span class="fu">filter</span>(followup_time<span class="sc">==</span><span class="dv">0</span>)<span class="sc">%&gt;%</span><span class="fu">rename</span>(<span class="at">X1_0=</span>X1, <span class="at">X2_0=</span>X2, <span class="at">X3_0=</span>X3, <span class="at">X4_0=</span>X4, <span class="at">age_0=</span>age)</span>
+<span id="cb12-3"><a href="#cb12-3" tabindex="-1"></a>trt.model<span class="ot">=</span><span class="fu">glm</span>(assigned.trt <span class="sc">~</span> X1_0 <span class="sc">+</span> X2_0 <span class="sc">+</span> X3_0 <span class="sc">+</span> X4_0 <span class="sc">+</span> age_0,</span>
+<span id="cb12-4"><a href="#cb12-4" tabindex="-1"></a>                  <span class="at">data =</span> baseline,</span>
+<span id="cb12-5"><a href="#cb12-5" tabindex="-1"></a>                  <span class="at">family =</span> <span class="fu">binomial</span>(<span class="at">link =</span> <span class="st">&quot;logit&quot;</span>))</span>
+<span id="cb12-6"><a href="#cb12-6" tabindex="-1"></a></span>
+<span id="cb12-7"><a href="#cb12-7" tabindex="-1"></a>workdata<span class="ot">=</span>workdata<span class="sc">%&gt;%</span><span class="fu">filter</span>(followup_time<span class="sc">&gt;</span><span class="dv">0</span>)<span class="sc">%&gt;%</span><span class="fu">left_join</span>(baseline<span class="sc">%&gt;%</span><span class="fu">select</span>(id,X1_0,X2_0,X3_0,X4_0,age_0))<span class="sc">%&gt;%</span><span class="fu">mutate</span>(<span class="at">time_on_regime=</span>followup_time) <span class="co">#time_on_regime is defined as time since treatment initiation</span></span>
+<span id="cb12-8"><a href="#cb12-8" tabindex="-1"></a><span class="co">#&gt; Joining with `by = join_by(id)`</span></span>
+<span id="cb12-9"><a href="#cb12-9" tabindex="-1"></a></span>
+<span id="cb12-10"><a href="#cb12-10" tabindex="-1"></a>adh.model.d0<span class="ot">=</span><span class="fu">glm</span>(adherence <span class="sc">~</span> X1 <span class="sc">+</span> X2 <span class="sc">+</span> X3 <span class="sc">+</span> X4 <span class="sc">+</span> age <span class="sc">+</span>X1_0 <span class="sc">+</span> X2_0<span class="sc">+</span>age_0,</span>
+<span id="cb12-11"><a href="#cb12-11" tabindex="-1"></a>                  <span class="at">data =</span> workdata <span class="sc">%&gt;%</span> <span class="fu">filter</span>(assigned.trt <span class="sc">==</span> <span class="dv">0</span> <span class="sc">&amp;</span> followup_time<span class="sc">&gt;</span><span class="dv">0</span>), <span class="co">#need to exclude followup_time==0 because at baseline the adherence is always 1</span></span>
+<span id="cb12-12"><a href="#cb12-12" tabindex="-1"></a>                  <span class="at">family =</span> <span class="fu">binomial</span>(<span class="at">link =</span> <span class="st">&quot;logit&quot;</span>))</span>
+<span id="cb12-13"><a href="#cb12-13" tabindex="-1"></a>adh.model.d1<span class="ot">=</span><span class="fu">glm</span>(adherence <span class="sc">~</span> X1 <span class="sc">+</span> X2 <span class="sc">+</span> X3 <span class="sc">+</span> X4 <span class="sc">+</span> age <span class="sc">+</span>X1_0 <span class="sc">+</span> X2_0<span class="sc">+</span>age_0,</span>
+<span id="cb12-14"><a href="#cb12-14" tabindex="-1"></a>                  <span class="at">data =</span> workdata <span class="sc">%&gt;%</span> <span class="fu">filter</span>(assigned.trt <span class="sc">==</span> <span class="dv">1</span><span class="sc">&amp;</span> followup_time<span class="sc">&gt;</span><span class="dv">0</span>),</span>
+<span id="cb12-15"><a href="#cb12-15" tabindex="-1"></a>                  <span class="at">family =</span> <span class="fu">binomial</span>(<span class="at">link =</span> <span class="st">&quot;logit&quot;</span>))</span>
+<span id="cb12-16"><a href="#cb12-16" tabindex="-1"></a>adh.model.n0<span class="ot">=</span><span class="fu">glm</span>(adherence <span class="sc">~</span>  X3 <span class="sc">+</span> X4 <span class="sc">+</span>X1_0 <span class="sc">+</span> X2_0<span class="sc">+</span>age_0<span class="sc">+</span>time_on_regime<span class="sc">+</span><span class="fu">I</span>(time_on_regime<span class="sc">^</span><span class="dv">2</span>),</span>
+<span id="cb12-17"><a href="#cb12-17" tabindex="-1"></a>                  <span class="at">data =</span> workdata <span class="sc">%&gt;%</span> <span class="fu">filter</span>(assigned.trt <span class="sc">==</span> <span class="dv">0</span><span class="sc">&amp;</span> followup_time<span class="sc">&gt;</span><span class="dv">0</span>),</span>
+<span id="cb12-18"><a href="#cb12-18" tabindex="-1"></a>                  <span class="at">family =</span> <span class="fu">binomial</span>(<span class="at">link =</span> <span class="st">&quot;logit&quot;</span>))</span>
+<span id="cb12-19"><a href="#cb12-19" tabindex="-1"></a>adh.model.n1<span class="ot">=</span> <span class="fu">glm</span>(adherence <span class="sc">~</span>  X3 <span class="sc">+</span> X4 <span class="sc">+</span>X1_0 <span class="sc">+</span> X2_0<span class="sc">+</span>age_0<span class="sc">+</span>time_on_regime<span class="sc">+</span><span class="fu">I</span>(time_on_regime<span class="sc">^</span><span class="dv">2</span>),</span>
+<span id="cb12-20"><a href="#cb12-20" tabindex="-1"></a>                  <span class="at">data =</span> workdata <span class="sc">%&gt;%</span> <span class="fu">filter</span>(assigned.trt <span class="sc">==</span> <span class="dv">1</span><span class="sc">&amp;</span> followup_time<span class="sc">&gt;</span><span class="dv">0</span>),</span>
+<span id="cb12-21"><a href="#cb12-21" tabindex="-1"></a>                  <span class="at">family =</span> <span class="fu">binomial</span>(<span class="at">link =</span> <span class="st">&quot;logit&quot;</span>))</span>
+<span id="cb12-22"><a href="#cb12-22" tabindex="-1"></a>cens.model.d0<span class="ot">=</span><span class="fu">glm</span>(C<span class="sc">~</span> X1 <span class="sc">+</span> X2 <span class="sc">+</span> X3 <span class="sc">+</span> X4 <span class="sc">+</span> age<span class="sc">+</span>X1_0 <span class="sc">+</span> X2_0<span class="sc">+</span>age_0, <span class="co">#add treatment history measured as cumulative dose of each of both treatments </span></span>
+<span id="cb12-23"><a href="#cb12-23" tabindex="-1"></a>                  <span class="at">data =</span> workdata <span class="sc">%&gt;%</span> <span class="fu">filter</span>(assigned.trt <span class="sc">==</span> <span class="dv">0</span><span class="sc">&amp;</span> followup_time<span class="sc">&gt;</span><span class="dv">0</span>),</span>
+<span id="cb12-24"><a href="#cb12-24" tabindex="-1"></a>                  <span class="at">family =</span> <span class="fu">binomial</span>(<span class="at">link =</span> <span class="st">&quot;logit&quot;</span>))</span>
+<span id="cb12-25"><a href="#cb12-25" tabindex="-1"></a>cens.model.d1<span class="ot">=</span><span class="fu">glm</span>(C<span class="sc">~</span> X1 <span class="sc">+</span> X2 <span class="sc">+</span> X3 <span class="sc">+</span> X4 <span class="sc">+</span> age<span class="sc">+</span>X1_0 <span class="sc">+</span> X2_0<span class="sc">+</span>age_0,</span>
+<span id="cb12-26"><a href="#cb12-26" tabindex="-1"></a>                  <span class="at">data =</span> workdata <span class="sc">%&gt;%</span> <span class="fu">filter</span>(assigned.trt <span class="sc">==</span> <span class="dv">1</span><span class="sc">&amp;</span> followup_time<span class="sc">&gt;</span><span class="dv">0</span>),</span>
+<span id="cb12-27"><a href="#cb12-27" tabindex="-1"></a>                  <span class="at">family =</span> <span class="fu">binomial</span>(<span class="at">link =</span> <span class="st">&quot;logit&quot;</span>))</span>
+<span id="cb12-28"><a href="#cb12-28" tabindex="-1"></a>cens.model.n0<span class="ot">=</span><span class="fu">glm</span>(C <span class="sc">~</span> X3 <span class="sc">+</span> X4<span class="sc">+</span>X1_0 <span class="sc">+</span> X2_0,</span>
+<span id="cb12-29"><a href="#cb12-29" tabindex="-1"></a>                  <span class="at">data =</span> workdata <span class="sc">%&gt;%</span> <span class="fu">filter</span>(assigned.trt <span class="sc">==</span> <span class="dv">0</span><span class="sc">&amp;</span> followup_time<span class="sc">&gt;</span><span class="dv">0</span>),</span>
+<span id="cb12-30"><a href="#cb12-30" tabindex="-1"></a>                  <span class="at">family =</span> <span class="fu">binomial</span>(<span class="at">link =</span> <span class="st">&quot;logit&quot;</span>)) </span>
+<span id="cb12-31"><a href="#cb12-31" tabindex="-1"></a>cens.model.n1<span class="ot">=</span><span class="fu">glm</span>(C <span class="sc">~</span> X3 <span class="sc">+</span> X4<span class="sc">+</span>X1_0 <span class="sc">+</span> X2_0,</span>
+<span id="cb12-32"><a href="#cb12-32" tabindex="-1"></a>                  <span class="at">data =</span> workdata <span class="sc">%&gt;%</span> <span class="fu">filter</span>(assigned.trt <span class="sc">==</span> <span class="dv">1</span><span class="sc">&amp;</span> followup_time<span class="sc">&gt;</span><span class="dv">0</span>),</span>
+<span id="cb12-33"><a href="#cb12-33" tabindex="-1"></a>                  <span class="at">family =</span> <span class="fu">binomial</span>(<span class="at">link =</span> <span class="st">&quot;logit&quot;</span>))</span></code></pre></div>
+<p>Now we calculate the weights.</p>
+<div class="sourceCode" id="cb13"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" tabindex="-1"></a><span class="co">#treatment IPW weight</span></span>
+<span id="cb13-2"><a href="#cb13-2" tabindex="-1"></a>baseline<span class="sc">$</span>ps.trt<span class="ot">=</span><span class="fu">predict</span>(trt.model, <span class="at">type =</span> <span class="st">&quot;response&quot;</span>)</span>
+<span id="cb13-3"><a href="#cb13-3" tabindex="-1"></a>baseline<span class="ot">=</span>baseline<span class="sc">%&gt;%</span><span class="fu">mutate</span>(<span class="at">trt.weight=</span><span class="fu">if_else</span>(assigned.trt<span class="sc">==</span><span class="dv">1</span>, <span class="dv">1</span><span class="sc">/</span>ps.trt, <span class="dv">1</span><span class="sc">/</span>ps.trt))<span class="sc">%&gt;%</span><span class="fu">select</span>(<span class="sc">-</span>ps.trt)</span>
+<span id="cb13-4"><a href="#cb13-4" tabindex="-1"></a></span>
+<span id="cb13-5"><a href="#cb13-5" tabindex="-1"></a><span class="co">#adherence and censoring weights</span></span>
+<span id="cb13-6"><a href="#cb13-6" tabindex="-1"></a>workdata0 <span class="ot">&lt;-</span> workdata <span class="sc">%&gt;%</span><span class="fu">filter</span>(assigned.trt <span class="sc">==</span> <span class="dv">0</span>)<span class="sc">%&gt;%</span><span class="fu">ungroup</span>()</span>
+<span id="cb13-7"><a href="#cb13-7" tabindex="-1"></a> workdata0 <span class="ot">&lt;-</span> workdata0 <span class="sc">%&gt;%</span> <span class="fu">mutate</span>(</span>
+<span id="cb13-8"><a href="#cb13-8" tabindex="-1"></a>    <span class="at">adh_weight_d =</span> <span class="fu">predict</span>(adh.model.d0, <span class="at">type =</span> <span class="st">&quot;response&quot;</span>,<span class="at">newdata=</span>workdata0) <span class="sc">/</span> <span class="fu">predict</span>(adh.model.n0, <span class="at">type =</span> <span class="st">&quot;response&quot;</span>,<span class="at">newdata=</span>workdata0),</span>
+<span id="cb13-9"><a href="#cb13-9" tabindex="-1"></a>    <span class="at">cens_weight_d =</span> <span class="fu">predict</span>(cens.model.d0, <span class="at">type =</span> <span class="st">&quot;response&quot;</span>,<span class="at">newdata=</span>workdata0) <span class="sc">/</span> <span class="fu">predict</span>(cens.model.n0, <span class="at">type =</span> <span class="st">&quot;response&quot;</span>,<span class="at">newdata=</span>workdata0)</span>
+<span id="cb13-10"><a href="#cb13-10" tabindex="-1"></a>  )<span class="sc">%&gt;%</span><span class="fu">mutate</span>(<span class="at">weight0=</span><span class="fu">if_else</span>(followup_time<span class="sc">==</span><span class="dv">0</span>,<span class="dv">1</span>, adh_weight_d<span class="sc">*</span>cens_weight_d))<span class="sc">%&gt;%</span><span class="fu">group_by</span>(id)<span class="sc">%&gt;%</span><span class="fu">mutate</span>(<span class="at">weight=</span><span class="fu">cumprod</span>(weight0))<span class="sc">%&gt;%</span><span class="fu">ungroup</span>()</span>
+<span id="cb13-11"><a href="#cb13-11" tabindex="-1"></a>workdata1 <span class="ot">&lt;-</span> workdata <span class="sc">%&gt;%</span><span class="fu">filter</span>(assigned.trt <span class="sc">==</span> <span class="dv">1</span>)<span class="sc">%&gt;%</span><span class="fu">ungroup</span>()</span>
+<span id="cb13-12"><a href="#cb13-12" tabindex="-1"></a>workdata1 <span class="ot">&lt;-</span> workdata1 <span class="sc">%&gt;%</span> <span class="fu">mutate</span>(</span>
+<span id="cb13-13"><a href="#cb13-13" tabindex="-1"></a>    <span class="at">adh_weight_d =</span> <span class="fu">predict</span>(adh.model.d1, <span class="at">type =</span> <span class="st">&quot;response&quot;</span>,<span class="at">newdata=</span>workdata1) <span class="sc">/</span> <span class="fu">predict</span>(adh.model.n1, <span class="at">type =</span> <span class="st">&quot;response&quot;</span>,<span class="at">newdata=</span>workdata1),</span>
+<span id="cb13-14"><a href="#cb13-14" tabindex="-1"></a>    <span class="at">cens_weight_d =</span> <span class="fu">predict</span>(cens.model.d1, <span class="at">type =</span> <span class="st">&quot;response&quot;</span>,<span class="at">newdata=</span>workdata1) <span class="sc">/</span> <span class="fu">predict</span>(cens.model.n1, <span class="at">type =</span> <span class="st">&quot;response&quot;</span>,<span class="at">newdata=</span>workdata1)</span>
+<span id="cb13-15"><a href="#cb13-15" tabindex="-1"></a>  )<span class="sc">%&gt;%</span><span class="fu">mutate</span>(<span class="at">weight0=</span><span class="fu">if_else</span>(followup_time<span class="sc">==</span><span class="dv">0</span>,<span class="dv">1</span>, adh_weight_d<span class="sc">*</span>cens_weight_d))<span class="sc">%&gt;%</span><span class="fu">group_by</span>(id)<span class="sc">%&gt;%</span><span class="fu">mutate</span>(<span class="at">weight=</span><span class="fu">cumprod</span>(weight0))<span class="sc">%&gt;%</span><span class="fu">ungroup</span>()</span>
+<span id="cb13-16"><a href="#cb13-16" tabindex="-1"></a>workdata <span class="ot">&lt;-</span> <span class="fu">bind_rows</span>(workdata0, workdata1)<span class="sc">%&gt;%</span><span class="fu">left_join</span>(baseline<span class="sc">%&gt;%</span><span class="fu">select</span>(id,trt.weight))<span class="sc">%&gt;%</span></span>
+<span id="cb13-17"><a href="#cb13-17" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">weight =</span> weight <span class="sc">*</span> trt.weight) <span class="sc">%&gt;%</span></span>
+<span id="cb13-18"><a href="#cb13-18" tabindex="-1"></a>  <span class="fu">select</span>(id, followup_time, X1, X2, X3, X4, age, X1_0,X2_0,X3_0,X4_0,age_0,assigned.trt, Y, C, weight,adherence)</span>
+<span id="cb13-19"><a href="#cb13-19" tabindex="-1"></a><span class="co">#&gt; Joining with `by = join_by(id)`</span></span>
+<span id="cb13-20"><a href="#cb13-20" tabindex="-1"></a>workdata<span class="sc">%&gt;%</span><span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x=</span>weight))<span class="sc">+</span><span class="fu">geom_histogram</span>()</span>
+<span id="cb13-21"><a href="#cb13-21" tabindex="-1"></a><span class="co">#&gt; `stat_bin()` using `bins = 30`. Pick better value with `binwidth`.</span></span></code></pre></div>
+<p><img role="img" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASAAAAEgCAYAAAAUg66AAAAEDmlDQ1BrQ0dDb2xvclNwYWNlR2VuZXJpY1JHQgAAOI2NVV1oHFUUPpu5syskzoPUpqaSDv41lLRsUtGE2uj+ZbNt3CyTbLRBkMns3Z1pJjPj/KRpKT4UQRDBqOCT4P9bwSchaqvtiy2itFCiBIMo+ND6R6HSFwnruTOzu5O4a73L3PnmnO9+595z7t4LkLgsW5beJQIsGq4t5dPis8fmxMQ6dMF90A190C0rjpUqlSYBG+PCv9rt7yDG3tf2t/f/Z+uuUEcBiN2F2Kw4yiLiZQD+FcWyXYAEQfvICddi+AnEO2ycIOISw7UAVxieD/Cyz5mRMohfRSwoqoz+xNuIB+cj9loEB3Pw2448NaitKSLLRck2q5pOI9O9g/t/tkXda8Tbg0+PszB9FN8DuPaXKnKW4YcQn1Xk3HSIry5ps8UQ/2W5aQnxIwBdu7yFcgrxPsRjVXu8HOh0qao30cArp9SZZxDfg3h1wTzKxu5E/LUxX5wKdX5SnAzmDx4A4OIqLbB69yMesE1pKojLjVdoNsfyiPi45hZmAn3uLWdpOtfQOaVmikEs7ovj8hFWpz7EV6mel0L9Xy23FMYlPYZenAx0yDB1/PX6dledmQjikjkXCxqMJS9WtfFCyH9XtSekEF+2dH+P4tzITduTygGfv58a5VCTH5PtXD7EFZiNyUDBhHnsFTBgE0SQIA9pfFtgo6cKGuhooeilaKH41eDs38Ip+f4At1Rq/sjr6NEwQqb/I/DQqsLvaFUjvAx+eWirddAJZnAj1DFJL0mSg/gcIpPkMBkhoyCSJ8lTZIxk0TpKDjXHliJzZPO50dR5ASNSnzeLvIvod0HG/mdkmOC0z8VKnzcQ2M/Yz2vKldduXjp9bleLu0ZWn7vWc+l0JGcaai10yNrUnXLP/8Jf59ewX+c3Wgz+B34Df+vbVrc16zTMVgp9um9bxEfzPU5kPqUtVWxhs6OiWTVW+gIfywB9uXi7CGcGW/zk98k/kmvJ95IfJn/j3uQ+4c5zn3Kfcd+AyF3gLnJfcl9xH3OfR2rUee80a+6vo7EK5mmXUdyfQlrYLTwoZIU9wsPCZEtP6BWGhAlhL3p2N6sTjRdduwbHsG9kq32sgBepc+xurLPW4T9URpYGJ3ym4+8zA05u44QjST8ZIoVtu3qE7fWmdn5LPdqvgcZz8Ww8BWJ8X3w0PhQ/wnCDGd+LvlHs8dRy6bLLDuKMaZ20tZrqisPJ5ONiCq8yKhYM5cCgKOu66Lsc0aYOtZdo5QCwezI4wm9J/v0X23mlZXOfBjj8Jzv3WrY5D+CsA9D7aMs2gGfjve8ArD6mePZSeCfEYt8CONWDw8FXTxrPqx/r9Vt4biXeANh8vV7/+/16ffMD1N8AuKD/A/8leAvFY9bLAAAAOGVYSWZNTQAqAAAACAABh2kABAAAAAEAAAAaAAAAAAACoAIABAAAAAEAAAEgoAMABAAAAAEAAAEgAAAAAKtAJY0AACXcSURBVHgB7Z0JkBXFHcb/iC6wHC7nwpYBNoEQlUvCpWhAjcS4AcQCKm6lAhSbVRerAkROK2giMRoIkCCUJxgJBAwEshyKOTSLGBURQyCEQ1iOBeRcTrlf3temx9nZd8y+t29evzdfV719Mz19/PvXvd/r6ZnurhEIOqEjARIggSQQuCYJeTJLEiABElAEKEBsCCRAAkkjQAFKGnpmTAIkQAFiGyABEkgaAQpQ0tAzYxIgAQoQ2wAJkEDSCFybtJwNyfj48eNVsiQjI0Pw5sKlS5eqFC+RgWHTxYsXE5lFldKGPXCm2WSSPdddd51cc801cuHChSqxTWRg2FTd7RptoV69emHN9r0AVbUB1K9fX1XSmTNnwkL1+kJmZqacPn3a62zD5gd74EyzySR7ateuLfiHP3XqVFiOXl9AvXndrnkL5nUtMz8SIAGLAAXIQsEDEiABrwlQgLwmzvxIgAQsAhQgCwUPSIAEvCZAAfKaOPMjARKwCFCALBQ8IAES8JoABchr4syPBEjAIkABslDwgARIwGsCngoQXnJat25dpTJu27ZN3nrrLTl69GiFazhfs2aN4LrTxRLHmQbPSYAEkkvAszehz58/L08++aR6/bxXr15WqWfMmCFbtmyRtm3byuzZs2XWrFnSsmVL2bhxo0yePFn69u0rc+bMkWHDhsnAgQNVvFjiWBnGeDB8+PCQMefNmxfSn54kQALRCXgiQLt27ZJJkybJ9ddfrz7arNLSUlm7dq0sWbJECdOiRYtkwYIFMnHiRJk5c6ZMmTJFOnXqJEOGDJGCggLJy8uTAwcOVDmOnpuk8+U3CZCAGQQ8EaBz587J448/LseOHZPVq1dbJYcwdezYUYkPPLt06SKrVq2Sy5cvy/79+9U1+GdnZwvmqZSVlcnu3burHCc3NxfJKDdo0CBlB046d+4sU6dO/eJCjH+bNm0aY8zqi1azZk0xwQ5dIkyyhDPJJhMZ1ahRI+0ZRZtr6YkAtW/fXjXId955R33rPwcPHqzQI2rQoIESh8OHD0vdunUFFaQdek+YuR5LHLsA3XnnndaEO9zq4dYwHhdv/Hjy1nExsdEEO+z24Ng0m0yyp1atWuqH1ySbEtGOrl69qptFyG9PBChkzkFP/CpduXLFuoyeT506dSr5IwCuAVAscawMggcjR460nypBq+BRxRMTZlhfe+21Rs08hz1wJrDR1WkaI/QSMRs+3RlBaCM5T5+COQ1BF92+Hg+OW7RoIY0bN5azZ89WWCsF13JyclSXtapxnPnynARIwAwCSRWgbt26yebNm2Xfvn2qh7NixQrp3r274NeqR48eUlxcrCiVlJRIw4YN1SeWOGagphUkQAJOAkm9BcOYT2FhoXrC1ahRI2nVqpXk5+crG4uKimTcuHGybNkyda+MR/JwscRREfmHBEjAOAI1TNgZFctAYrQ81NKN5eXlkpWVVQlcLHEqJRL0wKC2G2fye0DoHZ44ccJNMTwJA3vgTLPJJHvwUAVjQM6Xbz2poDCZJKIdYQwInYtwLqk9IG0UKgKfUC6U+CBcLHFCpU8/EiCB5BFI6hhQ8orNnEmABEwgQAEyoRZoAwn4lAAFyKcVz2KTgAkEKEAm1AJtIAGfEqAA+bTiWWwSMIEABciEWqANJOBTAhQgn1Y8i00CJhCgAJlQC7SBBHxKgALk04pnsUnABAIUIBNqgTaQgE8JUIB8WvEsNgmYQIACZEIt0AYS8CkBCpBPK57FJgETCFCATKgF2kACPiVAAfJpxbPYJGACAQqQCbVAG0jApwQoQD6teBabBEwgQAEyoRZoAwn4lAAFyKcVz2KTgAkEjFgTOpkg9ALqsdoQb/xY87XHw/rYJtihbdLre5tmk0n2YOspbE5okk2JaEfYUDSS870AxbtTQrzxI1WO22toxCbYoe3V/1Sm2WSSPXpXDJNsSkQ7MnpnVN1g+U0CJOBPAhwD8me9s9QkYAQBCpAR1UAjSMCfBChA/qx3lpoEjCBAATKiGmgECfiTAAXIn/XOUpOAEQQoQEZUA40gAX8SoAD5s95ZahIwggAFyIhqoBEk4E8CFCB/1jtLTQJGEKAAGVENNIIE/EmAAuTPemepScAIAhQgI6qBRpCAPwlQgPxZ7yw1CRhBgAJkRDXQCBLwJwEKkD/rnaUmASMIUICMqAYaQQL+JEAB8me9s9QkYAQBCpAR1UAjSMCfBChA/qx3lpoEjCBAATKiGmgECfiTQFJ3xTh48KCUlpZWIF+jRg3p2bOnnDlzRjZv3lzhGvy127Ztm+zZs0e6dOkiTZo00d5y9OhR2bBhg7Ru3VratWtn+fOABEjAPAJJFaCdO3fKypUrLSoHDhyQkydPSnFxsaxfv16ee+45adOmjXVdC9CMGTNky5Yt0rZtW5k9e7bMmjVLWrZsKRs3bpTJkydL3759Zc6cOTJs2DAZOHCgFZ8HJEACZhFIqgDdcccdgg/chQsXZMSIETJ+/Hh1vmPHDunfv78MHTpUnes/6DGtXbtWlixZojZ2W7RokSxYsEAmTpwoM2fOlClTpkinTp1kyJAhUlBQIHl5eZKRkaGj85sESMAgAkkVIDuHV155RTp06CC9evVS3hAg9HgWLlyoejpdu3YV3J7t2rVLOnbsqMQHAXELtmrVKsEOjPv371fX4J+dnS2ZmZlSVlYmubm58FLuvffek4sXL6rjrKws1XP6/6WYvqJtvBZTolWMhB02TbBDmw174EyzyTR70J5Ns6m67dFtQbcN57cRAoTbrj/96U+qJ6MNhADBQYRee+01Wbx4sUybNk0wboRdJbVr0KCBHDt2TA4fPix169ZVIqWvIdzx48crCNDYsWPVOBHCdO/eXebPn6+Dx/TdqFGjmOJVdyRT7LCXyzSbTLMHrEyzqbrtOXfunL1JVDo2QoDefPNNJQbotWg3d+5cQQ8FCtqvXz8ZMGCA6uHUrFlTrly5ooOpnk+dOnXE6Y8A6BXVrl3bCouDpUuXKn8c4xqEKx4Xb/x48tZxIbQQcVOc/oEwzSaT7Klfv75gL3b8QJriEtGOUEbciYRzRgjQ6tWrZeTIkZaNuEXCEy6txhjDgTgdOnRImjZtKps2bbLCogJbtGghjRs3lrNnz6qxJN2NxLWcnBwrLA6aN29e4Rw9qnicXQzjSSeeuIFAoIIox5NWdcSFPXAmsNHlMZGRiTZVd51de21kiUn6e0AYfMbAcvv27XVbUb8M06dPl/fff1/5bd26Vd1mde7cWbp166Yez+/bt0/1ZFasWKF6Tyhojx491BM0RCopKZGGDRuqj5UwD0iABIwiEFmePDB17969qldj76ZhcG7UqFHy4osvqs+RI0dkwoQJApHBmE9hYaF6woUeUqtWrSQ/P19ZWlRUJOPGjZNly5apWzc8kqcjARIwl0CNYDfwi/6yoTbivh2iA1Gyu0uXLqnbrXr16tm91XF5ebkaP6p0IYSH21uw4cOHh4gtMm/evJD+Xnqip3fixAkvs4yYF+yBM80mk+zBeAvGR/DirCkuEe0IwyF6KCVUOZPeAwpllN1PD2ja/XCMysMnlMPgNR0JkID5BJI+BmQ+IlpIAiSQKAIUoESRZbokQAJRCVCAoiJiABIggUQRoAAliizTJQESiEqAAhQVEQOQAAkkigAFKFFkmS4JkEBUAhSgqIgYgARIIFEEKECJIst0SYAEohKgAEVFxAAkQAKJIkABShRZpksCJBCVAAUoKiIGIAESSBQBClCiyDJdEiCBqAQoQFERMQAJkECiCFCAEkWW6ZIACUQlQAGKiogBSIAEEkWAApQoskyXBEggKgEKUFREDEACJJAoAhSgRJFluiRAAlEJUICiImIAEiCBRBEwfk3oRBVcp4sNDeNx8caPJ28dFwv2m2CH3R4cm2aTafaYWG/Vzci5mYRuI/rb9wKE7ZzjcfHGjydvHReNxgQ77Pbg2DSbTLIHW0xh11+TbEpEO4q20aHvBejUqVP6/yam73jjx5SpIxK2UzHBDm2W3pbHNJtMskfv9mKSTYloR3qXYt02nN8cA3IS4TkJkIBnBChAnqFmRiRAAk4CFCAnEZ6TAAl4RoAC5BlqZkQCJOAkQAFyEuE5CZCAZwQoQJ6hZkYkQAJOAq4F6J577pEzZ84448urr74q+fn5lfzpQQIkQALRCER8D+iDDz6Qv/zlLyqNd999V5555hmpXbu2lSZeMlq+fLm0bdvW8uMBCZAACbglEFGA2rRpI2PGjJELFy7IpUuXZNWqVRVer7/uuuukdevWMmnSJLf5MRwJkAAJWAQiClDjxo1l3bp1KnD//v1l4cKFUq9ePSsyD0iABEggHgIRBciecHFxseoJ7d27V33br0GUWrRoYffiMQmQAAlEJeBagJYuXSoFBQVSXl5eKdHBgwfL66+/XsmfHiRAAiQQiYBrASoqKpL7779fHnnkEWnUqFGFNHlbVgEHT0iABFwScCVAmLF7+PBhefbZZ6VZs2Yuk2YwEiABEohMwNV7QA0aNJDc3Fz56KOPIqfGqyRAAiRQBQKuekBIb8qUKTJ69GjZv3+/EiMsqKQdekU333yzPuU3CZAACbgi8KWKRAmOMaCTJ0/KQw89VCkkB6ErIaEHCZCACwKuBeizzz6TQCAQMsnqXkc2ZCb0JAESSDsCrgUo2tKKaUeGBSIBEkg4AdcCdPDgwbA9oDp16oheBzjhFjMDEiCBtCHgWoBuvPFGNQYUquQcAwpFhX4kQALRCLgWIMyGt2+xcfr0afn4449l9uzZ6v2gaBmFu46pHQcOHLAuY/6Znl1/9OhR2bBhg5rw2q5dOysMDrZt2yZ79uyRLl26SJMmTaxrkeJYgXhAAiRgBAHXAtS+fftKBt9+++1y7tw5efrpp+Wll16qdN2Nx8svvywY4M7KylLBO3bsqARo48aNMnnyZOnbt6/MmTNHhg0bJgMHDlRhZsyYIVu2bFHhIICzZs2Sli1bSqQ4bmxhGBIgAW8JuBagcGZhEirWBIrV7dixQ/WgICB2N3PmTPXuUadOnWTIkCFqHlpeXp7qLa1du1aWLFmiNnZbtGiRLFiwQCZOnCjh4mRkZNiT5jEJkIAhBFwL0IcffiiXL1+2zMbxoUOH5Be/+IX06dPH8q/KAXpPx48flyNHjkhJSYlK54YbblD54IVH9IbgsrOzJTMzU8rKymT37t3KH7tKwuEWDOsUwZ5wcfAWt3aPPfaYNZaF27pHH31UX4rp24TBd6zLZIIdGiDsgTPNJpPs0TujmmRTItqRXTN0+7B/uxYg3ArhRUSnw23YU0895fR2df7pp5+qpT3Wr18veJI2atQoGT58uNxyyy1qy1r7vtLYSRJihadxeldJZIJpIseOHVNz1bDNbag4dgGyX7cfuzKYgUiABKqVgGsBwmCx80VE/MPbp2RU1TI8WVu2bJn1S4kVGOfOnStdu3atMOCNdKGkWA4WLz3aB8PhD/Fy+tvj2O2aOnWq/VQJWgWPKp6cOHGiijGqPzh+RU2wQ5dM/6qbZpNJ9uBHFD0Ok2xKRDuK9v6gawFCTwNrAWFVxO3bt0vz5s1VT+XOO++UWMdYkB5m2usGi3EgDEjj/OzZs6p3pAuA3k9OTo667du0aZNu66pXhHEoPD0LF8cKzAMSIAGjCLiaDQ+L8U//jW98Q0aOHClvv/22/Pa3v5V7771XBgwYIOfPn4+pULilwwTXzz//XPWuVq5cKb1791aC1qNHD8EqjHAYH4Io4dOtWzfZvHmz7Nu3T/WKVqxYId27d1c9sXBxYjKOkUiABBJOwHUPqLCwUG699Vb1yBsDxbgd++STT+SBBx6Q3/zmNzJ+/PgqG/u1r31NxUfauJVCL0uPJ2Hy67hx49QtGgac8UgeDmEQHqszYmG0Vq1aWdsChYtTZcMYgQRIwBMCNYJCEnqGqS17PK3CPz56QTfddJPtiihBQs9lzZo1FfyrcnL16lW15xjycDrcpul3hOzXsEsHdusItRpjuDj2+PoYg9puHAbHQ7l58+aF8vbUDz1D08YSAMA0m0yyR48B4cVZU1wi2hGGUJwrqNrL66oHhB4IdApC5HQYd4n2qM0Zx3mO9EOJD8KFEh/4YwBPP+7Fud2Fi2MPw2MSIIHkE3A1BoSnT32C7/rgNguPzCFGGPd544031FgQdk2lIwESIIGqEnAlQEj0+eefV0+oMOCLFwPRrbrvvvvUI/Of/OQnVc2X4UmABEhAXN2CgRMmiGJiKLZqxkRQ9IrwVOzuu+8mRhIgARKIiYDrHhAGax9++GHBoBl6PJgcmp+fL5gYGu8YUEyWMxIJkEDKE3AtQHhfp7S0VG677TZVaLx9jMmfeB9Iv6+T8jRYABIgAU8JuLoFu3jxonrMjiUw8DYyHJ5cPfjgg4J1gfB2NN4HoiMBEiCBqhBw1QPCpE28d4PZ6E6HqRSYJkFHAiRAAlUl4EqA8L7NXXfdJRMmTFBTIHQm2KgQY0CYkkFHAiRAAlUl4EqAkOirr76q3v3BhFG8xYkxIMzLwvtBY8aMqWq+DE8CJEAC7h/D470frESIR/CYA4YxoA4dOlSamkGmJEACJOCWgKtBaJ0YRAdr+OBDRwIkQALxEnB9CxZvRoxPAiRAAk4CFCAnEZ6TAAl4RoAC5BlqZkQCJOAkQAFyEuE5CZCAZwQoQJ6hZkYkQAJOAhQgJxGekwAJeEaAAuQZamZEAiTgJEABchLhOQmQgGcEqvQiomdWeZhRuLWo3ZoQb3y3+UQKh80hTbBD26g3qzTNJpPswfxKbKZpkk2JaEf2TUR1+7B/+16AsKh+PC7e+PHkreOi4Zhgh90eHJtmk0n2YFYBVpkwyaZEtKNwG0dYbUUf+PU7mkJH4xJv/Gjpu7mOTQJMsEPbqnd6Ms0m0+wxsd6qm5HuDeu24fzmGJCTCM9JgAQ8I0AB8gw1MyIBEnASoAA5ifCcBEjAMwIUIM9QMyMSIAEnAQqQkwjPSYAEPCNAAfIMNTMiARJwEqAAOYnwnARIwDMCFCDPUDMjEiABJwEKkJMIz0mABDwjQAHyDDUzIgEScBKgADmJ8JwESMAzAhQgz1AzIxIgAScBCpCTCM9JgAQ8I0AB8gw1MyIBEnASoAA5ifCcBEjAMwIUIM9QMyMSIAEnAQqQkwjPSYAEPCNAAfIMNTMiARJwEqAAOYnwnARIwDMCFCDPUDMjEiABJwEjdsXYuXOn7Nu3T3r27Cl16tRRNp45c0Y2b95cwV5c127btm2yZ88e6dKlizRp0kR7y9GjR2XDhg3SunVradeuneXPAxIgAfMIJL0HNGbMGHnhhRcEgjJs2DD58MMPFaX169fL1KlTZdmyZdZH45sxY4a6tnHjRhkxYoTs3btXXcL58OHDZfv27TJu3DgVT8fhNwmQgHkEktoDQg/nyJEjMn/+fEUGPZZFixZJ9+7dZceOHdK/f38ZOnRoBWqlpaWydu1aWbJkiWBvJYRfsGCBTJw4UWbOnClTpkyRTp06yZAhQ6SgoEDy8vIkIyOjQho8IQESMINAUgXopptukhdffNEicfLkSTl//rw6hwDhlmvhwoXStm1b6dq1q9rIbdeuXdKxY0clPgiIW7BVq1bJ5cuXZf/+/eoa/LOzsyUzM1PKysokNzcXXsodPHhQhcVJ7dq11e6UX1yJ7S92t0y2wwZ3JtihOcAeONNsMs0eE+utuhnptqDbhvM7qQKEHowe8zl8+LDqCY0dO1bZCAGCgwi99tprsnjxYpk2bZpAQK6//np1DX+wte2xY8cE8evWratESl9EuOPHj1cQoEGDBqlxIoRBT0v3vnScqn43a9asqlESEt4UO+yFM80m0+wBK9Nsqm57zp07Z28SlY6TKkDamt27d8v48ePV+I0eaJ47d65kZWWpnk6/fv1kwIABqocDhbbv3oieD0TM6Y+0cQ29HLvDuNKlS5eUF9KHQMXj4o0fT946br169QSD9qY42ANnmk0m2YPeOXYNPXXqlCnVJoloR+hkoKzhXNIFaOvWrWr8ZvTo0dK7d29l58WLF9UTrkaNGqlzjOHglurQoUPStGlT2bRpk1UeCECLFi2kcePGap/tCxcuSK1atdR1XMvJybHC4uC2226rcI4eVTwO+SXboYJNsENz0A3ONJtMsgc/jNia2SSbEtGO9P+ibhvO76Q+BcMjczyteuKJJyzxgYHY0H769Ony/vvvK3shUrjN6ty5s3Tr1k09nsdje/RwVqxYoW6l8GvSo0cPKS4uVnFKSkqkYcOG6qM8+IcESMA4AkntAb3++utSXl4uP/7xjy0w6PUsX75cRo0apQaoMUiNJ2UTJkxQXVaM+RQWFqonXAjbqlUryc/PV/GLioqsx+/o+k2ePNlKlwckQALmEagR7AYGzDPrS4vwZAyi4xxNxzgOuq96vOHLGKJEDeM7bpzbWzC8XxTKzZs3L5S3p37o6Z04ccLTPCNlBnvgTLPJJHvwgAQ9fdwFmOIS0Y5wC6aHUkKVM6k9oFAGOf3sT7zs11B5+IRybsUnVFz6kQAJeEcgqWNA3hWTOZEACZhIgAJkYq3QJhLwCQEKkE8qmsUkARMJUIBMrBXaRAI+IUAB8klFs5gkYCIBCpCJtUKbSMAnBChAPqloFpMETCRAATKxVmgTCfiEAAXIJxXNYpKAiQQoQCbWCm0iAZ8QoAD5pKJZTBIwkQAFyMRaoU0k4BMCFCCfVDSLSQImEqAAmVgrtIkEfEKAAuSTimYxScBEAhQgE2uFNpGATwhQgHxS0SwmCZhIgAJkYq3QJhLwCQEKkE8qmsUkARMJUIBMrBXaRAI+IWD8ovSJrge9g0Os+cQbP9Z87fGwOL8Jdmib9GYBptlkkj3Yxw5bR5lkUyLaEfbui+R8L0DxbtUSb/xIleP2GhqxCXZoe/U/lWk2mWSP3pbHJJsS0Y6M3hlVN1h+kwAJ+JMAx4D8We8sNQkYQYACZEQ10AgS8CcBCpA/652lJgEjCFCAjKgGGkEC/iRAAfJnvbPUJGAEAQqQEdVAI0jAnwQoQP6sd5aaBIwgQAEyohpoBAn4kwAFyJ/1zlKTgBEEKEBGVAONIAF/EqAA+bPeWWoSMIIABciIaqARJOBPAhQgf9Y7S00CRhCgABlRDTSCBPxJgALkz3pnqUnACAIUICOqgUaQgD8JUID8We8sNQkYQYACZEQ10AgS8CcBCpA/652lJgEjCFCAjKgGGkEC/iSQdrtiHD16VDZs2CCtW7eWdu3aJbxWhw8fHjaPefPmhb3GCyRAAiJp1QPauHGjQBC2b98u48aNk2XLlrGOSYAEDCaQVj2gmTNnypQpU6RTp04yZMgQKSgokLy8PMnIyDC4CmgaCfiXQNoIEHZg3L9/v3Ts2FHVZnZ2tmRmZkpZWZnk5uZaNfzcc8/JmTNn1HmrVq2kX79+1rXqPvjd734XMsk+ffqE9Idns2bNQl5r1KhRSH94ouzhRDbczpSRNoy7cuVKyLzCpYXAdevWteJg10+4+vXrW37VdXDhwoWwSdWsWTPkNdiDTyh7IpVJlyNkonF6YhdS7IwayqY4k445eihG8fK5evVqRHvSRoAOHz6s/glq1KhhFRi7Tx4/fryCAL3zzjvKD4HQUxo8eLAVPtLBypUr1WU08kAgINHARkqruq+hIdeuXbu6k405PdgDlwibYk3TREZoq7GWJ+bKiRAxEYwi/WDAlLQRIAiD85cb6u2s4CVLllSogoMHD1Y4j3bSpEkTuXTpkpw8eTJaUM+uJ2JL3XiM59bM0enprZnx0MQUl4h2hJ62vXfsLGvaDEI3btxYzp49K3bFRe8nJyfHWWaekwAJGEIgbQQI9689evSQ4uJihbakpESg6PrX2BDeNIMESMBGIG1uwVCmoqIi6/E77mcnT55sKyoPSYAETCOQVgKEp1qLFy+W8vJyycrKMo017SEBEnAQSJtbMHu5KD52GjwmAXMJpKUAmYublpEACdgJUIDsNHhMAiTgKQEKkKe4mRkJkICdAAXIToPHJEACnhKoEZxWEPA0xxTPbODAgdK+fXt56qmnUrwkiTP/4YcfVtNVXnjhhcRlkuIp4xWRf/3rX/LnP/85xUsSn/lp9Rg+PhTuYmO6BzU7MivnlJjIof15FXMJTZpPmKxa4C1YssgzXxIggfSZjOpVXd5+++3SsmVLr7JLyXy6du2aknZ7aXSHDh2kXr16XmZpZF4cAzKyWmgUCfiDAG/B/FHPLCUJGEmAg9BVqBavF7yvgmmeBt27d68cOHDAyhNLobRt21adYzmUjz76SLDYVrdu3QQr/2m3bds22bNnj3Tp0kWwrlK6uv/+979qHSpsjKBdpLYTjkukODrdVP+u+WTQpXohvLAfC96PGjVKTXLF42UsdHbjjTd6kbVxefz617+Wd999V0pLSwX/bFj4DUvhfv7552pTAKzLtG7dOnn77bflO9/5jhKjGTNmyPLly+XixYsye/Zs6dWrl2BRrnRzu3fvVu3kq1/9qiXKkdpOOC6R4qQVM7wHRBedwA9/+MPAJ598ogIeOnQo8L3vfS8Q/LWPHjENQ3z/+98PBHsylUoW3IYoEPyHsvwLCwsD//znPwPBf8pA8P2pQPDxvLr2hz/8IfD0009b4dLlICiwgQEDBgQefPDBwOrVq61ihWs7kbiEi2MlmiYHHANy8XOCX/hwC967iJ5WQc6dO6fW1D5y5Ij8/ve/V1x0AXfu3Klur/Q5brX+85//yK5du1QPSa8Vrf11uHT5rlOnjrzyyiuq56PXJo/UdsJxiRQnXVjpclCANIkI35EWvI8QLS0vffrpp2rZ2/Xr16s1uHFbumrVKlXWYM9QGjRoYJUbx8eOHROsu22/3dL+VsA0Oejbt69gPAwu2EFR35HaTjgukeKoRNPoDwehXVSm2wXvXSSV8kEw7oUNH/VSt23atJG5c+eq/decnPBLjl5BOP+Uh+GiAM6yIwq4YAzReS0cL3scF1mmVBD2gFxUFxe8/xISVps8ceKE5YGXMj/77DM1rQBPtrARgHZ6U4CmTZtW8m/RooUOltbfkdpOOC6R4qQbLAqQixrlgvdfQsJ2RKNHj1ZPvHCbgf3SevfurTbZu+OOO+SNN96Q8+fPCx4hv/fee3LLLbeox/GbN2+Wffv2qV//FStWSPfu3b9MNI2PIrUdvKYQikukOOmGim9Cu6xRvL+C/ebRbdYL3n/96193GTu9gmHH17/+9a9KTDCeg5UBsKMrbiF+9rOfqX8qMAo+LbM2foRQzZo1S7DDK9buxhba+EdLR/fEE09Iz5495bvf/a4qXqS2E45LpDjpxIwCVMXa5IL3XwDDTG5scW0fdNYoT58+rcZ+nAKDDR3xoqJf50CFazuRuISLo1mn+jcFKNVrkPaTQAoT4BhQClceTSeBVCdAAUr1GqT9JJDCBChAKVx5NJ0EUp0ABSjVa5D2k0AKE6AApXDl+cn0f//73/KrX/3KVZH16wCYrR/JnTp1KtJlXvOAAAXIA8jMIn4CEKBp06a5SggChFVmsDRGOBecrS733ntvuMv094gABcgj0MwmPgL5+fmCSZrV5fAGMtYtoksuAQpQcvmnde6PP/64rFmzxioj3p4OrhGkXkbUnpMmTVKLl+E8uN6S/OhHPxLMKscse/uqix988IHy0/HwQuOcOXPk/vvvlxEjRsjWrVtV3LKyMh1EMG0Eb69jUbQxY8YIZuvD/eMf/5ClS5eqpUSQn31umxWZB54QoAB5gtmfmWC5CfvmhC+99JLgE1ykTAGBWDzzzDOSk5Mjf//73+XWW29Vb1cPHjxYIDhYZVGLENYamj9/vgWyqKhIfv7zn6spDxkZGdKnTx95+eWXK4jJ0KFDBW8Z41YLS4bk5eWp+Jg2csMNN0hmZqaak4b4dEkikCYLq7EYBhIILtsRCK4DFAiKgFoNMTjLOxDcjibw05/+VFkbFKdAUGTUcXDSqlo10V4M+I0cOVJ5BRc/CwTnkanjDRs2YLGdQHDJVyt4cMxH+W3atCkQXBpWHU+YMMG6/sc//lH5BXtFyu/ZZ5+18rYC8cBzAuwBJUn4/ZAtbqVwq4TezMcffyy1atWSgoIC1dtB+TERE7dQCINtivEdFA3rg4m/WODe6eCHBc6wR5t2unejz/GNCaHaffOb31SHukel/fmdXALpOR05uUyZ+/8J4Bbn29/+trz11ltqAa677rpL7r77bnnsscfUch1/+9vf1Ox5PA7H5FZMUtXLtiKJe+65x1r4zA4V6wxlZ2dXmE2flZVlD6KO7RNl9RKpwZ/4SuHokTwCFKDksfdFzv3791frJNevX19+8IMfyM0336y25MGyHViQC+sFwUEsMBYUXKze4gLhsm/roy8gDSxXASHC8h5w9sFuHS7StxakSGF4LfEEeAuWeMa+zqFfv34SHLNRT7rQ+4HD9/PPPy/BHSQsNo888ogaZC4uLlZrTZeUlKjrWNjM6e677z7BtjcPPPCAeqIV3GVDpk+f7gwW8RzChUHy7du3q3WMIgbmxYQRoAAlDC0TBoHmzZsLxl++8pWvqCdP8MNtGV4WxPiPdljECwuYDRo0SNBbwhOssWPHWgua6XD4xtgQHukjHNLAgmiPPvqoCoI1qN24b33rWyqddu3ahRxncpMGw8RPgOsBxc+QKVQjATw2xxrTeEwezmFLILxIiEfv+lZq7dq1amlYvNNj34EjXBraP90X/NLlNPWbAmRqzdCusATwJAuL4f/yl79ULx9iq+iHHnpI7VqLNanpUocAb8FSp65o6f8JYLB64cKF8uabb6pbPNzS5ebmSvBdHzJKMQLsAaVYhdHcigTw7hDeL6JLTQIUoNSsN1pNAmlBgLdgaVGNLAQJpCYBClBq1hutJoG0IEABSotqZCFIIDUJUIBSs95oNQmkBQEKUFpUIwtBAqlJ4H/xsHaaZXHuXAAAAABJRU5ErkJggg==" /><!-- --></p>
+<div class="sourceCode" id="cb14"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" tabindex="-1"></a><span class="fu">summary</span>(workdata<span class="sc">$</span>weight)</span>
+<span id="cb14-2"><a href="#cb14-2" tabindex="-1"></a><span class="co">#&gt;     Min.  1st Qu.   Median     Mean  3rd Qu.     Max. </span></span>
+<span id="cb14-3"><a href="#cb14-3" tabindex="-1"></a><span class="co">#&gt;    0.000    0.304    1.052    3.817    2.544 1303.915</span></span>
+<span id="cb14-4"><a href="#cb14-4" tabindex="-1"></a><span class="co">#truncate weight</span></span>
+<span id="cb14-5"><a href="#cb14-5" tabindex="-1"></a>w<span class="fl">.95</span><span class="ot">=</span><span class="fu">quantile</span>(workdata<span class="sc">$</span>weight,<span class="fl">0.95</span>)</span>
+<span id="cb14-6"><a href="#cb14-6" tabindex="-1"></a>workdata<span class="ot">=</span>workdata<span class="sc">%&gt;%</span><span class="fu">mutate</span>(<span class="at">weight=</span><span class="fu">if_else</span>(weight<span class="sc">&gt;</span>w<span class="fl">.95</span>,w<span class="fl">.95</span>,weight))</span>
+<span id="cb14-7"><a href="#cb14-7" tabindex="-1"></a><span class="fu">summary</span>(workdata<span class="sc">$</span>weight)</span>
+<span id="cb14-8"><a href="#cb14-8" tabindex="-1"></a><span class="co">#&gt;    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. </span></span>
+<span id="cb14-9"><a href="#cb14-9" tabindex="-1"></a><span class="co">#&gt;   0.000   0.304   1.052   2.044   2.544  10.210</span></span></code></pre></div>
+<p>We are ready to do the analysis. We will use a weighted pooled
+logistic regression model to estimate the treatment effect.</p>
+<div class="sourceCode" id="cb15"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" tabindex="-1"></a>analysis.data<span class="ot">=</span>workdata<span class="sc">%&gt;%</span><span class="fu">filter</span>(adherence<span class="sc">==</span><span class="dv">1</span>)</span>
+<span id="cb15-2"><a href="#cb15-2" tabindex="-1"></a><span class="co">#pooled logistic regression</span></span>
+<span id="cb15-3"><a href="#cb15-3" tabindex="-1"></a></span>
+<span id="cb15-4"><a href="#cb15-4" tabindex="-1"></a></span>
+<span id="cb15-5"><a href="#cb15-5" tabindex="-1"></a>design.ps <span class="ot">&lt;-</span> <span class="fu">svydesign</span>(<span class="at">ids=</span><span class="sc">~</span><span class="dv">1</span>, <span class="at">weights=</span><span class="sc">~</span>weight, <span class="at">data=</span>analysis.data)</span>
+<span id="cb15-6"><a href="#cb15-6" tabindex="-1"></a>plr.model<span class="ot">=</span><span class="fu">svyglm</span>(Y <span class="sc">~</span> assigned.trt <span class="sc">+</span> followup_time <span class="sc">+</span> <span class="fu">I</span>(followup_time<span class="sc">^</span><span class="dv">2</span>) <span class="sc">+</span>  X1_0 <span class="sc">+</span> X2_0 <span class="sc">+</span> X3_0 <span class="sc">+</span> X4_0 <span class="sc">+</span> age_0,</span>
+<span id="cb15-7"><a href="#cb15-7" tabindex="-1"></a>              <span class="at">design=</span>design.ps,</span>
+<span id="cb15-8"><a href="#cb15-8" tabindex="-1"></a>              <span class="at">family =</span> <span class="fu">binomial</span>(<span class="at">link =</span> <span class="st">&quot;logit&quot;</span>))</span>
+<span id="cb15-9"><a href="#cb15-9" tabindex="-1"></a><span class="fu">summary</span>(plr.model)</span>
+<span id="cb15-10"><a href="#cb15-10" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb15-11"><a href="#cb15-11" tabindex="-1"></a><span class="co">#&gt; Call:</span></span>
+<span id="cb15-12"><a href="#cb15-12" tabindex="-1"></a><span class="co">#&gt; svyglm(formula = Y ~ assigned.trt + followup_time + I(followup_time^2) + </span></span>
+<span id="cb15-13"><a href="#cb15-13" tabindex="-1"></a><span class="co">#&gt;     X1_0 + X2_0 + X3_0 + X4_0 + age_0, design = design.ps, family = binomial(link = &quot;logit&quot;))</span></span>
+<span id="cb15-14"><a href="#cb15-14" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb15-15"><a href="#cb15-15" tabindex="-1"></a><span class="co">#&gt; Survey design:</span></span>
+<span id="cb15-16"><a href="#cb15-16" tabindex="-1"></a><span class="co">#&gt; svydesign(ids = ~1, weights = ~weight, data = analysis.data)</span></span>
+<span id="cb15-17"><a href="#cb15-17" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb15-18"><a href="#cb15-18" tabindex="-1"></a><span class="co">#&gt; Coefficients:</span></span>
+<span id="cb15-19"><a href="#cb15-19" tabindex="-1"></a><span class="co">#&gt;                     Estimate Std. Error t value Pr(&gt;|t|)    </span></span>
+<span id="cb15-20"><a href="#cb15-20" tabindex="-1"></a><span class="co">#&gt; (Intercept)        -7.650704   1.036114  -7.384 1.70e-13 ***</span></span>
+<span id="cb15-21"><a href="#cb15-21" tabindex="-1"></a><span class="co">#&gt; assigned.trt       -1.333645   0.376400  -3.543 0.000398 ***</span></span>
+<span id="cb15-22"><a href="#cb15-22" tabindex="-1"></a><span class="co">#&gt; followup_time       0.130434   0.167310   0.780 0.435657    </span></span>
+<span id="cb15-23"><a href="#cb15-23" tabindex="-1"></a><span class="co">#&gt; I(followup_time^2) -0.012298   0.013728  -0.896 0.370358    </span></span>
+<span id="cb15-24"><a href="#cb15-24" tabindex="-1"></a><span class="co">#&gt; X1_0               -0.002085   0.282820  -0.007 0.994117    </span></span>
+<span id="cb15-25"><a href="#cb15-25" tabindex="-1"></a><span class="co">#&gt; X2_0               -0.119378   0.147478  -0.809 0.418273    </span></span>
+<span id="cb15-26"><a href="#cb15-26" tabindex="-1"></a><span class="co">#&gt; X3_0                1.109463   0.307806   3.604 0.000315 ***</span></span>
+<span id="cb15-27"><a href="#cb15-27" tabindex="-1"></a><span class="co">#&gt; X4_0                1.060663   0.167823   6.320 2.76e-10 ***</span></span>
+<span id="cb15-28"><a href="#cb15-28" tabindex="-1"></a><span class="co">#&gt; age_0               0.069367   0.019385   3.578 0.000348 ***</span></span>
+<span id="cb15-29"><a href="#cb15-29" tabindex="-1"></a><span class="co">#&gt; ---</span></span>
+<span id="cb15-30"><a href="#cb15-30" tabindex="-1"></a><span class="co">#&gt; Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</span></span>
+<span id="cb15-31"><a href="#cb15-31" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb15-32"><a href="#cb15-32" tabindex="-1"></a><span class="co">#&gt; (Dispersion parameter for binomial family taken to be 1.054256)</span></span>
+<span id="cb15-33"><a href="#cb15-33" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb15-34"><a href="#cb15-34" tabindex="-1"></a><span class="co">#&gt; Number of Fisher Scoring iterations: 7</span></span>
+<span id="cb15-35"><a href="#cb15-35" tabindex="-1"></a><span class="co">#Extract the treatment effect estimate and 95% confidence interval</span></span>
+<span id="cb15-36"><a href="#cb15-36" tabindex="-1"></a> est <span class="ot">&lt;-</span> <span class="fu">summary</span>(plr.model)<span class="sc">$</span>coefficients </span>
+<span id="cb15-37"><a href="#cb15-37" tabindex="-1"></a> est<span class="ot">=</span><span class="fu">data.frame</span>(<span class="at">variable=</span><span class="fu">rownames</span>(est),est)</span>
+<span id="cb15-38"><a href="#cb15-38" tabindex="-1"></a> est<span class="ot">=</span>est<span class="sc">%&gt;%</span><span class="fu">filter</span>(variable<span class="sc">==</span><span class="st">&quot;assigned.trt&quot;</span>)<span class="sc">%&gt;%</span></span>
+<span id="cb15-39"><a href="#cb15-39" tabindex="-1"></a>   <span class="fu">mutate</span>(<span class="at">lower=</span>(Estimate <span class="sc">-</span> <span class="fl">1.96</span> <span class="sc">*</span> Std..Error),</span>
+<span id="cb15-40"><a href="#cb15-40" tabindex="-1"></a>          <span class="at">upper=</span>(Estimate <span class="sc">+</span> <span class="fl">1.96</span> <span class="sc">*</span> Std..Error))</span>
+<span id="cb15-41"><a href="#cb15-41" tabindex="-1"></a> est</span>
+<span id="cb15-42"><a href="#cb15-42" tabindex="-1"></a><span class="co">#&gt;                  variable  Estimate Std..Error   t.value     Pr...t..     lower</span></span>
+<span id="cb15-43"><a href="#cb15-43" tabindex="-1"></a><span class="co">#&gt; assigned.trt assigned.trt -1.333645  0.3764002 -3.543156 0.0003977835 -2.071389</span></span>
+<span id="cb15-44"><a href="#cb15-44" tabindex="-1"></a><span class="co">#&gt;                   upper</span></span>
+<span id="cb15-45"><a href="#cb15-45" tabindex="-1"></a><span class="co">#&gt; assigned.trt -0.5959003</span></span></code></pre></div>
+<p>We can see that the true treatment effect is in the estimated 95%
+CI.</p>
+<p>Let’s see what the results are when weighting is not done.</p>
+<div class="sourceCode" id="cb16"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" tabindex="-1"></a>plr.model<span class="ot">=</span><span class="fu">glm</span>(Y <span class="sc">~</span> assigned.trt <span class="sc">+</span> followup_time <span class="sc">+</span> <span class="fu">I</span>(followup_time<span class="sc">^</span><span class="dv">2</span>) <span class="sc">+</span> X1_0 <span class="sc">+</span> X2_0 <span class="sc">+</span> X3_0 <span class="sc">+</span> X4_0 <span class="sc">+</span> age_0,</span>
+<span id="cb16-2"><a href="#cb16-2" tabindex="-1"></a>              <span class="at">data =</span> analysis.data,</span>
+<span id="cb16-3"><a href="#cb16-3" tabindex="-1"></a>              <span class="at">family =</span> <span class="fu">binomial</span>(<span class="at">link =</span> <span class="st">&quot;logit&quot;</span>))</span>
+<span id="cb16-4"><a href="#cb16-4" tabindex="-1"></a></span>
+<span id="cb16-5"><a href="#cb16-5" tabindex="-1"></a><span class="fu">summary</span>(plr.model)</span>
+<span id="cb16-6"><a href="#cb16-6" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb16-7"><a href="#cb16-7" tabindex="-1"></a><span class="co">#&gt; Call:</span></span>
+<span id="cb16-8"><a href="#cb16-8" tabindex="-1"></a><span class="co">#&gt; glm(formula = Y ~ assigned.trt + followup_time + I(followup_time^2) + </span></span>
+<span id="cb16-9"><a href="#cb16-9" tabindex="-1"></a><span class="co">#&gt;     X1_0 + X2_0 + X3_0 + X4_0 + age_0, family = binomial(link = &quot;logit&quot;), </span></span>
+<span id="cb16-10"><a href="#cb16-10" tabindex="-1"></a><span class="co">#&gt;     data = analysis.data)</span></span>
+<span id="cb16-11"><a href="#cb16-11" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb16-12"><a href="#cb16-12" tabindex="-1"></a><span class="co">#&gt; Coefficients:</span></span>
+<span id="cb16-13"><a href="#cb16-13" tabindex="-1"></a><span class="co">#&gt;                      Estimate Std. Error z value Pr(&gt;|z|)    </span></span>
+<span id="cb16-14"><a href="#cb16-14" tabindex="-1"></a><span class="co">#&gt; (Intercept)        -7.0311020  0.5825426 -12.070  &lt; 2e-16 ***</span></span>
+<span id="cb16-15"><a href="#cb16-15" tabindex="-1"></a><span class="co">#&gt; assigned.trt       -1.3848090  0.1993717  -6.946 3.76e-12 ***</span></span>
+<span id="cb16-16"><a href="#cb16-16" tabindex="-1"></a><span class="co">#&gt; followup_time       0.0626937  0.0590461   1.062    0.288    </span></span>
+<span id="cb16-17"><a href="#cb16-17" tabindex="-1"></a><span class="co">#&gt; I(followup_time^2)  0.0005529  0.0036356   0.152    0.879    </span></span>
+<span id="cb16-18"><a href="#cb16-18" tabindex="-1"></a><span class="co">#&gt; X1_0                0.0114068  0.1521623   0.075    0.940    </span></span>
+<span id="cb16-19"><a href="#cb16-19" tabindex="-1"></a><span class="co">#&gt; X2_0                0.0016167  0.0799070   0.020    0.984    </span></span>
+<span id="cb16-20"><a href="#cb16-20" tabindex="-1"></a><span class="co">#&gt; X3_0                1.2430160  0.1715960   7.244 4.36e-13 ***</span></span>
+<span id="cb16-21"><a href="#cb16-21" tabindex="-1"></a><span class="co">#&gt; X4_0                1.1285966  0.0934287  12.080  &lt; 2e-16 ***</span></span>
+<span id="cb16-22"><a href="#cb16-22" tabindex="-1"></a><span class="co">#&gt; age_0               0.0527466  0.0102021   5.170 2.34e-07 ***</span></span>
+<span id="cb16-23"><a href="#cb16-23" tabindex="-1"></a><span class="co">#&gt; ---</span></span>
+<span id="cb16-24"><a href="#cb16-24" tabindex="-1"></a><span class="co">#&gt; Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</span></span>
+<span id="cb16-25"><a href="#cb16-25" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb16-26"><a href="#cb16-26" tabindex="-1"></a><span class="co">#&gt; (Dispersion parameter for binomial family taken to be 1)</span></span>
+<span id="cb16-27"><a href="#cb16-27" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb16-28"><a href="#cb16-28" tabindex="-1"></a><span class="co">#&gt;     Null deviance: 1763.5  on 7477  degrees of freedom</span></span>
+<span id="cb16-29"><a href="#cb16-29" tabindex="-1"></a><span class="co">#&gt; Residual deviance: 1512.3  on 7469  degrees of freedom</span></span>
+<span id="cb16-30"><a href="#cb16-30" tabindex="-1"></a><span class="co">#&gt; AIC: 1530.3</span></span>
+<span id="cb16-31"><a href="#cb16-31" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb16-32"><a href="#cb16-32" tabindex="-1"></a><span class="co">#&gt; Number of Fisher Scoring iterations: 7</span></span>
+<span id="cb16-33"><a href="#cb16-33" tabindex="-1"></a></span>
+<span id="cb16-34"><a href="#cb16-34" tabindex="-1"></a><span class="co">#Extract the treatment effect estimate and 95% confidence interval</span></span>
+<span id="cb16-35"><a href="#cb16-35" tabindex="-1"></a> est <span class="ot">&lt;-</span> <span class="fu">summary</span>(plr.model)<span class="sc">$</span>coefficients </span>
+<span id="cb16-36"><a href="#cb16-36" tabindex="-1"></a> est<span class="ot">=</span><span class="fu">data.frame</span>(<span class="at">variable=</span><span class="fu">rownames</span>(est),est)</span>
+<span id="cb16-37"><a href="#cb16-37" tabindex="-1"></a> est<span class="ot">=</span>est<span class="sc">%&gt;%</span><span class="fu">filter</span>(variable<span class="sc">==</span><span class="st">&quot;assigned.trt&quot;</span>)<span class="sc">%&gt;%</span></span>
+<span id="cb16-38"><a href="#cb16-38" tabindex="-1"></a>   <span class="fu">mutate</span>(<span class="at">lower=</span>(Estimate <span class="sc">-</span> <span class="fl">1.96</span> <span class="sc">*</span> Std..Error),</span>
+<span id="cb16-39"><a href="#cb16-39" tabindex="-1"></a>          <span class="at">upper=</span>(Estimate <span class="sc">+</span> <span class="fl">1.96</span> <span class="sc">*</span> Std..Error))</span>
+<span id="cb16-40"><a href="#cb16-40" tabindex="-1"></a> est</span>
+<span id="cb16-41"><a href="#cb16-41" tabindex="-1"></a><span class="co">#&gt;                  variable  Estimate Std..Error   z.value     Pr...z..     lower</span></span>
+<span id="cb16-42"><a href="#cb16-42" tabindex="-1"></a><span class="co">#&gt; assigned.trt assigned.trt -1.384809  0.1993717 -6.945867 3.761443e-12 -1.775577</span></span>
+<span id="cb16-43"><a href="#cb16-43" tabindex="-1"></a><span class="co">#&gt;                   upper</span></span>
+<span id="cb16-44"><a href="#cb16-44" tabindex="-1"></a><span class="co">#&gt; assigned.trt -0.9940405</span></span></code></pre></div>
+<p>The true effect is still within the 95% CI but the point estimate is
+more biased.</p>
+<div id="funding" class="section level2">
+<h2>Funding</h2>
+<p>This work was supported by Utah Clinical &amp; Translational Science
+Institute (CTSI) Translational Innovation Pilot (TIP) Program Award
+(NCATS UM1TR004409).</p>
+</div>
+<div id="references" class="section level2">
+<h2>References</h2>
+</div>
+</div>
+<div class="footnotes footnotes-end-of-document">
+<hr />
+<ol>
+<li id="fn1"><p>Corresponding author: <a href="mailto:yizhe.xu@hsc.utah.edu" class="email">yizhe.xu@hsc.utah.edu</a><a href="#fnref1" class="footnote-back">↩︎</a></p></li>
+</ol>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

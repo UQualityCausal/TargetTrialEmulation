@@ -1,20 +1,20 @@
 ---
-title: "A new-user, active comparator design; Per-protocol analysis"
-author: "Kevin Ying, Peirong Hao, Yizhe Xu"
-date: "2025-07-21"
-output: html_document
----
-
+title: "A new-user, active comparator design, per-protocol analysis"
+author: "Kevin Ying, Peirong Hao, Adam Bress, Tom Greene, Yizhe Xu^[Corresponding author: yizhe.xu@hsc.utah.edu]"
 date: "`r Sys.Date()`"
 output: rmarkdown::html_vignette
-bibliography: reference.bib  
+bibliography: reference_ITT.bib  
 link-citations: yes
-objective: To apply the target trial emulation framework to create a analysis-ready data set
+objective: Estimate per-protocol effects on time-to-event outcomes using emulated trial data 
 vignette: >
   %\VignetteIndexEntry{Target Trial Emulation}
-  %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
+  %\VignetteEngine{knitr::rmarkdown}
+editor_options: 
+  markdown: 
+    wrap: sentence
 ---
+
 ```{r}
 knitr::opts_chunk$set(
   collapse = TRUE,
@@ -24,21 +24,8 @@ set.seed(1234)
 options(warn = -1)
 ```
 
-Per-protocol (PP) analysis is a method used in the statistical evaluation of clinical trials to assess the effect of an intervention under ideal conditions. Unlike the intention-to-treat (ITT) approach which includes all randomized participants regardless of compliance with the trial protocol, PP analysis includes only those participants who fully comply with the trial protocol. This typically means excluding individuals who did not receive the assigned intervention, those who withdrew early, or those who deviated significantly from study procedures.
-
-The primary objective of per-protocol analysis is to estimate the effectiveness of a treatment; in other words, how well the treatment works when taken exactly as intended. While this can offer valuable insight into the potential benefits of a certain treatment, it may also introduce bias due to the non-random exclusion of participants. Therefore, PP analysis is often used as a complement to ITT analysis rather than a replacement, helping to provide a more intricate understanding of treatment effects.
-
-In both regulatory and clinical decision-making contexts, per-protocol analysis can be particularly relevant when determining the maximum achievable benefit of a treatment under optimal adherence conditions. However, careful consideration must be given to the drawbacks of PP, especially when it comes to the generalization of the study or internal validity.
-
-In this vignette, we will simulate a data set that mimics hospital records and then create a analysis-ready data set for a per-protocol analysis.
-The targeted trial we will emulate is a randomized clinical trial as described below:
-1. Treatment:comparing an active treatment (A=1) with a active comparator (A=0)
-2. The eligibility criteria are: 1) age >= 40, 2) no history of outcome Y by the time of trial, and 3) no treatment in the previous 2 years before trial time.
-3. The primary outcome is time to outcome Y.
-4. The analysis will be a per-protocol analysis.
-
-# Load packages
 ```{r, message = FALSE, warning = FALSE}
+# Load packages
 library(TrialEmulation)
 library(dplyr)
 library(tidyr)
@@ -49,6 +36,20 @@ library(lubridate)
 library(survey)
 source("generate observed data version 0.R")
 ```
+
+## Introduction
+
+The **per-protocol (PP)** analysis estimates the effects of initiating _and_ continuously adhering to the initial treatment. Unlike the intention-to-treat (ITT) 
+analysis focusing on the effects of assigning patients to one treatment group versus another, patients are artificially censored in the PP analysis when they deviate from protocol, that is, switching to the other treatment or discontinuing the initial treatment.  
+
+PP analysis estimates treatment effects under full adherence, which rules out the behavioral impact of not taking the treatment as prescribed. PP analysis can be particularly relevant when determining the maximum achievable benefit of a treatment under optimal adherence conditions. However, it estimates the treatment effects under a nearly hypothetical situation (100% adherence) that does not occur in real world.
+
+
+## Implementation of intention-to-treat analysis
+Recall our previous example that aims to compare the effectiveness of ARB versus ACEI anti-hypertensive medications on reducing the risk of cardiovascular disease (CVD). 
+
+![](documents/sidebysideTTE.png){width=95%}
+
 Simulate data
 ```{r}
 
@@ -237,3 +238,7 @@ summary(plr.model)
 ```
 The true effect is still within the 95% CI but the point estimate is more biased. 
 
+## Funding
+This work was supported by Utah Clinical & Translational Science Institute (CTSI) Translational Innovation Pilot (TIP) Program Award (NCATS UM1TR004409).
+
+## References
