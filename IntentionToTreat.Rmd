@@ -435,6 +435,6 @@ inc_comp %>%
 ```
 
 ## Funding
-This work was supported by Utah Clinical & Translational Science Institute (CTSI) Translational Innovation Pilot (TIP) Program Award (NCATS UM1TR004409).
+The research reported in this publication was supported in part by the National Center for Advancing Translational Sciences of the National Institutes of Health under Award Number UM1 TR 004409. The content is solely the responsibility of the authors and does not necessarily represent the official views of the National Institutes of Health.
 
 ## References
