@@ -39,137 +39,138 @@ source("generate observed data version 0.R")
 
 ## Introduction
 
-The **per-protocol (PP)** analysis estimates the effects of initiating _and_ continuously adhering to the initial treatment. Unlike the intention-to-treat (ITT) 
-analysis focusing on the effects of assigning patients to one treatment group versus another, patients are artificially censored in the PP analysis when they deviate from protocol, that is, switching to the other treatment or discontinuing the initial treatment.  
+The **per-protocol (PP)** analysis estimates the effects of initiating _and_ continuously adhering to the initial treatment. Unlike the intention-to-treat (ITT) analysis focusing on the effects of assigning patients to one treatment group versus another, patients are artificially censored in the PP analysis when they deviate from protocol, that is, switching to the other treatment or discontinuing the initial treatment.  
 
-PP analysis estimates treatment effects under full adherence, which rules out the behavioral impact of not taking the treatment as prescribed. PP analysis can be particularly relevant when determining the maximum achievable benefit of a treatment under optimal adherence conditions. However, it estimates the treatment effects under a nearly hypothetical situation (100% adherence) that does not occur in real world.
+PP analysis estimates treatment effects under full adherence, which rules out the behavioral impact of not taking the treatment as prescribed. PP analysis can be particularly relevant when determining the maximum achievable benefit of a treatment under optimal adherence conditions. However, it estimates the treatment effects under a nearly hypothetical situation (100% adherence) that often does not occur in real world.
 
 
-## Implementation of intention-to-treat analysis
+## Implementation of per-protocol analysis
 Recall our previous example that aims to compare the effectiveness of ARB versus ACEI anti-hypertensive medications on reducing the risk of cardiovascular disease (CVD). 
 
 ![](documents/sidebysideTTE.png){width=95%}
 
-Simulate data
-```{r}
+We emulated the target trial specified in **Table 1** and prepared the dataset in the [single-trial emulation session](https://uqualitycausal.github.io/TTECausalR/TTEdemoSig.html). Thus, we directly load the pre-processed data. 
 
-#simulate data. In this simulation the true treatment effect is -1.2
-simdata=generate.2trt.obs.data(n=10000,J=20,beta0.trt0=1,beta.adherence=2, beta0.outcome=-5, beta.trt.effect=-1.2, beta0.censoring=-1)
-```
-Now we can start to create an analysis-ready from the simulated data. We will emulate a randomized clinic trial as described below. 
-Add a table here to describe the trial design.   
+```{r}
+obsdata5 <- readRDS("obsdata5.rds")
+attr(obsdata5$X1_0, "label") <- "Baseline value of X1"
+attr(obsdata5$X2_0, "label") <- "Baseline value of X2"
+attr(obsdata5$X3_0, "label") <- "Baseline value of X3"
+attr(obsdata5$X4_0, "label") <- "Baseline value of X4"
+attr(obsdata5$age_0, "label") <- "Baseline value of age"
 
-First, we will create an eligible indicator. Our inclusion criteria are: 1)age >=40, 2)no history of Y by the time of the trial beginning, 3)no history of treatment, and 4)at least 2 years of known treatment status
-```{r}
-simdata <- simdata %>%mutate(on.trt=A%in%c("trt1","trt2"))%>%
-  group_by(id) %>%
-  mutate(eligible = as.integer(age >= 40 & cumsum(Y) == 0 & cumsum(on.trt) <=1) & row_number() > 2) %>%
-  ungroup()
-```
-Let's take a look on a sample. 
-```{r}
-simdata%>%filter(id==34)
+get_label <- function(x) {
+  lbl <- attr(x, "label", exact = TRUE)
+  if (is.null(lbl)) "" else as.character(lbl)
+}
 
-```
-We can see that:  
-At time t = 2003, his age is below 40 and so he is not eligible for the study.
-At times t = 2003 and 2004, he doesn't have 2 years of known treatment status, so he is not eligible. 
-At time t = 2005 through 2007, his age is over 40, he has no history of Y, and he has no treatment history. Therefore, he is eligible. Thus, at t = 2007, he started treatment and he can be considered in the study at this time.
-After t = 2007, he is no longer eligible to be considered because he now has a treatment history. However, his follow-up can continue until t = 2008 when he deviates from the original treatment. 
-Now we can identify the subjects who are ever eligible for treatment and the first time they are eligible.
-```{r}
-eligible_info <- simdata %>%
-  group_by(id) %>%
-  summarise(first_eligible_time = min(time[eligible == 1], na.rm = TRUE),
-            ever_eligible = any(eligible == 1)) %>%
-  ungroup()
-```
-This table will show how many subjects are ever eligible. 
-```{r}
-table(eligible_info$ever_eligible)
-```
-Let's check one of them. 
-```{r}
-eligible_info %>% filter(id==34)
-```
-As explained above, Subject 4 is first eligible at time t = 2005.  
+dict <- data.frame(
+  Variable = names(obsdata5),
+  Meaning  = vapply(obsdata5, get_label, character(1)),
+  check.names = FALSE
+)
 
-Now we can merge the eligibility information back to the original data.
-```{r}
-simdata <- simdata %>%
-  left_join(eligible_info, by = "id") 
+knitr::kable(dict, caption = "Data Dictionary", row.names = FALSE)
 ```
-Next, we enroll those eligible subjects and start the follow-up from the first time they are eligible. We also start treatment.
-```{r}
-trt_info <- simdata %>%
-  group_by(id) %>%
-  summarise(first_trt_time = min(time[on.trt], na.rm = TRUE)) %>%
-  ungroup()
-simdata<-simdata%>%
-  left_join(trt_info, by = "id") %>%
-  mutate(first_eligible_time = pmax(first_eligible_time, first_trt_time, na.rm = TRUE)) %>%
-  select(-first_trt_time)
-workdata <- simdata %>%filter(ever_eligible==1 & time>=first_eligible_time) %>%
-  group_by(id) %>%
-  mutate(followup_time = time - first_eligible_time) %>%
-  ungroup() %>%
-  select(id, time, X1, X2, X3, X4, age, A, Y, C, followup_time)%>%mutate(A=(A=="trt1")*1) #A=1 for trt1 and A=0 for trt2
-```
-We are ready to do the analysis.
-We will first perform the per protocol (PP) analysis.  
-To do this, we will first create an artificial censoring that is defined as deviation from the assigned treatment. The data after our artificial censoring is dropped.
-```{r}
-assigned.trt=workdata%>%filter(followup_time==0)%>%rename(assigned.trt=A)%>%select(id, assigned.trt)
-workdata=workdata%>%left_join(assigned.trt)
-workdata=workdata%>% mutate(adherence = ifelse(A == assigned.trt, 1, 0),
-                            art_censored=1-adherence)
 
- workdata=workdata%>% 
+## Create an indicator for treatment adherence
+
+- We first create a variable to indicate whether an individual is adhered to the initial treatment (ARB or ACEI) at month $t$
+
+```{r}
+# Extract initial or assigned treatment
+assigned.trt <- obsdata5 %>% 
+  filter(follow_up == 0) %>%
+  rename(assigned.trt = A) %>%
+  select(id, assigned.trt)
+```
+
+- We then create a indicator of being artificially censored. In our example, subjects are artificially censored as soon as they deviate from the assigned treatment 
+- The definition of _artificial censoring_ varies depending on research questions of interest. In many studies, contraindication of medication use is considered, so treatment discontinuation induced by treatment-related adverse events is **NOT** considered as deviating from the protocol. In addition, censoring patients immediately could be a strict way of defining per-protocol, some studies relax it by considering discontinue of a treatment for 3 months or more. 
+
+```{r}
+# Add the initial treatment information to every row of the long data 
+obsdata6 <- obsdata5 %>% left_join(assigned.trt)
+obsdata7 <- obsdata6 %>% 
+  mutate(adherence = ifelse(A == assigned.trt, 1, 0),
+                            art_censored = 1-adherence) 
+```
+
+- We consider the artificial censoring is **monotonic**, meaning that a patient can never come back to the study once censored 
+- According to this, data at and after artificial censoring is eventually removed
+- However, to estimate adherence weights, we need the data from the month of treatment deviation, so we will keep it temporarily.
+```{r}
+# Drop the rows after individuals being artificially censored
+obsdata8 <- obsdata7 %>% 
   group_by(id) %>% 
-  mutate(cum_art_censored = cumsum(art_censored)) %>% 
-   mutate(cum_cum_art_censored=cumsum(cum_art_censored))%>% #This is right. In order to drop the rows the subject returned to assigned treatment after deviate from the assigned treatment.  
-  filter(cum_cum_art_censored %in% c(0,1)) %>% 
-  select(-one_of(c("cum_art_censored","cum_cum_art_censored")))
- 
-
+  mutate(cum_art_censored = cumsum(art_censored)) %>% # create an indicator of the censored rows
+   mutate(cum_cum_art_censored = cumsum(cum_art_censored)) %>% # create an indicator to distinguish the first censored month and the months afterward
+  filter(cum_cum_art_censored %in% c(0,1)) %>% # keep only data from the adhered months and the first deviation month
+  select(-cum_art_censored,-cum_cum_art_censored)
 ```
-Now we calculate treatment weight, censoring weight, and adherence weight. To do this, we will use stabilized weights. This means for each weight we will fit a numerator model and a denominator model. For adherence weight and censoring weight we will fit a model for the numerator and for the denominator for each treatment arm. 
+
+## Create adherence weights
+To minimize extreme weights and unstable treatment effect estimates, we use stabilized adherence weights. Similar to the baseline treatment weights we explained in the [Intention-to-treat Analysis tutorial](https://uqualitycausal.github.io/TTECausalR/IntentionToTreat.html), stablized weights are also inverse weighting estimates constructed with a numerator and a denominator. 
+
+- The numerator is the probability of being adhered at month t conditional on baseline covariates and the denominator is the probability of being adhered at month t conditional on both baseline and **time-varying** covariates
+- Recall that, in our example, $X_1$, $X_2$, and $age$ are time-dependent covariates and $X_3$ and $X_4$ are time-independent covariates 
+- We apply pooled logistic models to estimate the numerator and denominator separately and we fit the models for each treatment arm separately, resulting four models in total
+- The rationale behind fitting separate model for each treatment group is that adherence patterns may differ. For instance, it is well-known patients develop more side effects from ACEIs than ARBs, so the rates and reasons for treatment discontinuation or switching can be very different.   
+
 ```{r}
-# Fit models for treatment, adherence, and censoring weights
-baseline=workdata%>%filter(followup_time==0)%>%rename(X1_0=X1, X2_0=X2, X3_0=X3, X4_0=X4, age_0=age)
-trt.model=glm(assigned.trt ~ X1_0 + X2_0 + X3_0 + X4_0 + age_0,
-                  data = baseline,
-                  family = binomial(link = "logit"))
+# Fit the four separate pooled logistic models
+obsdata9 <- obsdata8 %>%
+  filter(follow_up > 0) %>%   # probability of being adhered at baseline is always 1
+  mutate(time_on_regime = follow_up)   # time_on_regime is defined as time since treatment initiation
 
-workdata=workdata%>%filter(followup_time>0)%>%left_join(baseline%>%select(id,X1_0,X2_0,X3_0,X4_0,age_0))%>%mutate(time_on_regime=followup_time) #time_on_regime is defined as time since treatment initiation
+# Denominator of the adherence model for the ACEI group 
+adh.model.d0 <- glm(adherence ~ X1 + X2 + X3 + X4 + age + X1_0 + X2_0 + age_0 + # include the baseline values of X1, X2, and age
+                     time_on_regime + I(time_on_regime^2), 
+                    data = obsdata9 %>% filter(assigned.trt == 0),   
+                    family = binomial(link = "logit"))
 
-adh.model.d0=glm(adherence ~ X1 + X2 + X3 + X4 + age +X1_0 + X2_0+age_0,
-                  data = workdata %>% filter(assigned.trt == 0 & followup_time>0), #need to exclude followup_time==0 because at baseline the adherence is always 1
-                  family = binomial(link = "logit"))
-adh.model.d1=glm(adherence ~ X1 + X2 + X3 + X4 + age +X1_0 + X2_0+age_0,
-                  data = workdata %>% filter(assigned.trt == 1& followup_time>0),
-                  family = binomial(link = "logit"))
-adh.model.n0=glm(adherence ~  X3 + X4 +X1_0 + X2_0+age_0+time_on_regime+I(time_on_regime^2),
-                  data = workdata %>% filter(assigned.trt == 0& followup_time>0),
-                  family = binomial(link = "logit"))
-adh.model.n1= glm(adherence ~  X3 + X4 +X1_0 + X2_0+age_0+time_on_regime+I(time_on_regime^2),
-                  data = workdata %>% filter(assigned.trt == 1& followup_time>0),
-                  family = binomial(link = "logit"))
-cens.model.d0=glm(C~ X1 + X2 + X3 + X4 + age+X1_0 + X2_0+age_0, #add treatment history measured as cumulative dose of each of both treatments 
-                  data = workdata %>% filter(assigned.trt == 0& followup_time>0),
-                  family = binomial(link = "logit"))
-cens.model.d1=glm(C~ X1 + X2 + X3 + X4 + age+X1_0 + X2_0+age_0,
-                  data = workdata %>% filter(assigned.trt == 1& followup_time>0),
-                  family = binomial(link = "logit"))
-cens.model.n0=glm(C ~ X3 + X4+X1_0 + X2_0,
-                  data = workdata %>% filter(assigned.trt == 0& followup_time>0),
-                  family = binomial(link = "logit")) 
-cens.model.n1=glm(C ~ X3 + X4+X1_0 + X2_0,
-                  data = workdata %>% filter(assigned.trt == 1& followup_time>0),
-                  family = binomial(link = "logit"))
+# Denominator of the adherence model for the ARB group 
+adh.model.d1 <- glm(adherence ~ X1 + X2 + X3 + X4 + age + X1_0 + X2_0 + age_0 + time_on_regime + I(time_on_regime^2),
+                    data = obsdata9 %>% filter(assigned.trt == 1),
+                    family = binomial(link = "logit"))
+
+# Numerator of the adherence model for the ACEI group 
+adh.model.n0 <- glm(adherence ~  X3 + X4 + X1_0 + X2_0 + age_0 + time_on_regime + I(time_on_regime^2),
+                    data = obsdata9 %>% filter(assigned.trt == 0),
+                    family = binomial(link = "logit"))
+
+# Numerator of the adherence model for the ARB group 
+adh.model.n1 <- glm(adherence ~  X3 + X4 + X1_0 + X2_0 + age_0 + time_on_regime + I(time_on_regime^2),
+                    data = obsdata9 %>% filter(assigned.trt == 1),
+                    family = binomial(link = "logit"))
+```
+
+- We pause the construction of adherence weights for now and shift to fitting similar models to create a second type of censoring weight that accounts for informative loss to follow-up (i.e., early dropout). Later, we will show how to combine both adherence and loss-to-follow-up weights using the probabilities estimated from these pooled logistic models
+
+## Create early dropout weights
+
+- 
+```{r}
+cens.model.d0 <- glm(C ~ X1 + X2 + X3 + X4 + age + X1_0 + X2_0 + age_0 + time_on_regime + I(time_on_regime^2), 
+                     data = obsdata9 %>% filter(assigned.trt == 0),
+                     family = binomial(link = "logit"))
+
+cens.model.d1 <- glm(C ~ X1 + X2 + X3 + X4 + age + X1_0 + X2_0 + age_0 + time_on_regime + I(time_on_regime^2),
+                     data = obsdata9 %>% filter(assigned.trt == 1),
+                     family = binomial(link = "logit"))
+
+cens.model.n0 <- glm(C ~ X3 + X4 + X1_0 + X2_0 + age_0 + time_on_regime + I(time_on_regime^2),
+                     data = obsdata9 %>% filter(assigned.trt == 0),
+                     family = binomial(link = "logit")) 
+
+cens.model.n1 <- glm(C ~ X3 + X4 + X1_0 + X2_0 + age_0 + time_on_regime + I(time_on_regime^2),
+                     data = obsdata9 %>% filter(assigned.trt == 1),
+                     family = binomial(link = "logit"))
 
 ```
-Now we calculate the weights.
+
+
+- With these four sets of estimated probabilities Now we calculate the weights.
 ```{r}
 #treatment IPW weight
 baseline$ps.trt=predict(trt.model, type = "response")
@@ -196,6 +197,41 @@ w.95=quantile(workdata$weight,0.95)
 workdata=workdata%>%mutate(weight=if_else(weight>w.95,w.95,weight))
 summary(workdata$weight)
 ```
+
+
+Below we will illustrate how to create the data set for per-protocol analysis using some variables from the observed data we simulated. 
+```{r}
+# Prepare data for per-protocol analysis by adjusting for treatment switching and censoring
+# Fit models for both treatment switching (numerator and denominator) and censoring (numerator and denominator).
+prep_PP_data <- data_preparation(
+ data = obsdata2,
+ id = "id", period = "time", treatment = "A",
+ outcome = "Y", eligible = "eligible",
+ estimand_type = "PP",
+ outcome_cov = ~ X1 + X2 + X3 + X4 + age_s,
+ model_var = "assigned_treatment",
+ switch_d_cov = ~ X1 + X2 + X3 + X4 + age_s
+ + time_on_regime + I(time_on_regime^2),
+ switch_n_cov = ~ X3 + X4 + time_on_regime + I(time_on_regime^2),
+ use_censor_weights = TRUE, cense = "C",
+ cense_d_cov = ~ X1 + X2 + X3 + X4 + age_s,
+ cense_n_cov = ~ X3 + X4,
+ pool_cense = "numerator",,
+ data_dir = working_dir, save_weight_models = TRUE,
+ chunk_size = 500, separate_files = TRUE,
+ quiet = TRUE)
+
+adh.model.d0=prep_PP_data$switch_models$switch_d0
+adh.model.d1=prep_PP_data$switch_models$switch_d1
+adh.model.n0=prep_PP_data$switch_models$switch_n0
+adh.model.n1=prep_PP_data$switch_models$switch_n1
+cens.model.d0=prep_PP_data$censor_models$cens_d0
+cens.model.d1=prep_PP_data$censor_models$cens_d1
+cens.model.n=prep_PP_data$censor_models$cens_pool_n
+
+```
+
+
 We are ready to do the analysis. We will use a weighted pooled logistic regression model to estimate the treatment effect.
 ```{r}
 analysis.data=workdata%>%filter(adherence==1)
