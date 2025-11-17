@@ -203,6 +203,7 @@ obsdata6 <- obsdata6 %>%
       1/p, # 1/P(treatment) for treated subjects
       1/(1-p) # 1/(1-P(treatment)) for control subjects
   ))
+saveRDS(obsdata6, "obsdata6.rds")
 ```
 
 - **Step 2**: Examine overlap of treatment by visualizing the distributions of propensity score between two treatment groups
