@@ -2,7 +2,10 @@
 title: "A new-user, active comparator design; Intention-to-treat analysis"
 author: "Peirong Hao, Kevin Ying, Adam Bress, Tom Greene, Yizhe Xu*"
 date: "`r Sys.Date()`"
-output: rmarkdown::html_vignette
+# output: rmarkdown::html_vignette
+output:
+  html_document:
+    mathjax: "https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"
 bibliography: reference_ITT.bib  
 link-citations: yes
 objective: To apply the target trial emulation framework to create a analysis-ready data set

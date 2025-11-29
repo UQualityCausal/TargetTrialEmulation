@@ -1,13 +1,17 @@
 ---
 title: "Doubly Robust Estimation of Causal Effects in Survival Analysis"
+author: "Peirong Hao, Ravinder Singh, Kevin Ying, Adam Bress, Tom Greene, Yizhe Xu^[Corresponding author: yizhe.xu@hsc.utah.edu]"
 date: "`r Sys.Date()`"
-author: Peirong Hao (peirong.hao@hci.utah.edu), Ravinder Singh, Kevin Ying, Yizhe Xu (Crystal.Xu@hsc.utah.edu), Chong Zhang
-output: rmarkdown::html_vignette
+#output: rmarkdown::html_vignette
+output:
+  html_document:
+    mathjax: "https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"
 bibliography: references_DR.bib  
-csl: harvard-cite-them-right.csl
+#csl: harvard-cite-them-right.csl
 link-citations: yes
+objective: Estimate treatment effects on time-to-event outcomes using doubly robust methods 
 vignette: >
-  \VignetteIndexEntry{Doubly Robust Estimation of Causal Effects in Survival Analysis}
+  \VignetteIndexEntry{Doubly Robust Estimation of Causal Effects on Time-to-event Outcomes}
   %\VignetteEncoding{UTF-8}
   %\VignetteEngine{knitr::rmarkdown}
 editor_options: 
@@ -36,77 +40,79 @@ library(kableExtra)
 ## Introduction
 
 As noted in @DR-main, estimating causal effects of a treatment in observational studies is challenging due to confounding bias.
-Common approaches to control for confounding include outcome regression and propensity score methods.
-Outcome regression methods model the conditional expectation of the outcome given treatment and covariates.
-Propensity score methods estimate the probability of receiving treatment given covariates.
-Inverse probability weighting uses propensity scores to create a pseudo-population in which treatment is independent of measured confounders.
-Both approaches rely on correct model specification because misspecification of either model can lead to biased estimates.
+Common approaches to controlling for confounding include _outcome regression_ and _propensity score methods_.
+
+- _Outcome regression methods_ model the conditional expectation of the outcome given treatment and baseline covariates. Marginal outcome means for each treatment strategy are then obtained by setting treatment to “treated” or “control” for all subjects and averaging over the covariate distribution. The difference in these marginal means is a commonly used estimand for the average treatment effect (ATE).
+
+- _Propensity score methods_ first estimate the propensity score (PS), i.e., the probability of receiving treatment given covariates, and then apply inverse probability weighting to construct a pseudo-population in which treatment is independent of measured confounders.
+
+Both approaches rely on correctly specified outcome or propensity score models, and misspecification of either can lead to biased estimates.
 
 ## Doubly Robust Estimation
 
-Following @DR-main, doubly robust (DR) estimation combines outcome regression and propensity score methods.
-The DR estimator is consistent if either model is correctly specified.
-In this setting, we consider $n$ subject, and $i$ indexes individual subject.
-Let $D$ denote the treatment indicator (0 or 1), $Y$ the outcome of interest, and $\boldsymbol{Z} = (Z_1, Z_2, \ldots, Z_k)$ the vector of baseline covariates.
-$e(\boldsymbol{Z}_i)$ represents the estimated propensity score for each individual, and $m_d(\boldsymbol{Z}_i)$ is the predicted outcome given treatment and baseline covariates.
-The average treatment effect (ATE) can be estimated as
+Doubly robust (DR) estimation leverages both the **outcome regression model** and the **propensity score model**. Consider $n$ independent and identically distributed individuals indexed by $i$. Let $D$ denote a binary treatment (0 or 1), $Y$ the outcome of interest without censoring, and $\boldsymbol{Z} = (Z_1, Z_2, \ldots, Z_k)$ a set of baseline covariates. Let $\hat{e}(\boldsymbol{Z})$ be the estimated propensity score and $\hat{m}_d(\boldsymbol{Z})$ be the predicted outcome given $D$ and $\boldsymbol{Z}$. The DR estimator for the average treatment effect (ATE) is
 
 $$
 \hat{\tau}_{DR} = \frac{1}{n} \sum_{i=1}^n 
 \left[
-  \frac{D_i Y_i}{e(\boldsymbol{Z}_i)} 
-  - \frac{(D_i - e(\boldsymbol{Z}_i))}{e(\boldsymbol{Z}_i)} m_1(\boldsymbol{Z}_i)
+  \frac{D_i Y_i}{\hat{e}(\boldsymbol{Z}_i)} 
+  - \frac{(D_i - \hat{e}(\boldsymbol{Z}_i))}{\hat{e}(\boldsymbol{Z}_i)} \hat{m}_1(\boldsymbol{Z}_i)
 \right]
 -
 \left[
-  \frac{(1 - D_i) Y_i}{1 - e(\boldsymbol{Z}_i)} 
-  + \frac{(D_i - e(\boldsymbol{Z}_i))}{1 - e(\boldsymbol{Z}_i)} m_0(\boldsymbol{Z}_i)
+  \frac{(1 - D_i) Y_i}{1 - \hat{e}(\boldsymbol{Z}_i)} 
+  + \frac{(D_i - \hat{e}(\boldsymbol{Z}_i))}{1 - \hat{e}(\boldsymbol{Z}_i)} \hat{m}_0(\boldsymbol{Z}_i)
 \right].
 $$
 
-Fundamental causal inference assumptions—exchangeability, positivity, consistency, and no interference—still hold.
-The DR method still assumes that all confounders are measured, since unmeasured confounding can introduce bias.
-For detailed mathematical derivations, please refer to @DR-main.
-According to @DR-semiparam, the estimator can achieve semiparametric efficiency bounds when both models are correctly specified.
+The DR estimator is also known as the **augmented inverse probability weighting (AIPW)** estimator. In this form, the second term in each bracket serves as the augmentation term that converges to zero when either the PS model or outcome models are correctly specified. The **doubly robustness** property ensures that the estimator remains unbiased as long as either the PS model or the outcome models are correctly specified. Intuitively, The DR estimator adds another layer of protection against model misspecification, which is crucial in observational studies. For detailed mathematical derivations, please refer to @DR-main.
+
+If both PS and outcome models are correctly specified, the estimator is **semiparametric efficient** [@DR-semiparam], meaning it attains the smallest possible variance among all regular, asymptotically unbiased estimators for the ATE. One caveat is that if either model is misspecified, the DR estimator for ATE remains unbiased, but the resulting estimator for variance is biased. In such cases, a bootstrap estimator of the asymptotic variance is recommended [@Bai2013].  
+
+The DR estimator requires standard identifiability assumptions in causal inference, including the stable unit treatment value assumption (SUTVA), positivity, consistency, and exchangeability. 
+
+?? Add R package for implementing the DR estimator for continuous and binary outcomes
+
 
 ## Extension to Survival Analysis
 
-Time-to-event outcomes are common in biomedical research and are often subject to right censoring due to loss to follow-up.
-When treatment assignment depends on covariates, the Kaplan–Meier (KM) estimator may be biased.
-To address this issue, @DR-pseudo discusses a pseudo-observation-based DR approach.
-Let $T$ denote the survival time and $C$ the censoring time.
-The survival function for subject $i$ under treatment $d$ at time $t$ is denoted as $S_d^i(t)$.
-The pseudo-observation for the survival function is defined as $\hat{S}_d^{i}(t) = n \hat{S}_d(t) - (n - 1) \hat{S}^{-i}_{d}(t)$, where $\hat{S}_d(t)$ is the KM estimator based on all subjects, and $\hat{S}^{-i}_d(t)$ is the KM estimator excluding subject $i$.
-In the formula above, the $Y_i$ is now replaced with $\hat{S}_d^i(t)$.
-The updated formula is as follows:
+Time-to-event outcomes are common in biomedical research and are often subject to right censoring due to loss to follow-up. In some situations, loss to follow-up occurs completely at random, known as _noninformative censoring_, which represents the simpler case. More often, the loss to follow-up depends on pre-baseline and post-baseline characteristics, referred to as _informative censoring_. For example, patients who are sicker at baseline or who develop treatment-related adverse events may be more likely to drop out early. In such situations, the censoring mechanism must be explicitly modeled as a function of baseline and time-dependent covariates. In this tutorial, we introduce a DR estimator for the simpler scenario with noninformative censoring under an observational study setting. We will discuss an alternative DR estimator for the informative censoring case in a future tutorial. 
 
+### Pseudo-observation-based DR estimator
+We introduce additional notations to discuss right-censored outcomes. Let $T$ denote the survival time, $C$ the censoring time, and $S_d(t)$ the survival function under treatment $d$ at time $t$. We define the ATE as the difference in survival probabilities between treatment groups at time $t$, i.e., $S_1(t)-S_0(t)$.
+
+Assuming loss to follow-up is completely at random, i.e., $C \perp T^{(d)}$, @DR-pseudo proposed a DR estimator using pseduo observations. The first step is to construct pseudo-observations for the survival function at time $t$ using the Kaplan–Meier (KM) estimator:
+$$\hat{S}_d^{i}(t) = n \hat{S}_d(t) - (n - 1) \hat{S}^{-i}_{d}(t),$$
+where $\hat{S}_d(t)$ is the KM estimate using all observations and $\hat{S}^{-i}_d(t)$ is the leave-one-out KM estimate with subject $i$ removed. The pseudo-values $\hat{S}_d^{i}(t)$ are (asymptotically) individual-level contributions such that $E[\hat{S}_d^{i}(t)|Z_i] \approx \hat{S}_d(t|Z_i)$.
+
+Then, these pseudo-values replace the observed outcome $Y_i$ and act as censoring-adjusted outcomes under the assumption of random censoring. With $\hat{S}_d^{i}(t)$ treated as the outcome, a standard DR estimator is then applied using a PS model and an outcome regression model. The pseudo-observation-based DR estimator for ATE is:
 $$
-\hat{\tau}_{DR} = \frac{1}{n} \sum_{i=1}^n 
+\hat{\tau}^{pseudo}_{DR} = \frac{1}{n} \sum_{i=1}^n 
 \left[
-  \frac{D_i \hat{S}_d^i(t)}{e(\boldsymbol{Z}_i)} 
-  - \frac{(D_i - e(\boldsymbol{Z}_i))}{e(\boldsymbol{Z}_i)} m_1(t, \boldsymbol{Z}_i)
+  \frac{D_i \hat{S}_d^i(t)}{\hat{e}(\boldsymbol{Z}_i)} 
+  - \frac{(D_i - \hat{e}(\boldsymbol{Z}_i))}{\hat{e}(\boldsymbol{Z}_i)} \hat{m}_1(t, \boldsymbol{Z}_i)
 \right]
 -
 \left[
-  \frac{(1 - D_i) \hat{S}_d^i(t)}{1 - e(\boldsymbol{Z}_i)} 
-  + \frac{(D_i - e(\boldsymbol{Z}_i))}{1 - e(\boldsymbol{Z}_i)} m_0(t, \boldsymbol{Z}_i)
-\right].
+  \frac{(1 - D_i) \hat{S}_d^i(t)}{1 - \hat{e}(\boldsymbol{Z}_i)} 
+  + \frac{(D_i - \hat{e}(\boldsymbol{Z}_i))}{1 - \hat{e}(\boldsymbol{Z}_i)} \hat{m}_0(t, \boldsymbol{Z}_i)
+\right],
 $$
+where $\hat{m}_d(t, \boldsymbol{Z}_i)$ can be estimated using a Cox proportional hazards model and $\hat{e}(\boldsymbol{Z}_i))$ can be estimated using logistic regression. The variance of the resulting estimator can be obtained based on Equation (17) in @DR-pseudo. 
 
-Under the commonly used Cox proportional hazards model, the survival function for subject $i$ under treatment $d$ at time $t$ can be expressed as ${S}_d(t|\boldsymbol{Z}_i) = S_{d0}(t)^{\beta_d^T\boldsymbol{Z_i}}$, where $S_{d0}(t)$ is the baseline survival function for treatment $d$, and $\boldsymbol{\beta}_d$ is the vector of estimated regression coefficients.
-$\hat{S}_d(t)$ can then be approximated as the average of ${S}_d(t|\boldsymbol{Z}_i)$s.
 
-## R Code Demo
+## Implementation of the DR estimator
+We now demonstrate how to implement the pseudo-observation-based DR estimator under the random censoring scenario.
 
 ### Data Generation
 
-This demonstration starts with data simulation.
-
+We first simulate the data according to the variable relationships depicted in the directed acyclic graph (DAG) below
+?? add a DAG to illustrate the underlying relationship between variables
 ```{r}
-generate_data <- function(n = 3000) {
+generate_data_noninf <- function(n = 3000) {
   mu <- rep(0, 3)
-  sigma <- matrix(c(1, 0, 0, 0, 1, 0, 0, 0, 1), nrow = 3)
-  Z <- mvrnorm(n, mu, sigma)
+  sigma <- matrix(c(1, 0, 0, 0, 1, 0, 0, 0, 1), nrow = 3) 
+  Z <- mvrnorm(n, mu, sigma) # i.i.d. baseline covariates with mean zero and variance 1
   Z1 <- Z[, 1]
   Z2 <- Z[, 2]
   Z3 <- Z[, 3]
@@ -117,16 +123,17 @@ generate_data <- function(n = 3000) {
   
   hazard <- exp(-1 + D + 1 * Z1 + 2 * Z2 + 1 * Z1 * Z2)
 
-  T_event <- rexp(n, rate = hazard) # Event time
-  T_censor <- rexp(n, rate = exp(-4.5)) # Censoring time
-  T_admin <- rep(7, n) # Administrative censoring at fixed time
+  T_event <- rexp(n, rate = hazard) # Event time from an exponential model
+  T_censor <- rexp(n, rate = exp(-4.5)) # Censoring time based on random censoring
+  T_admin <- rep(7, n) # Administrative (random) censoring at time 7
   
-  Time <- pmin(T_event, T_censor, T_admin) # Observed time
+  Time <- pmin(T_event, T_censor, T_admin) # Observed follow-up time
   Event <- as.numeric(T_event <= T_censor & T_event <= T_admin) # Event indicator
   
   return(data.frame(Z1 = Z1, Z2 = Z2, Z3 = Z3, D = D, Time = Time, Event = Event))
 }
 
+# ?? Create a data dictionary outside the code, see IntentionToTreat.Rmd row 155
 # -----------------------------
 # Data Dictionary:
 # Z1, Z2, Z3: baseline covariates
@@ -135,51 +142,38 @@ generate_data <- function(n = 3000) {
 # Event: event indicator (1 if event occurred, 0 otherwise)
 # -----------------------------
 
-data <- generate_data()
+data <- generate_data_noninf()
 summary(data$Time)
 
 table(data$Event)
+#?? Among the 729 subjects with no events, how many are early drop outs and how many are administratively censored?
 ```
 
-### Proportional Hazards (PH) Assumption
-
-It is important to check the PH assumption.
-```{r fig.width=5, fig.height=3}
-# 1. Schoenfeld Residuals plot: A flat middle line indicates that the PH assumption holds.
-cox_check_model <- coxph(Surv(Time, Event) ~ D, data = data)
-cox.zph(cox_check_model) #p-value
-plot(cox.zph(cox_check_model))
-mtext("Dark solid curves show ±2 SE bounds for the scaled Schoenfeld residuals.", 
-      side = 1, line = 4, cex = 0.7)
-```
-
-```{r fig.width=5, fig.height=3}
-# 2. Log-log plot: Parallel lines indicate proportional hazards assumption is met.
-surv_fit <- survfit(Surv(Time, Event) ~ D, data = data)
-ggsurvplot(surv_fit, data = data, fun = "cloglog", 
-           title = "Log-log Plot", xlab = "log(Time)",
-           legend.title = "Treatment Group", 
-           legend.labs = c("Control", "Treatment"),
-           ggtheme = theme(legend.text = element_text(size = 9),      
-              legend.title = element_text(size = 10)))
-```
-
-### Model Specification Scenarios
-
-To illustrate the robustness of the DR estimator to model misspecification, we compare 4 scenarios:
-
--   Scenario 1: Both the outcome model and the propensity score model are correctly specified.
-
--   Scenario 2: The propensity score model is correctly specified, but the outcome model is misspecified.
-
--   Scenario 3: The outcome model is correctly specified, while the propensity score model is misspecified.
-
--   Scenario 4: Both models are misspecified.
-
-Below is the DR estimation function using R packages.
+With the simulation truth above, we first calculate the true ATE at multiple times.
 
 ```{r}
-dr_ate_package <- function(data, times, ps_correct = TRUE, or_correct = TRUE) {
+get_true_survival <- function(data, t, d_level) {
+  hazard <- exp(-1 + d_level + 1 * data$Z1 + 2 * data$Z2 + 1 * data$Z1 * data$Z2)
+  survival_probs <- exp(-hazard * t) # baseline hazard is constant under an expotential survival model
+  return(mean(survival_probs)) 
+}
+
+# Compute potential survival probabilities by setting treatment to 1 and 0 for all individuals
+times <- c(1, 2, 3)
+true_surv_1 <- sapply(times, function(t) get_true_survival(data, t, d_level = 1))
+true_surv_0 <- sapply(times, function(t) get_true_survival(data, t, d_level = 0))
+
+# Calculate ATE as difference in survival probabilities
+results_true <- list(ATE = true_surv_1 - true_surv_0)
+```
+
+
+### Using R package 
+
+First, we implement the pseudo-observation-based DR estimator using the _adjustedsurv_ function in the [adjustedCurves](https://cran.r-project.org/web/packages/adjustedCurves/adjustedCurves.pdf) R package.
+
+```{r}
+pseudo_dr_ate_pkg <- function(data, times, ps_correct = TRUE, or_correct = TRUE) {
   
   # Propensity score model
   if (ps_correct) {
@@ -198,7 +192,8 @@ dr_ate_package <- function(data, times, ps_correct = TRUE, or_correct = TRUE) {
   
   data$D <- as.factor(data$D)
 
-  # Outcome model
+  # Pseudo-observation-based DR estimator for survival probabilities 
+  # This method uses a generalized estimation equation for outcome model
   adj_surv <- adjustedsurv(
     data = data,
     variable = "D",
@@ -207,7 +202,7 @@ dr_ate_package <- function(data, times, ps_correct = TRUE, or_correct = TRUE) {
     method = "aiptw_pseudo",
     treatment_model = ps_model,
     outcome_vars = or_covars,
-    times = times,
+    times = times, 
     conf_int = TRUE,
     bootstrap = TRUE,
     n_boot = 100) # In practice, set n_boot to a larger value (e.g., 1000).
@@ -224,30 +219,29 @@ dr_ate_package <- function(data, times, ps_correct = TRUE, or_correct = TRUE) {
   
   return(list(ATE = ate_at_times$diff, ci_lower = ate_at_times$ci_lower, ci_upper = ate_at_times$ci_upper))
 }
-
-# Note: package function "aiptw_pseudo" method uses a generalized estimation equation for outcome model, 
-# which is different from the manual implementation.
 ```
 
-The analysis can be conducted at multiple time points.
+We estimate the ATEs at prespecified time points and corresponding 95% confidence intervals (CIs).
 
 ```{r}
-times <- c(3, 4, 5)
-results_package <- dr_ate_package(data, times)  
+results_package <- pseudo_dr_ate_pkg(data, times)  
 
 results_package_tbl <- rbind(ATE = round(results_package$ATE, 2),
   `CI lower` = round(results_package$ci_lower, 2),
   `CI upper` = round(results_package$ci_upper, 2))
 
-colnames(results_package_tbl) <- c("T=3", "T=4", "T=5")
+colnames(results_package_tbl) <- c("T=1", "T=2", "T=3")
 kable(results_package_tbl, caption = "ATE and 95% Confidence Intervals") %>% 
   kable_styling(full_width = FALSE, font_size = 12) 
 ```
 
-Alternatively, the DR estimator can be implemented manually.
+### Manual coding
 
+The pseudo-observation-based DR estimator can be implemented manually
+
+- We use a Cox regression for the outcome model rather than GEE as in the package above
 ```{r}
-dr_ate_manual <- function(data, times, ps_correct = TRUE, or_correct = TRUE) {
+pseudo_dr_ate_manual <- function(data, times, ps_correct = TRUE, or_correct = TRUE) {
   
   # Split data by treatment group
   data_1 <- data[data$D == 1, ]
@@ -262,7 +256,7 @@ dr_ate_manual <- function(data, times, ps_correct = TRUE, or_correct = TRUE) {
     or_model_0 <- coxph(Surv(Time, Event) ~ Z1 + Z3, data = data_0)
   }
   
-  # Linear predictors (Beta^T * Z)
+  # Extract the linear predictors (Beta^T * Z) from fitted Cox models 
   lp_1 <- predict(or_model_1, newdata = data, type = "lp")
   lp_0 <- predict(or_model_0, newdata = data, type = "lp")
   
@@ -271,7 +265,7 @@ dr_ate_manual <- function(data, times, ps_correct = TRUE, or_correct = TRUE) {
   base_surv_0 <- survfit(or_model_0, newdata = data.frame(Z1=0, Z2=0, Z3=0))
   
   # Baseline survival probabilities at different times
-  s0_t_1 <- summary(base_surv_1, times = times, extend = TRUE)$surv
+  s0_t_1 <- summary(base_surv_1, times = times, extend = TRUE)$surv # 'extend' allows extrapolation when needed
   s0_t_0 <- summary(base_surv_0, times = times, extend = TRUE)$surv
   
   # Predicted survival probabilities
@@ -313,6 +307,7 @@ dr_ate_manual <- function(data, times, ps_correct = TRUE, or_correct = TRUE) {
 }
 ```
 
+We calculate the standard error (SE) of the ATE using bootstrapping 
 ```{r}
 se_bootstrap <- function(data, times, num_boot = 100) {
   # In practice, set n_boot to a larger value (e.g., 1000).
@@ -322,7 +317,7 @@ se_bootstrap <- function(data, times, num_boot = 100) {
   for (b in 1:num_boot) {
     boot_indices <- sample(1:n, size = n, replace = TRUE)
     boot_data <- data[boot_indices, ]
-    boot_results[b, ] <- dr_ate_manual(data = boot_data, times = times)$ATE
+    boot_results[b, ] <- pseudo_dr_ate_manual(data = boot_data, times = times)$ATE
   }
 
   se <- apply(boot_results, 2, sd, na.rm = TRUE)
@@ -330,8 +325,9 @@ se_bootstrap <- function(data, times, num_boot = 100) {
 }
 ```
 
+We calculate the 95% CI of the ATE using parametric bootstrapping assuming ATE is normally distributed
 ```{r}
-results_manual <- dr_ate_manual(data, times)  
+results_manual <- pseudo_dr_ate_manual(data, times)  
 se_manual <- se_bootstrap(data, times)
 
 # Calculate 95% confidence intervals
@@ -342,45 +338,46 @@ results_manual_tbl <- rbind(ATE = round(results_manual$ATE, 2),
   `CI lower` = round(results_manual$ci_lower, 2),
   `CI upper` = round(results_manual$ci_upper, 2))
 
-colnames(results_manual_tbl) <- c("T=3", "T=4", "T=5")
-kable(results_manual_tbl, caption = "ATE and 95% Confidence Intervals") %>% 
+colnames(results_manual_tbl) <- c("T=1", "T=2", "T=3")
+kable(results_manual_tbl, caption = "ATE (95% CIs)") %>% 
   kable_styling(full_width = FALSE, font_size = 12) 
+
+# ??reformat the table to put point estimate and CIs in the same cell as how I have it in caption. Also add truth to this table 
 ```
 
-Next, we calculate the true ATE.
+### Model misspecification scenarios
 
-```{r}
-get_true_survival <- function(data, t, d_level) {
-  hazard <- exp(-1 + d_level + 1 * data$Z1 + 2 * data$Z2 + 1 * data$Z1 * data$Z2)
-  survival_probs <- exp(-hazard * t)
-  return(mean(survival_probs)) 
-}
+To illustrate the robustness of the DR estimator to model misspecification, we compare 4 scenarios:
 
-true_surv_1 <- sapply(times, function(t) get_true_survival(data, t, d_level = 1))
-true_surv_0 <- sapply(times, function(t) get_true_survival(data, t, d_level = 0))
-results_true <- list(ATE = true_surv_1 - true_surv_0)
-```
+-   Scenario 1: Both the outcome model and the propensity score model are correctly specified.
+
+-   Scenario 2: The propensity score model is correctly specified, but the outcome model is misspecified.
+
+-   Scenario 3: The outcome model is correctly specified, while the propensity score model is misspecified.
+
+-   Scenario 4: Both models are misspecified.
 
 ```{r}
 # Scenario 1: Both models correct
-results_1_package <- dr_ate_package(data, times, ps_correct = TRUE, or_correct = TRUE)
-results_1_manual <- dr_ate_manual(data, times, ps_correct = TRUE, or_correct = TRUE)
+results_1_package <- pseudo_dr_ate_pkg(data, times, ps_correct = TRUE, or_correct = TRUE)
+results_1_manual <- pseudo_dr_ate_manual(data, times, ps_correct = TRUE, or_correct = TRUE)
 
 # Scenario 2: PS correct, OR incorrect
-results_2_package <- dr_ate_package(data, times, ps_correct = TRUE, or_correct = FALSE)
-results_2_manual <- dr_ate_manual(data, times, ps_correct = TRUE, or_correct = FALSE)
+results_2_package <- pseudo_dr_ate_pkg(data, times, ps_correct = TRUE, or_correct = FALSE)
+results_2_manual <- pseudo_dr_ate_manual(data, times, ps_correct = TRUE, or_correct = FALSE)
 
 # Scenario 3: PS incorrect, OR correct
-results_3_package <- dr_ate_package(data, times, ps_correct = FALSE, or_correct = TRUE)
-results_3_manual <- dr_ate_manual(data, times, ps_correct = FALSE, or_correct = TRUE)
+results_3_package <- pseudo_dr_ate_pkg(data, times, ps_correct = FALSE, or_correct = TRUE)
+results_3_manual <- pseudo_dr_ate_manual(data, times, ps_correct = FALSE, or_correct = TRUE)
 
 # Scenario 4: Both models incorrect
-results_4_package <- dr_ate_package(data, times, ps_correct = FALSE, or_correct = FALSE)
-results_4_manual <- dr_ate_manual(data, times, ps_correct = FALSE, or_correct = FALSE)
+results_4_package <- pseudo_dr_ate_pkg(data, times, ps_correct = FALSE, or_correct = FALSE)
+results_4_manual <- pseudo_dr_ate_manual(data, times, ps_correct = FALSE, or_correct = FALSE)
 ```
 
+### Crude estimation
+Fit a crude Cox model with no covariate or propensity score adjustment to show the amount of confounding bias in our data
 ```{r}
-# Crude Cox model: Cox regression without covariates, no propensity score
 crude_cox_estimator <- function(data, times) {
 
   crude_cox <- coxph(Surv(Time, Event) ~ D, data = data)
@@ -400,11 +397,12 @@ crude_cox_estimator <- function(data, times) {
 
   return(list(ATE = ATE))
 }
+
 results_crude <- crude_cox_estimator(data, times)
 ```
 
-### Bias Comparison
-
+### Evaluate the performance of pseudo-observation-based DR estimator
+?? replace bias metric with root-mean-squared-error metric 
 ```{r}
 scenarios <- c(
   "0: Crude Cox (Unadjusted)",
@@ -418,7 +416,7 @@ format_bias <- function(bias_vector) {
   paste(sprintf("%.3f", bias_vector), collapse = ", ")
 }
 
-# Package column (bias at T = 3, 4, 5)
+# Package column (bias at T = 1, 2, 3)
 package_bias <- c("—",  
   format_bias(sapply(1:length(times), function(i) results_1_package$ATE[i] - results_true$ATE[i])),
   format_bias(sapply(1:length(times), function(i) results_2_package$ATE[i] - results_true$ATE[i])),
@@ -426,7 +424,7 @@ package_bias <- c("—",
   format_bias(sapply(1:length(times), function(i) results_4_package$ATE[i] - results_true$ATE[i]))
 )
 
-# Manual column (bias at T = 3, 4, 5)
+# Manual column (bias at T = 1, 2, 3)
 manual_bias <- c(
   format_bias(sapply(1:length(times), function(i) results_crude$ATE[i] - results_true$ATE[i])),
   format_bias(sapply(1:length(times), function(i) results_1_manual$ATE[i] - results_true$ATE[i])),
@@ -442,14 +440,20 @@ bias_table <- data.frame(
 )
 
 kable(bias_table,
-      col.names = c("Scenario", "T = 3, 4, 5", "T = 3, 4, 5"),
-      caption = "Bias of ATE Estimates",
+      col.names = c("Scenario", "T = 1, 2, 3", "T = 1, 2, 3"),
+      caption = "Performance of the DR estimator",
       align = c('l', 'c', 'c')) %>%
   kable_styling(full_width = FALSE, font_size = 12) %>%
   add_header_above(c(" " = 1, "Package" = 1, "Manual" = 1)) %>%
   footnote(general = sprintf("True ATE: %.3f, %.3f, %.3f",
            results_true$ATE[1], results_true$ATE[2], results_true$ATE[3]),
            general_title = "", footnote_as_chunk = TRUE)
+
+#?? look further into the results at T=1 -- both correct models yielded larger bias than other scenarios
 ```
 
-# References
+## Funding
+
+This work was supported by Utah Clinical & Translational Science Institute (CTSI) Translational Innovation Pilot (TIP) Program Award (NCATS UM1TR004409).
+
+## References
