@@ -9,7 +9,7 @@ output:
 bibliography: references_DR.bib  
 #csl: harvard-cite-them-right.csl
 link-citations: yes
-objective: Estimate treatment effects on time-to-event outcomes using doubly robust methods 
+objective: Estimate treatment effects on time-to-event outcomes under noninformative censoring using doubly robust methods 
 vignette: >
   \VignetteIndexEntry{Doubly Robust Estimation of Causal Effects on Time-to-event Outcomes}
   %\VignetteEncoding{UTF-8}

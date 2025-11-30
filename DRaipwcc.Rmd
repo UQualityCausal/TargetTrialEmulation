@@ -1,0 +1,405 @@
+---
+title: "Augmented Inverse Probability Weighted Complete Case Estimator for Survival Analysis"
+author: "Yizhe Xu^[Corresponding author: yizhe.xu@hsc.utah.edu], Peirong Hao, Ravinder Singh, Kevin Ying, Adam Bress, Tom Greene"
+date: "`r Sys.Date()`"
+#output: rmarkdown::html_vignette
+output:
+  html_document:
+    mathjax: "https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"
+bibliography: references_DR.bib  
+#csl: harvard-cite-them-right.csl
+link-citations: yes
+objective: Estimate treatment effects on time-to-event outcomes under informative censoring using doubly robust methods 
+vignette: >
+  \VignetteIndexEntry{Doubly Robust Estimation of Causal Effects on Time-to-event Outcomes}
+  %\VignetteEncoding{UTF-8}
+  %\VignetteEngine{knitr::rmarkdown}
+editor_options: 
+  markdown: 
+    wrap: sentence
+---
+
+```{r setup, message=FALSE, warning=FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+#options(warn = -1)
+set.seed(123456)
+library(survival)
+library(riskRegression)
+library(adjustedCurves)
+library(MASS)
+library(ggplot2)
+library(survminer)
+library(dplyr)
+library(knitr)
+library(kableExtra)
+```
+
+## Background
+
+We continue our previous discussion on doubly robust (DR) estimators for time-to-event outcomes using [pseduo observations](https://uqualitycausal.github.io/TTECausalR/DRpseudo.html) but focus on the situation where the loss to follow-up depends on pre-baseline and post-baseline characteristics, referred to as _informative censoring_. For example, patients who are sicker at baseline or who develop treatment-related adverse events may be more likely to drop out early. In such situations, the censoring mechanism must be explicitly modeled as a function of baseline and time-dependent covariates.
+
+## Augmented Inverse Probability Weighted Complete Case Estimator
+
+We use similar notations as before and consider $n$ independent and identically distributed individuals indexed by $i$. Let $D$ denote a binary treatment (0 or 1), $T_d$ denote the potential survival time under treatment $D=d$, $C$ the censoring time, $U_i=\mathrm{min}(T_i, C_i)$, and $\boldsymbol{Z}$ denotes pre-baseline covariates. 
+
+Let $S_d(t)$ be the survival function under treatment $d$ at time $t$. We define the average treatment effect (ATE) as the difference in survival probabilities between treatment groups at time $t$, i.e., $S_1(t)-S_0(t)$. Without loss of generality, we focus our illustration on estimating $S_1(t)$, and $S_0(t)$ can be estimated analogously. 
+
+Note that we only get to observe $T_1$ when $D=1$ and $\Delta = 1(C \ge T_1)$; otherwise $T_1$ is missing or coarsened. Further, this is monotone coarsening [@DR-semiparam] and we assume coarsening at random, i.e., $(D,C) \perp T_1|Z$. Intuitively, coarsening in this case is induced by observed treatment and loss to follow-up, with treatment assignment depends only on pre-baseline characteristics and loss to follow-up relies on both pre- and post-baseline covariates, that is, informative censoring. 
+
+To handle bias induced by monotonic data coarsening, we apply the augmented inverse probability weighted Complete Case (AIPWCC) estimator described in @Bai2013. Specifically, the AIPWCC estimator  
+
+- accounts for coarsening due to treatment assignment using the **propensity score model**: $\hat{e}(\boldsymbol{Z})=P(D=1|Z)$
+- handles informative censoring using the treatment-specific **censoring model**: $\hat{K}_1^c(r, Z) = P(C \ge r|Z, D=1)$  
+- leverages the **outcome regression model** like in standard DR estimators: $\hat{m}_1(\boldsymbol{Z})=P(T_1>r|Z)$ 
+
+The optimal AIPWCC estimator is 
+$$ \hat{S}_1(u) = \frac{1}{n} \sum_{i=1}^{n} \left[ \frac{D_i\mathbb{1}(U_i\ge u)}{\hat{e}(Z_i)\hat{K}_1^c(u, Z_i)}-\left\{\frac{D_i-\hat{e}(Z_i)}{\hat{e}(Z_i)} \hat{m}_1(u, Z_i)\right\}+\int_0^u \frac{D_i}{\hat{e}(Z_i)}\frac{\mathrm{d}M_{1, i}^c(r, Z_i)}{\hat{K}_1^c(r, Z_i)}\frac{\hat{m}_1(u, Z_i)}{\hat{m}_1(r, Z_i)}\right]$$
+where $\mathrm{d}M_{1, i}^c(r, Z_i) = \frac{\mathrm{d}N^c(r)-\lambda_1^c(r, Z_i)Y(r)}{\hat{K}_1^c(r, Z_i)}$ is the martingale increment for the censoring distribution with $N^c(r)=\mathbb{1}(U\le r, \Delta=0)$, $Y(r)=\mathbb{1}(U\ge r)$, and $\lambda_1^c(r, Z_i)=\frac{-\mathrm{d} \mathrm{log}\hat{K}_1^c(r, Z_i)}{\mathrm{d}r}$. 
+
+The first term in the bracket in the equation above is the inverse probability weighted complete case term. The second term is the outcome-regression augmentation term in a standard DR estimator and has a mean of zero if the PS model is correct. The third term is the censoring augmentation term and also has a mean of zero if the censoring model is correct. The third term is essential to making the estimator robust to misspecification in the censoring model when the outcome model is correct. 
+
+The AIPWCC estimator is doubly robust:
+
+- If the coarsening models, including the propensity score model and censoring model, are correct 
+- If the outcome model, that is, the conditional survival distribution is correct 
+
+The variance of the AIPWCC estimator for $\hat{S}_1(u)$ can be estimated using Equation (5) in @Bai2013. If all three models (PS model, censoring model, and outcome model) are correctly specified, the estimator is locally **semiparametric efficient**, meaning it attains the smallest possible variance. One caveat is that if the outcome model or coarsening models are misspecified, the AIPWCC estimator for ATE remains unbiased, but the standard sandwich variance estimator in Equation (5) is conservative. In such cases, a bootstrap estimator of the asymptotic variance is recommended. 
+
+
+## AIPWCC estimator versus pseudo-observation-based DR estimator
+
+- The pseudo-observation-based DR estimator proposed by @DR-pseudo can only be applied when loss to follow-up is completely at random 
+since the pseudo outcomes are estimated using the KM estimator where covariate adjustment is not allowed
+- Even though the pseudo-observation-based DR estimator can be extended to handle covariate-dependent censoring [@Binder2014], it models the censoring mechanism and outcome within the same model
+- In contrast, the AIPWCC estimator allows to model the censoring and outcome separately
+- In addition, the AIPWCC estimator includes an augmentation term for censoring to make it robust to censoring model misspecification and gain efficiency when the censoring model is correct
+
+
+## Implementation of the AIPWCC estimator
+We now demonstrate how to implement the AIPWCC estimator under the informative censoring scenario.
+
+
+### Data Generation
+
+We first simulate the data according to the variable relationships depicted in the directed acyclic graph (DAG) below
+?? add DAG
+?? check and revise my change on Tcensor to make sure the data is not too wired
+```{r}
+generate_data_noninf <- function(n = 3000) {
+  mu <- rep(0, 3)
+  sigma <- matrix(c(1, 0, 0, 0, 1, 0, 0, 0, 1), nrow = 3) 
+  Z <- mvrnorm(n, mu, sigma) # i.i.d. baseline covariates with mean zero and variance 1
+  Z1 <- Z[, 1]
+  Z2 <- Z[, 2]
+  Z3 <- Z[, 3]
+  
+  logit_p <- (0.35 * Z1 + 0.7 * Z2 + 1.05 * Z3)/3
+  p <- exp(logit_p) / (1 + exp(logit_p))
+  D <- rbinom(n, 1, p) # Treatment indicator
+  
+  hazard <- exp(-1 + D + 1 * Z1 + 2 * Z2 + 1 * Z1 * Z2)
+ 
+  T_event <- rexp(n, rate = hazard) # Event time from an exponential model
+  
+  hazard_cen <- exp(-3 + 0.6 * D + 0.5 * Z1 + 1 * Z2)
+  T_censor <- rexp(n, rate = exp(hazard_cen)) # Censoring time based on random censoring
+  T_admin <- rep(7, n) # Administrative (random) censoring at time 7
+  
+  Time <- pmin(T_event, T_censor, T_admin) # Observed follow-up time
+  Event <- as.numeric(T_event <= T_censor & T_event <= T_admin) # Event indicator
+  
+  Censored <- as.numeric(T_event > T_censor & T_event <= T_admin)
+  
+  return(data.frame(Z1 = Z1, Z2 = Z2, Z3 = Z3, D = D, Time = Time, Event = Event, Censored = Censored))
+}
+
+# ?? Create a data dictionary outside the code, see IntentionToTreat.Rmd row 155
+# -----------------------------
+# Data Dictionary:
+# Z1, Z2, Z3: baseline covariates
+# D: treatment indicator (1 = treated, 0 = control)  
+# Time: observed time 
+# Event: event indicator (1 if event occurred, 0 otherwise)
+# -----------------------------
+
+data <- generate_data_noninf()
+summary(data$Time)
+
+table(data$Event)
+#?? Among the 729 subjects with no events, how many are early drop outs and how many are administratively censored?
+```
+
+With the simulation truth above, we first calculate the true ATE at multiple times.
+?? revise the truth according to the changes in censoring mechanism above 
+```{r}
+get_true_survival <- function(data, t, d_level) {
+  hazard <- exp(-1 + d_level + 1 * data$Z1 + 2 * data$Z2 + 1 * data$Z1 * data$Z2)
+  survival_probs <- exp(-hazard * t) # baseline hazard is constant under an expotential survival model
+  return(mean(survival_probs)) 
+}
+
+# Compute potential survival probabilities by setting treatment to 1 and 0 for all individuals
+times <- c(1, 2, 3)
+true_surv_1 <- sapply(times, function(t) get_true_survival(data, t, d_level = 1))
+true_surv_0 <- sapply(times, function(t) get_true_survival(data, t, d_level = 0))
+
+# Calculate ATE as difference in survival probabilities
+results_true <- list(ATE = true_surv_1 - true_surv_0)
+```
+
+
+### Using R package 
+
+First, we implement the AIPWCC estimator using the _adjustedsurv_ function in the [adjustedCurves](https://cran.r-project.org/web/packages/adjustedCurves/adjustedCurves.pdf) R package.
+
+?? Add an argument of choice of variance estimator to the function
+```{r}
+aipwcc_dr_ate_pkg <- function(data, times, ps_correct = TRUE, cen_correct = TRUE, or_correct = TRUE) {
+  
+  data <- data %>% mutate(D = as.factor(D))
+  data$D <- factor(data$D, levels = c(0, 1))
+  
+  # Propensity score model
+  if (ps_correct) {
+    ps_model <- glm(D ~ Z1 + Z2 + Z3, data = data, family = "binomial")
+  } else {
+    ps_model <- glm(D ~ Z1, data = data, family = "binomial")
+  }
+
+  # Censoring model 
+  # ?? cannot distinguish loss to follow-up and administrative censoring
+  if (cen_correct) {
+    cen_model <- coxph(Surv(Time, Event == 0) ~ D + Z1 + Z2, data = data, x = TRUE)
+  } else {
+    cen_model <- coxph(Surv(Time, Event == 0) ~ D + Z1, data = data, x = TRUE)
+  }
+  
+  # Outcome regression (Cox proportional hazard model)
+  if (or_correct) {
+    or_model <- coxph(Surv(Time, Event) ~ D + Z1 * Z2, data = data, x = TRUE)
+  } else {
+    or_model <- coxph(Surv(Time, Event) ~ D + Z1 + Z3, data = data, x = TRUE)
+  }
+  
+  
+  ## AIPWCC estimator for survival probabilities 
+  
+  # Using asymptotic variance
+  adj_surv_asymp <- adjustedsurv(
+    data = data,
+    variable = "D",
+    ev_time = "Time",
+    event = "Event",
+    method = "aiptw",
+    treatment_model = ps_model,
+    censoring_model = cen_model,
+    outcome_model = or_model,
+    times = times, 
+    conf_int = TRUE,
+    conf_level = 0.95,
+    bootstrap = FALSE) 
+
+  # Treatment effect is defined as the difference in survival probabilities.
+  ate_asymp_results <- adjusted_curve_diff(
+    adj = adj_surv_asymp,
+    group_1 = "1",  # Treated group
+    group_2 = "0",  # Control group
+    conf_int = TRUE,
+    conf_level = 0.95)
+  
+  # Extract survival probabilities at times of interest
+  ate_asymp_at_times <- ate_asymp_results[ate_asymp_results$time %in% times, ]
+  
+  
+  # Using bootstrap variance
+  adj_surv_boot <- adjustedsurv(
+    data = data,
+    variable = "D",
+    ev_time = "Time",
+    event = "Event",
+    method = "aiptw",
+    treatment_model = ps_model,
+    censoring_model = cen_model,
+    outcome_model = or_model,
+    times = times,
+    conf_int = TRUE,
+    conf_level = 0.95,
+    bootstrap = TRUE,
+    n_boot = 200)  # using multi-cores is an option but always produce threds error
+  
+ # Treatment effect is defined as the difference in survival probabilities.
+  ate_boot_results <- adjusted_curve_diff(
+    adj = adj_surv_boot,
+    group_1 = "1",  # Treated group
+    group_2 = "0",  # Control group
+    conf_int = TRUE,
+    conf_level = 0.95)
+  
+  # Extract survival probabilities at times of interest
+  ate_boot_at_times <- ate_boot_results[ate_boot_results$time %in% times, ]
+  
+  
+  return(list(ATE_asymp = ate_asymp_at_times$diff, 
+              ci_lower_asymp = ate_asymp_at_times$ci_lower,
+              ci_upper_asymp = ate_asymp_at_times$ci_upper,
+              ATE_boot = ate_boot_at_times$diff, 
+              ci_lower_boot = ate_boot_at_times$ci_lower,
+              ci_upper_boot = ate_boot_at_times$ci_upper))
+}
+```
+
+We estimate the ATEs at prespecified time points and corresponding 95% confidence intervals (CIs).
+?? reformat this table let rows represent the times and columns represent the type of variance estimator
+```{r}
+results_package <- aipwcc_dr_ate_pkg(data, times)  
+
+results_package_tbl <- cbind(Variance = c(rep("Asymptotic", 3), rep("Bootstrap", 3)),
+                             rbind(ATE = round(results_package$ATE_asymp, 2),
+                                   `CI lower` = round(results_package$ci_lower_asymp, 2),
+                                   `CI upper` = round(results_package$ci_upper_asymp, 2), 
+                                   ATE = round(results_package$ATE_boot, 2),
+                                   `CI lower` = round(results_package$ci_lower_boot, 2),
+                                   `CI upper` = round(results_package$ci_upper_boot, 2)))
+
+colnames(results_package_tbl)[2:4] <- c("T=1", "T=2", "T=3")
+kable(results_package_tbl, caption = "ATE and 95% Confidence Intervals") %>% 
+  kable_styling(full_width = FALSE, font_size = 12) 
+```
+
+### Model misspecification scenarios
+
+To illustrate the robustness of the AIPWCC estimator to model misspecification, we compare the following scenarios:
+
+-   Scenario 1: The outcome model, the propensity score model, and the censoring model are all correctly specified
+
+-   Scenario 2: The outcome model and propensity score model are correctly specified, while the censoring model is misspecified
+
+-   Scenario 3: The outcome model and censoring model are correctly specified, while the propensity score model is misspecified
+
+-   Scenario 4: The outcome model is correctly specified, while the propensity score model and censoring model are both misspecified
+
+-   Scenario 5: The propensity score model and censoring model are correctly specified, but the outcome model is misspecified
+
+-   Scenario 6: The propensity score model is correctly specified, but the outcome model and censoring model are both misspecified
+
+-   Scenario 7: The censoring model is correctly specified, but the outcome model and propensity score model are both misspecified
+
+-   Scenario 8: All three models are misspecified
+
+```{r eval=FALSE}
+# Scenario 1: All models correct
+results_1_package <- aipwcc_dr_ate_pkg(data, times, ps_correct = TRUE, cen_correct = TRUE, or_correct = TRUE)
+
+# Scenario 2: PS correct, Cen incorrect, OR correct 
+results_2_package <- aipwcc_dr_ate_pkg(data, times, ps_correct = TRUE, cen_correct = FALSE, or_correct = TRUE)
+
+# Scenario 3: PS incorrect, Cen correct, OR correct
+results_3_package <- aipwcc_dr_ate_pkg(data, times, ps_correct = FALSE, cen_correct = TRUE, or_correct = TRUE)
+
+# Scenario 4: PS incorrect, Cen incorrect, OR correct
+results_4_package <- aipwcc_dr_ate_pkg(data, times, ps_correct = FALSE, cen_correct = FALSE, or_correct = TRUE)
+
+# Scenario 5: PS correct, Cen correct, OR incorrect
+results_5_package <- aipwcc_dr_ate_pkg(data, times, ps_correct = TRUE, cen_correct = TRUE, or_correct = FALSE)
+
+# Scenario 6: PS correct, Cen incorrect, OR incorrect
+results_6_package <- aipwcc_dr_ate_pkg(data, times, ps_correct = TRUE, cen_correct = FALSE, or_correct = FALSE)
+
+# Scenario 7: PS incorrect, Cen correct, OR incorrect
+results_7_package <- aipwcc_dr_ate_pkg(data, times, ps_correct = FALSE, cen_correct = TRUE, or_correct = FALSE)
+
+# Scenario 8: All models incorrect
+results_8_package <- aipwcc_dr_ate_pkg(data, times, ps_correct = FALSE, cen_correct = FALSE, or_correct = FALSE)
+```
+
+### Crude estimation
+Fit a crude Cox model with no covariate or propensity score adjustment to show the amount of confounding bias in our data
+```{r}
+crude_cox_estimator <- function(data, times) {
+  
+  crude_cox <- coxph(Surv(Time, Event) ~ D, data = data)
+  treatment_effect <- coef(crude_cox)["D1"]
+  
+  base_surv <- survfit(crude_cox)
+  s0 <- summary(base_surv, times = times, extend = TRUE)$surv
+  
+  # survival for treated group: S_baseline^exp(beta_D)
+  surv_1 <- s0^exp(treatment_effect)
+  
+  # survival for control group: S_baseline^exp(0) 
+  surv_0 <- s0
+  
+  # ATE
+  ATE <- surv_1 - surv_0
+
+  return(list(ATE = ATE))
+}
+
+results_crude <- crude_cox_estimator(data, times)
+```
+
+### Evaluate the performance of pseudo-observation-based DR estimator
+?? replace bias metric with root-mean-squared-error metric 
+?? Add all 8 scenarios and reformat the table: let rows represent the scenarios, and columns represent the type of variance estimator
+?? Remove eval=F after you fixed the code
+```{r eval=FALSE}
+scenarios <- c(
+  "0: Crude Cox (Unadjusted)",
+  "1: All Correct",
+  "2: PS Correct, OR Incorrect",
+  "3: PS Incorrect, OR Correct",
+  "4: Both Incorrect",
+  "5: Both Correct",
+  "6: PS Correct, OR Incorrect",
+  "7: PS Incorrect, OR Correct",
+  "8: All Incorrect")
+
+# Combine bias values across all time points into a single string
+format_bias <- function(bias_vector) {
+  paste(sprintf("%.3f", bias_vector), collapse = ", ")
+}
+
+# Package column (bias at T = 1, 2, 3)
+package_bias <- c("—",  
+  format_bias(sapply(1:length(times), function(i) results_1_package$ATE[i] - results_true$ATE[i])),
+  format_bias(sapply(1:length(times), function(i) results_2_package$ATE[i] - results_true$ATE[i])),
+  format_bias(sapply(1:length(times), function(i) results_3_package$ATE[i] - results_true$ATE[i])),
+  format_bias(sapply(1:length(times), function(i) results_4_package$ATE[i] - results_true$ATE[i]))
+)
+
+# Manual column (bias at T = 1, 2, 3)
+manual_bias <- c(
+  format_bias(sapply(1:length(times), function(i) results_crude$ATE[i] - results_true$ATE[i])),
+  format_bias(sapply(1:length(times), function(i) results_1_manual$ATE[i] - results_true$ATE[i])),
+  format_bias(sapply(1:length(times), function(i) results_2_manual$ATE[i] - results_true$ATE[i])),
+  format_bias(sapply(1:length(times), function(i) results_3_manual$ATE[i] - results_true$ATE[i])),
+  format_bias(sapply(1:length(times), function(i) results_4_manual$ATE[i] - results_true$ATE[i]))
+)
+
+bias_table <- data.frame(
+  Scenario = scenarios,
+  Package = package_bias,
+  Manual = manual_bias
+)
+
+kable(bias_table,
+      col.names = c("Scenario", "T = 1, 2, 3", "T = 1, 2, 3"),
+      caption = "Performance of the DR estimator",
+      align = c('l', 'c', 'c')) %>%
+  kable_styling(full_width = FALSE, font_size = 12) %>%
+  add_header_above(c(" " = 1, "Package" = 1, "Manual" = 1)) %>%
+  footnote(general = sprintf("True ATE: %.3f, %.3f, %.3f",
+           results_true$ATE[1], results_true$ATE[2], results_true$ATE[3]),
+           general_title = "", footnote_as_chunk = TRUE)
+
+#?? look further into the results at T=1 -- both correct models yielded larger bias than other scenarios
+```
+
+## Funding
+
+This work was supported by Utah Clinical & Translational Science Institute (CTSI) Translational Innovation Pilot (TIP) Program Award (NCATS UM1TR004409).
+
+## References
