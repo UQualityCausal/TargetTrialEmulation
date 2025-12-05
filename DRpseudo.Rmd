@@ -71,8 +71,7 @@ If both PS and outcome models are correctly specified, the estimator is **semipa
 
 The DR estimator requires standard identifiability assumptions in causal inference, including the stable unit treatment value assumption (SUTVA), positivity, consistency, and exchangeability. 
 
-?? Add R package for implementing the DR estimator for continuous and binary outcomes
-
+For doubly robust estimators for continuous and binary outcomes, please refer to the [AIPW] R package (https://cran.r-project.org/web/packages/AIPW/AIPW.pdf) @zhong_aipw_2021.
 
 ## Extension to Survival Analysis
 
@@ -107,7 +106,7 @@ We now demonstrate how to implement the pseudo-observation-based DR estimator un
 ### Data Generation
 
 We first simulate the data according to the variable relationships depicted in the directed acyclic graph (DAG) below
-?? add a DAG to illustrate the underlying relationship between variables
+?? add a DAG to illustrate the underlying relationship between variables???
 ```{r}
 generate_data_noninf <- function(n = 3000) {
   mu <- rep(0, 3)
@@ -132,21 +131,42 @@ generate_data_noninf <- function(n = 3000) {
   
   return(data.frame(Z1 = Z1, Z2 = Z2, Z3 = Z3, D = D, Time = Time, Event = Event))
 }
+```
 
-# ?? Create a data dictionary outside the code, see IntentionToTreat.Rmd row 155
-# -----------------------------
-# Data Dictionary:
-# Z1, Z2, Z3: baseline covariates
-# D: treatment indicator (1 = treated, 0 = control)  
-# Time: observed time 
-# Event: event indicator (1 if event occurred, 0 otherwise)
-# -----------------------------
-
+```{r}
 data <- generate_data_noninf()
+
+attr(data$Z1, "label") <- "Baseline value of Z1"
+attr(data$Z2, "label") <- "Baseline value of Z2"
+attr(data$Z3, "label") <- "Baseline value of Z3"
+attr(data$D, "label") <- "Treatment indicator (1 = treated, 0 = control)"
+attr(data$Time, "label") <- "Time index for longitudinal records"
+attr(data$Event, "label") <- "Event indicator (1 = event occurred, 0 = otherwise)"
+
+get_label <- function(x) {
+  lbl <- attr(x, "label", exact = TRUE)
+  if (is.null(lbl)) "" else as.character(lbl)
+}
+
+dict <- data.frame(
+  Variable = names(data),
+  Meaning  = vapply(data, get_label, character(1)),
+  check.names = FALSE
+)
+
+knitr::kable(dict, caption = "Data Dictionary", row.names = FALSE) 
+```
+
+```{r}
 summary(data$Time)
 
 table(data$Event)
-#?? Among the 729 subjects with no events, how many are early drop outs and how many are administratively censored?
+```
+Among the 729 subjects with no events, 90 were early dropouts and 639 were administratively censored.
+```{r}
+censored_subjects <- data[data$Event == 0, ]
+(early_dropout <- sum(censored_subjects$Time < 7))
+(admin_censored <- sum(censored_subjects$Time >= 7))
 ```
 
 With the simulation truth above, we first calculate the true ATE at multiple times.
@@ -226,13 +246,21 @@ We estimate the ATEs at prespecified time points and corresponding 95% confidenc
 ```{r}
 results_package <- pseudo_dr_ate_pkg(data, times)  
 
-results_package_tbl <- rbind(ATE = round(results_package$ATE, 2),
-  `CI lower` = round(results_package$ci_lower, 2),
-  `CI upper` = round(results_package$ci_upper, 2))
+ate_with_ci <- sapply(1:length(times), function(i) {
+  sprintf("%.3f (%.3f, %.3f)", results_package$ATE[i],
+  results_package$ci_lower[i], results_package$ci_upper[i])
+})
 
-colnames(results_package_tbl) <- c("T=1", "T=2", "T=3")
-kable(results_package_tbl, caption = "ATE and 95% Confidence Intervals") %>% 
-  kable_styling(full_width = FALSE, font_size = 12) 
+results_package_tbl <- data.frame(
+  `T = 1` = ate_with_ci[1], `T = 2` = ate_with_ci[2],
+  `T = 3` = ate_with_ci[3], check.names = FALSE
+)
+
+kable(results_package_tbl, caption = "ATE (95% CIs)", align = c('c', 'c', 'c')) %>% 
+  kable_styling(full_width = FALSE, font_size = 12) %>%
+  footnote(general = sprintf("True ATE: %.3f, %.3f, %.3f",
+           results_true$ATE[1], results_true$ATE[2], results_true$ATE[3]),
+           general_title = "", footnote_as_chunk = TRUE)
 ```
 
 ### Manual coding
@@ -334,15 +362,19 @@ se_manual <- se_bootstrap(data, times)
 results_manual$ci_lower <- results_manual$ATE - 1.96 * se_manual$se
 results_manual$ci_upper <- results_manual$ATE + 1.96 * se_manual$se
 
-results_manual_tbl <- rbind(ATE = round(results_manual$ATE, 2),
-  `CI lower` = round(results_manual$ci_lower, 2),
-  `CI upper` = round(results_manual$ci_upper, 2))
+ate_with_ci <- sapply(1:length(times), function(i) {
+  sprintf("%.3f (%.3f, %.3f)", results_manual$ATE[i], 
+  results_manual$ci_lower[i], results_manual$ci_upper[i])})
 
-colnames(results_manual_tbl) <- c("T=1", "T=2", "T=3")
-kable(results_manual_tbl, caption = "ATE (95% CIs)") %>% 
-  kable_styling(full_width = FALSE, font_size = 12) 
+results_manual_tbl <- data.frame(
+  `T = 1` = ate_with_ci[1], `T = 2` = ate_with_ci[2],
+  `T = 3` = ate_with_ci[3], check.names = FALSE)
 
-# ??reformat the table to put point estimate and CIs in the same cell as how I have it in caption. Also add truth to this table 
+kable(results_manual_tbl, caption = "ATE (95% CI)", align = c('c', 'c', 'c')) %>% 
+  kable_styling(full_width = FALSE, font_size = 12) %>%
+  footnote(general = sprintf("True ATE: %.3f, %.3f, %.3f",
+           results_true$ATE[1], results_true$ATE[2], results_true$ATE[3]),
+           general_title = "", footnote_as_chunk = TRUE)
 ```
 
 ### Model misspecification scenarios
@@ -402,7 +434,51 @@ results_crude <- crude_cox_estimator(data, times)
 ```
 
 ### Evaluate the performance of pseudo-observation-based DR estimator
-?? replace bias metric with root-mean-squared-error metric 
+?? replace bias metric with root-mean-squared-error metric??? 
+
+```{r}
+# scenarios <- c(
+#   "0: Crude Cox (Unadjusted)",
+#   "1: Both Correct",
+#   "2: PS Correct, OR Incorrect",
+#   "3: PS Incorrect, OR Correct",
+#   "4: Both Incorrect")
+# 
+# # Calculate RMSE
+# calculate_rmse <- function(estimated_vector, true_vector) {
+#   sqrt(mean((estimated_vector - true_vector)^2))
+# }
+# 
+# # Package column
+# package_rmse <- c(
+#   "—",  
+#   sprintf("%.3f", calculate_rmse(results_1_package$ATE, results_true$ATE)),
+#   sprintf("%.3f", calculate_rmse(results_2_package$ATE, results_true$ATE)),
+#   sprintf("%.3f", calculate_rmse(results_3_package$ATE, results_true$ATE)),
+#   sprintf("%.3f", calculate_rmse(results_4_package$ATE, results_true$ATE))
+# )
+# 
+# # Manual column
+# manual_rmse <- c(
+#   sprintf("%.3f", calculate_rmse(results_crude$ATE, results_true$ATE)),
+#   sprintf("%.3f", calculate_rmse(results_1_manual$ATE, results_true$ATE)),
+#   sprintf("%.3f", calculate_rmse(results_2_manual$ATE, results_true$ATE)),
+#   sprintf("%.3f", calculate_rmse(results_3_manual$ATE, results_true$ATE)),
+#   sprintf("%.3f", calculate_rmse(results_4_manual$ATE, results_true$ATE))
+# )
+# 
+# rmse_table <- data.frame(
+#   Scenario = scenarios, Package = package_rmse, Manual = manual_rmse)
+# 
+# kable(rmse_table, col.names = c("Scenario", "Package RMSE", "Manual RMSE"),
+#       caption = "Performance of the DR estimator", align = c('l', 'c', 'c')) %>%
+#   kable_styling(full_width = FALSE, font_size = 12) %>%
+#   #add_header_above(c(" " = 1, "Package" = 1, "Manual" = 1)) %>%
+#   footnote(general = sprintf("True ATE: %.3f, %.3f, %.3f",
+#            results_true$ATE[1], results_true$ATE[2], results_true$ATE[3]),
+#            general_title = "", footnote_as_chunk = TRUE)
+```
+
 ```{r}
 scenarios <- c(
   "0: Crude Cox (Unadjusted)",
@@ -416,15 +492,15 @@ format_bias <- function(bias_vector) {
   paste(sprintf("%.3f", bias_vector), collapse = ", ")
 }
 
-# Package column (bias at T = 1, 2, 3)
-package_bias <- c("—",  
+# Package column (bias at T = 1,2,3)
+package_bias <- c("—",
   format_bias(sapply(1:length(times), function(i) results_1_package$ATE[i] - results_true$ATE[i])),
   format_bias(sapply(1:length(times), function(i) results_2_package$ATE[i] - results_true$ATE[i])),
   format_bias(sapply(1:length(times), function(i) results_3_package$ATE[i] - results_true$ATE[i])),
   format_bias(sapply(1:length(times), function(i) results_4_package$ATE[i] - results_true$ATE[i]))
 )
 
-# Manual column (bias at T = 1, 2, 3)
+# Manual column (bias at T = 1,2,3)
 manual_bias <- c(
   format_bias(sapply(1:length(times), function(i) results_crude$ATE[i] - results_true$ATE[i])),
   format_bias(sapply(1:length(times), function(i) results_1_manual$ATE[i] - results_true$ATE[i])),
@@ -449,7 +525,7 @@ kable(bias_table,
            results_true$ATE[1], results_true$ATE[2], results_true$ATE[3]),
            general_title = "", footnote_as_chunk = TRUE)
 
-#?? look further into the results at T=1 -- both correct models yielded larger bias than other scenarios
+#?? look further into the results at T=1 -- both correct models yielded larger bias than other scenarios. 
 ```
 
 ## Funding
