@@ -72,7 +72,7 @@ If both PS and outcome models are correctly specified, the estimator is **semipa
 
 The DR estimator requires standard identifiability assumptions in causal inference, including the stable unit treatment value assumption (SUTVA), positivity, consistency, and exchangeability. 
 
-For doubly robust estimators for continuous and binary outcomes, please refer to the [AIPW] R package (https://cran.r-project.org/web/packages/AIPW/AIPW.pdf) from @zhong_aipw_2021.
+For doubly robust estimators for continuous and binary outcomes, please refer to the [AIPW](https://cran.r-project.org/web/packages/AIPW/AIPW.pdf) R package from @zhong_aipw_2021.
 
 ## Extension to Survival Analysis
 
