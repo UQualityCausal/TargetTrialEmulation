@@ -35,6 +35,7 @@ library(survminer)
 library(dplyr)
 library(knitr)
 library(kableExtra)
+library(dagitty)
 ```
 
 ## Introduction
@@ -99,14 +100,24 @@ $$
 $$
 where $\hat{m}_d(t, \boldsymbol{Z}_i)$ can be estimated using a Cox proportional hazards model and $\hat{e}(\boldsymbol{Z}_i))$ can be estimated using logistic regression. The variance of the resulting estimator can be obtained based on Equation (17) in @DR-pseudo. 
 
-
 ## Implementation of the DR estimator
 We now demonstrate how to implement the pseudo-observation-based DR estimator under the random censoring scenario.
 
 ### Data Generation
 
 We first simulate the data according to the variable relationships depicted in the directed acyclic graph (DAG) below
-?? add a DAG to illustrate the underlying relationship between variables???
+
+```{r}
+dag <- dagitty("dag {
+  Z1 -> Death
+  Z2 -> Death
+  Z1 -> D
+  Z2 -> D
+  Z3 -> D
+}")
+plot(dag)
+```
+
 ```{r}
 generate_data_noninf <- function(n = 3000) {
   mu <- rep(0, 3)
@@ -162,7 +173,7 @@ summary(data$Time)
 
 table(data$Event)
 ```
-Among the 729 subjects with no events, 90 were early dropouts and 639 were administratively censored.
+Among the 729 subjects with no events, 90 are early dropouts and 639 are administratively censored. Administrative censoring is random, so no additional modeling is needed. Early dropout could be covariate-dependent or occur completely at random, and we assume it is non-informative in this data generation.
 ```{r}
 censored_subjects <- data[data$Event == 0, ]
 (early_dropout <- sum(censored_subjects$Time < 7))
@@ -435,49 +446,6 @@ results_crude <- crude_cox_estimator(data, times)
 
 ### Evaluate the performance of pseudo-observation-based DR estimator
 ?? replace bias metric with root-mean-squared-error metric??? 
-
-```{r}
-# scenarios <- c(
-#   "0: Crude Cox (Unadjusted)",
-#   "1: Both Correct",
-#   "2: PS Correct, OR Incorrect",
-#   "3: PS Incorrect, OR Correct",
-#   "4: Both Incorrect")
-# 
-# # Calculate RMSE
-# calculate_rmse <- function(estimated_vector, true_vector) {
-#   sqrt(mean((estimated_vector - true_vector)^2))
-# }
-# 
-# # Package column
-# package_rmse <- c(
-#   "—",  
-#   sprintf("%.3f", calculate_rmse(results_1_package$ATE, results_true$ATE)),
-#   sprintf("%.3f", calculate_rmse(results_2_package$ATE, results_true$ATE)),
-#   sprintf("%.3f", calculate_rmse(results_3_package$ATE, results_true$ATE)),
-#   sprintf("%.3f", calculate_rmse(results_4_package$ATE, results_true$ATE))
-# )
-# 
-# # Manual column
-# manual_rmse <- c(
-#   sprintf("%.3f", calculate_rmse(results_crude$ATE, results_true$ATE)),
-#   sprintf("%.3f", calculate_rmse(results_1_manual$ATE, results_true$ATE)),
-#   sprintf("%.3f", calculate_rmse(results_2_manual$ATE, results_true$ATE)),
-#   sprintf("%.3f", calculate_rmse(results_3_manual$ATE, results_true$ATE)),
-#   sprintf("%.3f", calculate_rmse(results_4_manual$ATE, results_true$ATE))
-# )
-# 
-# rmse_table <- data.frame(
-#   Scenario = scenarios, Package = package_rmse, Manual = manual_rmse)
-# 
-# kable(rmse_table, col.names = c("Scenario", "Package RMSE", "Manual RMSE"),
-#       caption = "Performance of the DR estimator", align = c('l', 'c', 'c')) %>%
-#   kable_styling(full_width = FALSE, font_size = 12) %>%
-#   #add_header_above(c(" " = 1, "Package" = 1, "Manual" = 1)) %>%
-#   footnote(general = sprintf("True ATE: %.3f, %.3f, %.3f",
-#            results_true$ATE[1], results_true$ATE[2], results_true$ATE[3]),
-#            general_title = "", footnote_as_chunk = TRUE)
-```
 
 ```{r}
 scenarios <- c(
