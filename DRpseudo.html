@@ -608,20 +608,39 @@ Tom Greene, Yizhe Xu<a href="#fn1" class="footnote-ref" id="fnref1"><sup>1</sup>
 
 <pre class="r"><code>knitr::opts_chunk$set(
   collapse = TRUE,
-  comment = &quot;#&gt;&quot;
+  comment = &quot;#&gt;&quot;,
+  message = FALSE,    
+  warning = FALSE     
 )
-#options(warn = -1)
+
 set.seed(123456)
 library(survival)
-library(pseudo)
-library(adjustedCurves)
-library(MASS)
-library(ggplot2)
-library(survminer)
-library(dplyr)
+library(pseudo)</code></pre>
+<pre><code>## Warning: package &#39;pseudo&#39; was built under R version 4.5.1</code></pre>
+<pre><code>## Loading required package: KMsurv</code></pre>
+<pre><code>## Loading required package: geepack</code></pre>
+<pre><code>## Warning: package &#39;geepack&#39; was built under R version 4.5.1</code></pre>
+<pre class="r"><code>library(adjustedCurves)</code></pre>
+<pre><code>## Warning: package &#39;adjustedCurves&#39; was built under R version 4.5.1</code></pre>
+<pre class="r"><code>library(MASS)
 library(knitr)
-library(kableExtra)
-library(dagitty)</code></pre>
+library(kableExtra)</code></pre>
+<pre><code>## Warning: package &#39;kableExtra&#39; was built under R version 4.5.1</code></pre>
+<pre class="r"><code>library(dagitty)</code></pre>
+<pre><code>## Warning: package &#39;dagitty&#39; was built under R version 4.5.2</code></pre>
+<pre class="r"><code>library(parallel)
+library(future.apply)</code></pre>
+<pre><code>## Warning: package &#39;future.apply&#39; was built under R version 4.5.1</code></pre>
+<pre><code>## Loading required package: future</code></pre>
+<pre><code>## Warning: package &#39;future&#39; was built under R version 4.5.1</code></pre>
+<pre><code>## 
+## Attaching package: &#39;future&#39;</code></pre>
+<pre><code>## The following object is masked from &#39;package:survival&#39;:
+## 
+##     cluster</code></pre>
+<pre class="r"><code>library(future)
+
+n_cores &lt;- parallel::detectCores() - 2</code></pre>
 <div id="introduction" class="section level2">
 <h2>Introduction</h2>
 <p>As noted in <span class="citation">Funk et al. (<a href="#ref-DR-main">2011</a>)</span>, estimating causal effects of a
@@ -774,10 +793,9 @@ coordinates(dag) &lt;- list(
   y = c(Z1 = 1, Z2 = 0.5, Z3 = 0, D = 0, Death = 1)
 )
 
-par(cex = 0.7)
 plot(dag)</code></pre>
-<p><img role="img" src="data:image/png;base64,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" width="672" /></p>
-<pre class="r"><code>generate_data_noninf &lt;- function(n = 3000) {
+<p><img role="img" src="data:image/png;base64,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" width="384" /></p>
+<pre class="r"><code>generate_data_noninf &lt;- function(n = 1000) {
   mu &lt;- rep(0, 3)
   sigma &lt;- matrix(c(1, 0, 0, 0, 1, 0, 0, 0, 1), nrow = 3) 
   Z &lt;- mvrnorm(n, mu, sigma) # i.i.d. baseline covariates with mean zero and variance 1
@@ -785,14 +803,14 @@ plot(dag)</code></pre>
   Z2 &lt;- Z[, 2]
   Z3 &lt;- Z[, 3]
   
-  logit_p &lt;- (0.35 * Z1 + 0.7 * Z2 + 1.05 * Z3)/3
+  logit_p &lt;- (0.05 * Z1 + 3.5 * Z2 + 2.5 * Z3)/6
   p &lt;- exp(logit_p) / (1 + exp(logit_p))
   D &lt;- rbinom(n, 1, p) # Treatment indicator
   
-  hazard &lt;- exp(-1 + D + 1 * Z1 + 2 * Z2 + 1 * Z1 * Z2)
+  hazard &lt;- exp(-0.5 + 1 * D + 0.6 * Z1 + 0.8 * Z2 + 0.7 * Z1 * Z2)
 
   T_event &lt;- rexp(n, rate = hazard) # Event time from an exponential model
-  T_censor &lt;- rexp(n, rate = exp(-4.5)) # Censoring time based on random censoring
+  T_censor &lt;- rexp(n, rate = exp(-3.2)) # Censoring time based on random censoring
   T_admin &lt;- rep(7, n) # Administrative (random) censoring at time 7
   
   Time &lt;- pmin(T_event, T_censor, T_admin) # Observed follow-up time
@@ -859,26 +877,26 @@ otherwise)</td>
 </table>
 <pre class="r"><code>summary(data$Time)
 #&gt;      Min.   1st Qu.    Median      Mean   3rd Qu.      Max. 
-#&gt; 0.0000012 0.1550828 1.1591579 2.5427131 5.3168373 7.0000000
+#&gt; 0.0000328 0.1869060 0.6790745 1.4930572 1.9834675 7.0000000
 
 table(data$Event)
 #&gt; 
-#&gt;    0    1 
-#&gt;  729 2271</code></pre>
-<p>Among the 729 subjects with no events, 90 are early dropouts and 639
+#&gt;   0   1 
+#&gt; 105 895</code></pre>
+<p>Among the 105 subjects with no events, 61 are early dropouts and 44
 are administratively censored. Administrative censoring is random, so no
 additional modeling is needed. Early dropout could be
 covariate-dependent or occur completely at random, and we assume it is
 non-informative in this data generation.</p>
 <pre class="r"><code>censored_subjects &lt;- data[data$Event == 0, ]
 (early_dropout &lt;- sum(censored_subjects$Time &lt; 7))
-#&gt; [1] 90
+#&gt; [1] 61
 (admin_censored &lt;- sum(censored_subjects$Time &gt;= 7))
-#&gt; [1] 639</code></pre>
+#&gt; [1] 44</code></pre>
 <p>With the simulation truth above, we first calculate the true ATE at
 multiple times.</p>
 <pre class="r"><code>get_true_survival &lt;- function(data, t, d_level) {
-  hazard &lt;- exp(-1 + d_level + 1 * data$Z1 + 2 * data$Z2 + 1 * data$Z1 * data$Z2)
+  hazard &lt;- exp(-0.5 + 1 * d_level + 0.6 * data$Z1 + 0.8 * data$Z2 + 0.7 * data$Z1 * data$Z2)
   survival_probs &lt;- exp(-hazard * t) # baseline hazard is constant under an expotential survival model
   return(mean(survival_probs)) 
 }
@@ -890,13 +908,43 @@ true_surv_0 &lt;- sapply(times, function(t) get_true_survival(data, t, d_level =
 
 # Calculate ATE as difference in survival probabilities
 results_true &lt;- list(ATE = true_surv_1 - true_surv_0)</code></pre>
+<p>We generate 100 datasets to compute the true ATEs at prespecified
+time points and corresponding 95% confidence intervals (CIs) using
+percentiles.</p>
+<pre class="r"><code>n_data &lt;- 100
+datasets &lt;- vector(&quot;list&quot;, n_data)
+for (i in 1:n_data) {
+  datasets[[i]] &lt;- generate_data_noninf()
+}
+
+times &lt;- c(1, 2, 3)
+true_ate_samples &lt;- matrix(NA, nrow = n_data, ncol = length(times))
+
+for (i in 1:n_data) {
+  # Compute potential survival probabilities by setting treatment to 1 and 0 for all individuals
+  true_surv_1 &lt;- sapply(times, function(t) get_true_survival(datasets[[i]], t, d_level = 1))
+  true_surv_0 &lt;- sapply(times, function(t) get_true_survival(datasets[[i]], t, d_level = 0))
+  
+  # Calculate ATE as difference in survival probabilities
+  true_ate_samples[i, ] &lt;- true_surv_1 - true_surv_0
+}
+
+true_ate_mean &lt;- colMeans(true_ate_samples)
+true_ate_ci_lower &lt;- apply(true_ate_samples, 2, quantile, probs = 0.025)
+true_ate_ci_upper &lt;- apply(true_ate_samples, 2, quantile, probs = 0.975)
+
+results_true &lt;- list(ATE = true_ate_mean, ci_lower = true_ate_ci_lower, ci_upper = true_ate_ci_upper)
+
+true_ate_with_ci &lt;- sapply(1:length(times), function(i) {
+  sprintf(&quot;%.3f (%.3f, %.3f)&quot;, results_true$ATE[i], results_true$ci_lower[i], results_true$ci_upper[i])
+})</code></pre>
 </div>
 <div id="using-r-package" class="section level3">
 <h3>Using R package</h3>
 <p>First, we implement the pseudo-observation-based DR estimator using
 the <em>adjustedsurv</em> function in the <a href="https://cran.r-project.org/web/packages/adjustedCurves/adjustedCurves.pdf">adjustedCurves</a>
 R package.</p>
-<pre class="r"><code>pseudo_dr_ate_pkg &lt;- function(data, times, ps_correct = TRUE, or_correct = TRUE) {
+<pre class="r"><code>pseudo_dr_ate_pkg &lt;- function(data, times, ps_correct = TRUE, or_correct = TRUE, use_bootstrap = TRUE) {
   
   # Propensity score model
   if (ps_correct) {
@@ -927,8 +975,9 @@ R package.</p>
     outcome_vars = or_covars,
     times = times, 
     conf_int = TRUE,
-    bootstrap = TRUE,
-    n_boot = 100) # In practice, set n_boot to a larger value (e.g., 1000).
+    bootstrap = use_bootstrap,
+    n_boot = 100, # In practice, set n_boot to a larger value (e.g., 1000).
+    n_cores = if(use_bootstrap) n_cores else 1) 
   
   # Treatment effect is defined as the difference in survival probabilities.
   ate_results &lt;- adjusted_curve_diff(
@@ -943,31 +992,32 @@ R package.</p>
   return(list(ATE = ate_at_times$diff, ci_lower = ate_at_times$ci_lower, ci_upper = ate_at_times$ci_upper))
 }</code></pre>
 <p>We estimate the ATEs at prespecified time points and corresponding
-95% confidence intervals (CIs).</p>
+95% CIs.</p>
 <pre class="r"><code>results_package &lt;- pseudo_dr_ate_pkg(data, times)  
-#&gt; Loading required namespace: prodlim
 
 ate_with_ci &lt;- sapply(1:length(times), function(i) {
   sprintf(&quot;%.3f (%.3f, %.3f)&quot;, results_package$ATE[i],
   results_package$ci_lower[i], results_package$ci_upper[i])
 })
 
-results_package_tbl &lt;- data.frame(
-  `T = 1` = ate_with_ci[1], `T = 2` = ate_with_ci[2],
-  `T = 3` = ate_with_ci[3], check.names = FALSE
-)
+results_manual_tbl &lt;- data.frame(
+  ATE = c(&quot;Estimated&quot;, &quot;True&quot;),
+  `T = 1` = c(ate_with_ci[1], true_ate_with_ci[1]), 
+  `T = 2` = c(ate_with_ci[2], true_ate_with_ci[2]),
+  `T = 3` = c(ate_with_ci[3], true_ate_with_ci[3]), 
+  check.names = FALSE)
 
-kable(results_package_tbl, caption = &quot;ATE (95% CIs)&quot;, align = c(&#39;c&#39;, &#39;c&#39;, &#39;c&#39;)) %&gt;% 
-  kable_styling(full_width = FALSE, font_size = 12) %&gt;%
-  footnote(general = sprintf(&quot;True ATE: %.3f, %.3f, %.3f&quot;,
-           results_true$ATE[1], results_true$ATE[2], results_true$ATE[3]),
-           general_title = &quot;&quot;, footnote_as_chunk = TRUE)</code></pre>
-<table class="table" style="font-size: 12px; color: black; width: auto !important; margin-left: auto; margin-right: auto;border-bottom: 0;">
+kable(results_manual_tbl, caption = &quot;ATE (95% CI)&quot;, align = c(&#39;l&#39;, &#39;c&#39;, &#39;c&#39;, &#39;c&#39;)) %&gt;% 
+  kable_styling(full_width = FALSE, font_size = 12)</code></pre>
+<table class="table" style="font-size: 12px; color: black; width: auto !important; margin-left: auto; margin-right: auto;">
 <caption style="font-size: initial !important;">
-ATE (95% CIs)
+ATE (95% CI)
 </caption>
 <thead>
 <tr>
+<th style="text-align:left;">
+ATE
+</th>
 <th style="text-align:center;">
 T = 1
 </th>
@@ -981,24 +1031,34 @@ T = 3
 </thead>
 <tbody>
 <tr>
-<td style="text-align:center;">
--0.133 (-0.164, -0.102)
+<td style="text-align:left;">
+Estimated
 </td>
 <td style="text-align:center;">
--0.159 (-0.190, -0.128)
+-0.251 (-0.312, -0.190)
 </td>
 <td style="text-align:center;">
--0.164 (-0.193, -0.134)
+-0.278 (-0.332, -0.225)
+</td>
+<td style="text-align:center;">
+-0.236 (-0.282, -0.191)
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+True
+</td>
+<td style="text-align:center;">
+-0.251 (-0.256, -0.245)
+</td>
+<td style="text-align:center;">
+-0.228 (-0.236, -0.221)
+</td>
+<td style="text-align:center;">
+-0.187 (-0.196, -0.179)
 </td>
 </tr>
 </tbody>
-<tfoot>
-<tr>
-<td style="padding: 0; " colspan="100%">
-<sup></sup> True ATE: -0.150, -0.160, -0.161
-</td>
-</tr>
-</tfoot>
 </table>
 </div>
 <div id="manual-coding" class="section level3">
@@ -1079,7 +1139,7 @@ bootstrapping</p>
   # In practice, set n_boot to a larger value (e.g., 1000).
   n &lt;- nrow(data)
   boot_results &lt;- matrix(NA, nrow = num_boot, ncol = length(times))
-  
+
   for (b in 1:num_boot) {
     boot_indices &lt;- sample(1:n, size = n, replace = TRUE)
     boot_data &lt;- data[boot_indices, ]
@@ -1103,20 +1163,23 @@ ate_with_ci &lt;- sapply(1:length(times), function(i) {
   results_manual$ci_lower[i], results_manual$ci_upper[i])})
 
 results_manual_tbl &lt;- data.frame(
-  `T = 1` = ate_with_ci[1], `T = 2` = ate_with_ci[2],
-  `T = 3` = ate_with_ci[3], check.names = FALSE)
+  ATE = c(&quot;Estimated&quot;, &quot;True&quot;),
+  `T = 1` = c(ate_with_ci[1], true_ate_with_ci[1]), 
+  `T = 2` = c(ate_with_ci[2], true_ate_with_ci[2]),
+  `T = 3` = c(ate_with_ci[3], true_ate_with_ci[3]), 
+  check.names = FALSE)
 
-kable(results_manual_tbl, caption = &quot;ATE (95% CI)&quot;, align = c(&#39;c&#39;, &#39;c&#39;, &#39;c&#39;)) %&gt;% 
-  kable_styling(full_width = FALSE, font_size = 12) %&gt;%
-  footnote(general = sprintf(&quot;True ATE: %.3f, %.3f, %.3f&quot;,
-           results_true$ATE[1], results_true$ATE[2], results_true$ATE[3]),
-           general_title = &quot;&quot;, footnote_as_chunk = TRUE)</code></pre>
-<table class="table" style="font-size: 12px; color: black; width: auto !important; margin-left: auto; margin-right: auto;border-bottom: 0;">
+kable(results_manual_tbl, caption = &quot;ATE (95% CI)&quot;, align = c(&#39;l&#39;, &#39;c&#39;, &#39;c&#39;, &#39;c&#39;)) %&gt;% 
+  kable_styling(full_width = FALSE, font_size = 12)</code></pre>
+<table class="table" style="font-size: 12px; color: black; width: auto !important; margin-left: auto; margin-right: auto;">
 <caption style="font-size: initial !important;">
 ATE (95% CI)
 </caption>
 <thead>
 <tr>
+<th style="text-align:left;">
+ATE
+</th>
 <th style="text-align:center;">
 T = 1
 </th>
@@ -1130,54 +1193,35 @@ T = 3
 </thead>
 <tbody>
 <tr>
-<td style="text-align:center;">
--0.133 (-0.162, -0.103)
+<td style="text-align:left;">
+Estimated
 </td>
 <td style="text-align:center;">
--0.158 (-0.185, -0.131)
+-0.248 (-0.294, -0.202)
 </td>
 <td style="text-align:center;">
--0.163 (-0.188, -0.139)
+-0.278 (-0.331, -0.226)
+</td>
+<td style="text-align:center;">
+-0.236 (-0.278, -0.195)
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+True
+</td>
+<td style="text-align:center;">
+-0.251 (-0.256, -0.245)
+</td>
+<td style="text-align:center;">
+-0.228 (-0.236, -0.221)
+</td>
+<td style="text-align:center;">
+-0.187 (-0.196, -0.179)
 </td>
 </tr>
 </tbody>
-<tfoot>
-<tr>
-<td style="padding: 0; " colspan="100%">
-<sup></sup> True ATE: -0.150, -0.160, -0.161
-</td>
-</tr>
-</tfoot>
 </table>
-</div>
-<div id="model-misspecification-scenarios" class="section level3">
-<h3>Model misspecification scenarios</h3>
-<p>To illustrate the robustness of the DR estimator to model
-misspecification, we compare 4 scenarios:</p>
-<ul>
-<li><p>Scenario 1: Both the outcome model and the propensity score model
-are correctly specified.</p></li>
-<li><p>Scenario 2: The propensity score model is correctly specified,
-but the outcome model is misspecified.</p></li>
-<li><p>Scenario 3: The outcome model is correctly specified, while the
-propensity score model is misspecified.</p></li>
-<li><p>Scenario 4: Both models are misspecified.</p></li>
-</ul>
-<pre class="r"><code># Scenario 1: Both models correct
-results_1_package &lt;- pseudo_dr_ate_pkg(data, times, ps_correct = TRUE, or_correct = TRUE)
-results_1_manual &lt;- pseudo_dr_ate_manual(data, times, ps_correct = TRUE, or_correct = TRUE)
-
-# Scenario 2: PS correct, OR incorrect
-results_2_package &lt;- pseudo_dr_ate_pkg(data, times, ps_correct = TRUE, or_correct = FALSE)
-results_2_manual &lt;- pseudo_dr_ate_manual(data, times, ps_correct = TRUE, or_correct = FALSE)
-
-# Scenario 3: PS incorrect, OR correct
-results_3_package &lt;- pseudo_dr_ate_pkg(data, times, ps_correct = FALSE, or_correct = TRUE)
-results_3_manual &lt;- pseudo_dr_ate_manual(data, times, ps_correct = FALSE, or_correct = TRUE)
-
-# Scenario 4: Both models incorrect
-results_4_package &lt;- pseudo_dr_ate_pkg(data, times, ps_correct = FALSE, or_correct = FALSE)
-results_4_manual &lt;- pseudo_dr_ate_manual(data, times, ps_correct = FALSE, or_correct = FALSE)</code></pre>
 </div>
 <div id="crude-estimation" class="section level3">
 <h3>Crude estimation</h3>
@@ -1208,7 +1252,69 @@ results_crude &lt;- crude_cox_estimator(data, times)</code></pre>
 <div id="evaluate-the-performance-of-pseudo-observation-based-dr-estimator" class="section level3">
 <h3>Evaluate the performance of pseudo-observation-based DR
 estimator</h3>
-<p>?? replace bias metric with root-mean-squared-error metric???</p>
+<p>We use the 100 datasets to calculate Root Mean Square Error
+(RMSE).</p>
+<pre class="r"><code>plan(multisession, workers = n_cores)
+
+calculate_rmse &lt;- function(datasets, true_ate_samples, times, method = &quot;package&quot;, 
+                                     ps_correct = TRUE, or_correct = TRUE) {
+  
+  n_data &lt;- length(datasets)
+  
+  results &lt;- future_lapply(1:n_data, function(i) {
+    require(survival)
+    require(pseudo)
+    require(adjustedCurves)
+    
+    est_results &lt;- switch(
+      method,
+      &quot;package&quot; = pseudo_dr_ate_pkg(datasets[[i]], times, 
+          ps_correct = ps_correct, or_correct = or_correct, use_bootstrap = FALSE),
+      &quot;manual&quot;  = pseudo_dr_ate_manual(datasets[[i]], times, ps_correct = ps_correct, or_correct = or_correct),
+      &quot;crude&quot;   = crude_cox_estimator(datasets[[i]], times),
+      stop(&quot;Unknown: &quot;, method))
+    
+    squared_errors &lt;- (est_results$ATE - true_ate_samples[i, ])^2
+    squared_errors
+  }, future.seed = TRUE)
+  
+  results_matrix &lt;- do.call(rbind, results)
+  rmse &lt;- sqrt(colMeans(results_matrix))
+  return(rmse)
+}</code></pre>
+</div>
+<div id="model-misspecification-scenarios" class="section level3">
+<h3>Model misspecification scenarios</h3>
+<p>To illustrate the robustness of the DR estimator to model
+misspecification, we compare 4 scenarios:</p>
+<ul>
+<li><p>Scenario 1: Both the outcome model and the propensity score model
+are correctly specified.</p></li>
+<li><p>Scenario 2: The propensity score model is correctly specified,
+but the outcome model is misspecified.</p></li>
+<li><p>Scenario 3: The outcome model is correctly specified, while the
+propensity score model is misspecified.</p></li>
+<li><p>Scenario 4: Both models are misspecified.</p></li>
+</ul>
+<pre class="r"><code>rmse_1_package &lt;- calculate_rmse(datasets, true_ate_samples, times, method = &quot;package&quot;,
+                                  ps_correct = TRUE, or_correct = TRUE)
+rmse_2_package &lt;- calculate_rmse(datasets, true_ate_samples, times, method = &quot;package&quot;,
+                                  ps_correct = TRUE, or_correct = FALSE)
+rmse_3_package &lt;- calculate_rmse(datasets, true_ate_samples, times, method = &quot;package&quot;,
+                                  ps_correct = FALSE, or_correct = TRUE)
+rmse_4_package &lt;- calculate_rmse(datasets, true_ate_samples, times, method = &quot;package&quot;,
+                                  ps_correct = FALSE, or_correct = FALSE)
+
+rmse_1_manual &lt;- calculate_rmse(datasets, true_ate_samples, times, method = &quot;manual&quot;,
+                                 ps_correct = TRUE, or_correct = TRUE)
+rmse_2_manual &lt;- calculate_rmse(datasets, true_ate_samples, times, method = &quot;manual&quot;,
+                                 ps_correct = TRUE, or_correct = FALSE)
+rmse_3_manual &lt;- calculate_rmse(datasets, true_ate_samples, times, method = &quot;manual&quot;,
+                                 ps_correct = FALSE, or_correct = TRUE)
+rmse_4_manual &lt;- calculate_rmse(datasets, true_ate_samples, times, method = &quot;manual&quot;,
+                                 ps_correct = FALSE, or_correct = FALSE)
+
+rmse_crude &lt;- calculate_rmse(datasets, true_ate_samples, times, method = &quot;crude&quot;)</code></pre>
 <pre class="r"><code>scenarios &lt;- c(
   &quot;0: Crude Cox (Unadjusted)&quot;,
   &quot;1: Both Correct&quot;,
@@ -1216,46 +1322,30 @@ estimator</h3>
   &quot;3: PS Incorrect, OR Correct&quot;,
   &quot;4: Both Incorrect&quot;)
 
-# Combine bias values across all time points into a single string
-format_bias &lt;- function(bias_vector) {
-  paste(sprintf(&quot;%.3f&quot;, bias_vector), collapse = &quot;, &quot;)
+# Combine RMSE values across all time points into a single string
+format_rmse &lt;- function(rmse_vector) {
+  paste(sprintf(&quot;%.3f&quot;, rmse_vector), collapse = &quot;, &quot;)
 }
 
-# Package column (bias at T = 1,2,3)
-package_bias &lt;- c(&quot;—&quot;,
-  format_bias(sapply(1:length(times), function(i) results_1_package$ATE[i] - results_true$ATE[i])),
-  format_bias(sapply(1:length(times), function(i) results_2_package$ATE[i] - results_true$ATE[i])),
-  format_bias(sapply(1:length(times), function(i) results_3_package$ATE[i] - results_true$ATE[i])),
-  format_bias(sapply(1:length(times), function(i) results_4_package$ATE[i] - results_true$ATE[i]))
-)
+# Package column
+package_rmse &lt;- c(&quot;—&quot;, format_rmse(rmse_1_package), format_rmse(rmse_2_package), 
+                  format_rmse(rmse_3_package), format_rmse(rmse_4_package))
 
-# Manual column (bias at T = 1,2,3)
-manual_bias &lt;- c(
-  format_bias(sapply(1:length(times), function(i) results_crude$ATE[i] - results_true$ATE[i])),
-  format_bias(sapply(1:length(times), function(i) results_1_manual$ATE[i] - results_true$ATE[i])),
-  format_bias(sapply(1:length(times), function(i) results_2_manual$ATE[i] - results_true$ATE[i])),
-  format_bias(sapply(1:length(times), function(i) results_3_manual$ATE[i] - results_true$ATE[i])),
-  format_bias(sapply(1:length(times), function(i) results_4_manual$ATE[i] - results_true$ATE[i]))
-)
+# Manual column
+manual_rmse &lt;- c(format_rmse(rmse_crude), format_rmse(rmse_1_manual), format_rmse(rmse_2_manual), 
+                 format_rmse(rmse_3_manual), format_rmse(rmse_4_manual))
 
-bias_table &lt;- data.frame(
-  Scenario = scenarios,
-  Package = package_bias,
-  Manual = manual_bias
-)
+rmse_table &lt;- data.frame(Scenario = scenarios, Package = package_rmse, Manual = manual_rmse)
 
-kable(bias_table,
+kable(rmse_table,
       col.names = c(&quot;Scenario&quot;, &quot;T = 1, 2, 3&quot;, &quot;T = 1, 2, 3&quot;),
-      caption = &quot;Performance of the DR estimator&quot;,
+      caption = &quot;Performance of the DR estimator (RMSE)&quot;,
       align = c(&#39;l&#39;, &#39;c&#39;, &#39;c&#39;)) %&gt;%
   kable_styling(full_width = FALSE, font_size = 12) %&gt;%
-  add_header_above(c(&quot; &quot; = 1, &quot;Package&quot; = 1, &quot;Manual&quot; = 1)) %&gt;%
-  footnote(general = sprintf(&quot;True ATE: %.3f, %.3f, %.3f&quot;,
-           results_true$ATE[1], results_true$ATE[2], results_true$ATE[3]),
-           general_title = &quot;&quot;, footnote_as_chunk = TRUE)</code></pre>
-<table class="table" style="font-size: 12px; color: black; width: auto !important; margin-left: auto; margin-right: auto;border-bottom: 0;">
+  add_header_above(c(&quot; &quot; = 1, &quot;Package&quot; = 1, &quot;Manual&quot; = 1))</code></pre>
+<table class="table" style="font-size: 12px; color: black; width: auto !important; margin-left: auto; margin-right: auto;">
 <caption style="font-size: initial !important;">
-Performance of the DR estimator
+Performance of the DR estimator (RMSE)
 </caption>
 <thead>
 <tr>
@@ -1293,7 +1383,7 @@ T = 1, 2, 3
 —
 </td>
 <td style="text-align:center;">
--0.078, -0.085, -0.086
+0.069, 0.070, 0.065
 </td>
 </tr>
 <tr>
@@ -1301,10 +1391,10 @@ T = 1, 2, 3
 1: Both Correct
 </td>
 <td style="text-align:center;">
-0.017, 0.002, -0.003
+0.030, 0.025, 0.023
 </td>
 <td style="text-align:center;">
-0.018, 0.002, -0.003
+0.029, 0.025, 0.023
 </td>
 </tr>
 <tr>
@@ -1312,10 +1402,10 @@ T = 1, 2, 3
 2: PS Correct, OR Incorrect
 </td>
 <td style="text-align:center;">
-0.015, -0.003, -0.008
+0.030, 0.025, 0.025
 </td>
 <td style="text-align:center;">
-0.015, -0.003, -0.008
+0.030, 0.025, 0.025
 </td>
 </tr>
 <tr>
@@ -1323,10 +1413,10 @@ T = 1, 2, 3
 3: PS Incorrect, OR Correct
 </td>
 <td style="text-align:center;">
-0.016, -0.004, -0.007
+0.027, 0.024, 0.022
 </td>
 <td style="text-align:center;">
-0.016, -0.003, -0.005
+0.026, 0.024, 0.022
 </td>
 </tr>
 <tr>
@@ -1334,23 +1424,14 @@ T = 1, 2, 3
 4: Both Incorrect
 </td>
 <td style="text-align:center;">
--0.054, -0.074, -0.074
+0.095, 0.076, 0.062
 </td>
 <td style="text-align:center;">
--0.053, -0.073, -0.073
+0.094, 0.076, 0.062
 </td>
 </tr>
 </tbody>
-<tfoot>
-<tr>
-<td style="padding: 0; " colspan="100%">
-<sup></sup> True ATE: -0.150, -0.160, -0.161
-</td>
-</tr>
-</tfoot>
 </table>
-<pre class="r"><code>
-#?? look further into the results at T=1 -- both correct models yielded larger bias than other scenarios. </code></pre>
 </div>
 </div>
 <div id="funding" class="section level2">
