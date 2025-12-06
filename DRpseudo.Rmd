@@ -19,7 +19,7 @@ editor_options:
     wrap: sentence
 ---
 
-```{r setup}
+```{r setup, message=FALSE, warning=FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>",
