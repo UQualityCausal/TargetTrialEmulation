@@ -11,7 +11,7 @@
 
 <meta name="author" content="Peirong Hao, Ravinder Singh, Kevin Ying, Adam Bress, Tom Greene, Yizhe Xu" />
 
-<meta name="date" content="2025-12-05" />
+<meta name="date" content="2025-12-09" />
 
 <title>Doubly Robust Estimation of Causal Effects in Survival Analysis</title>
 
@@ -601,7 +601,7 @@ display: none;
 in Survival Analysis</h1>
 <h4 class="author">Peirong Hao, Ravinder Singh, Kevin Ying, Adam Bress,
 Tom Greene, Yizhe Xu<a href="#fn1" class="footnote-ref" id="fnref1"><sup>1</sup></a></h4>
-<h4 class="date">2025-12-05</h4>
+<h4 class="date">2025-12-09</h4>
 
 </div>
 
@@ -613,7 +613,7 @@ Tom Greene, Yizhe Xu<a href="#fn1" class="footnote-ref" id="fnref1"><sup>1</sup>
   warning = FALSE     
 )
 
-set.seed(123456)
+set.seed(123)
 library(survival)
 library(pseudo)
 library(adjustedCurves)
@@ -625,7 +625,7 @@ library(parallel)
 library(future.apply)
 library(future)
 
-n_cores &lt;- parallel::detectCores() - 2</code></pre>
+n_cores &lt;- detectCores() - 2</code></pre>
 <div id="introduction" class="section level2">
 <h2>Introduction</h2>
 <p>As noted in <span class="citation">Funk et al. (<a href="#ref-DR-main">2011</a>)</span>, estimating causal effects of a
@@ -780,7 +780,16 @@ coordinates(dag) &lt;- list(
 
 plot(dag)</code></pre>
 <p><img role="img" src="data:image/png;base64,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" width="384" /></p>
-<pre class="r"><code>generate_data_noninf &lt;- function(n = 1000) {
+<pre class="r"><code># ---------------------------
+# Hazard model parameters
+# ---------------------------
+beta_0 &lt;- -1.2      
+beta_D &lt;- -1.0 
+beta_Z1 &lt;- 0.4 
+beta_Z2 &lt;- 1.2 
+beta_Z1Z2 &lt;- 3.0 
+
+generate_data_noninf &lt;- function(n = 1000) {
   mu &lt;- rep(0, 3)
   sigma &lt;- matrix(c(1, 0, 0, 0, 1, 0, 0, 0, 1), nrow = 3) 
   Z &lt;- mvrnorm(n, mu, sigma) # i.i.d. baseline covariates with mean zero and variance 1
@@ -788,14 +797,14 @@ plot(dag)</code></pre>
   Z2 &lt;- Z[, 2]
   Z3 &lt;- Z[, 3]
   
-  logit_p &lt;- (0.05 * Z1 + 3.5 * Z2 + 2.5 * Z3)/6
+  logit_p &lt;- (0.5 * Z1 + 3.5 * Z2 + 2.5 * Z3)/6
   p &lt;- exp(logit_p) / (1 + exp(logit_p))
   D &lt;- rbinom(n, 1, p) # Treatment indicator
   
-  hazard &lt;- exp(-0.5 + 1 * D + 0.6 * Z1 + 0.8 * Z2 + 0.7 * Z1 * Z2)
-
+  hazard &lt;- exp(beta_0 + beta_D * D + beta_Z1 * Z1 + beta_Z2 * Z2 + beta_Z1Z2 * Z1 * Z2)
   T_event &lt;- rexp(n, rate = hazard) # Event time from an exponential model
-  T_censor &lt;- rexp(n, rate = exp(-3.2)) # Censoring time based on random censoring
+  
+  T_censor &lt;- rexp(n, rate = exp(-5.0)) # Censoring time based on random censoring
   T_admin &lt;- rep(7, n) # Administrative (random) censoring at time 7
   
   Time &lt;- pmin(T_event, T_censor, T_admin) # Observed follow-up time
@@ -862,12 +871,12 @@ otherwise)</td>
 </table>
 <pre class="r"><code>summary(data$Time)
 #&gt;      Min.   1st Qu.    Median      Mean   3rd Qu.      Max. 
-#&gt; 0.0000328 0.1869060 0.6790745 1.4930572 1.9834675 7.0000000
+#&gt; 0.0000001 0.7353009 3.5554393 3.7605357 7.0000000 7.0000000
 
 table(data$Event)
 #&gt; 
 #&gt;   0   1 
-#&gt; 105 895</code></pre>
+#&gt; 384 616</code></pre>
 <p>Among the 105 subjects with no events, 61 are early dropouts and 44
 are administratively censored. Administrative censoring is random, so no
 additional modeling is needed. Early dropout could be
@@ -875,13 +884,13 @@ covariate-dependent or occur completely at random, and we assume it is
 non-informative in this data generation.</p>
 <pre class="r"><code>censored_subjects &lt;- data[data$Event == 0, ]
 (early_dropout &lt;- sum(censored_subjects$Time &lt; 7))
-#&gt; [1] 61
+#&gt; [1] 20
 (admin_censored &lt;- sum(censored_subjects$Time &gt;= 7))
-#&gt; [1] 44</code></pre>
+#&gt; [1] 364</code></pre>
 <p>With the simulation truth above, we first calculate the true ATE at
 multiple times.</p>
 <pre class="r"><code>get_true_survival &lt;- function(data, t, d_level) {
-  hazard &lt;- exp(-0.5 + 1 * d_level + 0.6 * data$Z1 + 0.8 * data$Z2 + 0.7 * data$Z1 * data$Z2)
+  hazard &lt;- exp(beta_0 + beta_D * d_level + beta_Z1 * data$Z1 + beta_Z2 * data$Z2 + beta_Z1Z2 * data$Z1 * data$Z2)
   survival_probs &lt;- exp(-hazard * t) # baseline hazard is constant under an expotential survival model
   return(mean(survival_probs)) 
 }
@@ -896,16 +905,13 @@ results_true &lt;- list(ATE = true_surv_1 - true_surv_0)</code></pre>
 <p>We generate 100 datasets to compute the true ATEs at prespecified
 time points and corresponding 95% confidence intervals (CIs) using
 percentiles.</p>
-<pre class="r"><code>n_data &lt;- 100
-datasets &lt;- vector(&quot;list&quot;, n_data)
-for (i in 1:n_data) {
-  datasets[[i]] &lt;- generate_data_noninf()
-}
+<pre class="r"><code>n_datasets &lt;- 100
+datasets &lt;- replicate(n_datasets, generate_data_noninf(), simplify = FALSE)
 
 times &lt;- c(1, 2, 3)
-true_ate_samples &lt;- matrix(NA, nrow = n_data, ncol = length(times))
+true_ate_samples &lt;- matrix(NA, nrow = n_datasets, ncol = length(times))
 
-for (i in 1:n_data) {
+for (i in 1:n_datasets) {
   # Compute potential survival probabilities by setting treatment to 1 and 0 for all individuals
   true_surv_1 &lt;- sapply(times, function(t) get_true_survival(datasets[[i]], t, d_level = 1))
   true_surv_0 &lt;- sapply(times, function(t) get_true_survival(datasets[[i]], t, d_level = 0))
@@ -981,8 +987,7 @@ R package.</p>
 <pre class="r"><code>results_package &lt;- pseudo_dr_ate_pkg(data, times)  
 
 ate_with_ci &lt;- sapply(1:length(times), function(i) {
-  sprintf(&quot;%.3f (%.3f, %.3f)&quot;, results_package$ATE[i],
-  results_package$ci_lower[i], results_package$ci_upper[i])
+  sprintf(&quot;%.3f (%.3f, %.3f)&quot;, results_package$ATE[i], results_package$ci_lower[i], results_package$ci_upper[i])
 })
 
 results_manual_tbl &lt;- data.frame(
@@ -992,7 +997,7 @@ results_manual_tbl &lt;- data.frame(
   `T = 3` = c(ate_with_ci[3], true_ate_with_ci[3]), 
   check.names = FALSE)
 
-kable(results_manual_tbl, caption = &quot;ATE (95% CI)&quot;, align = c(&#39;l&#39;, &#39;c&#39;, &#39;c&#39;, &#39;c&#39;)) %&gt;% 
+kable(results_manual_tbl, caption = &quot;ATE (95% CI)&quot;, align = c(&#39;c&#39;, &#39;c&#39;, &#39;c&#39;, &#39;c&#39;)) %&gt;% 
   kable_styling(full_width = FALSE, font_size = 12)</code></pre>
 <table class="table" style="font-size: 12px; color: black; width: auto !important; margin-left: auto; margin-right: auto;">
 <caption style="font-size: initial !important;">
@@ -1000,7 +1005,7 @@ ATE (95% CI)
 </caption>
 <thead>
 <tr>
-<th style="text-align:left;">
+<th style="text-align:center;">
 ATE
 </th>
 <th style="text-align:center;">
@@ -1016,31 +1021,31 @@ T = 3
 </thead>
 <tbody>
 <tr>
-<td style="text-align:left;">
+<td style="text-align:center;">
 Estimated
 </td>
 <td style="text-align:center;">
--0.251 (-0.312, -0.190)
+0.102 (0.053, 0.151)
 </td>
 <td style="text-align:center;">
--0.278 (-0.332, -0.225)
+0.143 (0.090, 0.197)
 </td>
 <td style="text-align:center;">
--0.236 (-0.282, -0.191)
+0.147 (0.090, 0.203)
 </td>
 </tr>
 <tr>
-<td style="text-align:left;">
+<td style="text-align:center;">
 True
 </td>
 <td style="text-align:center;">
--0.251 (-0.256, -0.245)
+0.122 (0.115, 0.128)
 </td>
 <td style="text-align:center;">
--0.228 (-0.236, -0.221)
+0.153 (0.146, 0.160)
 </td>
 <td style="text-align:center;">
--0.187 (-0.196, -0.179)
+0.168 (0.161, 0.174)
 </td>
 </tr>
 </tbody>
@@ -1154,7 +1159,7 @@ results_manual_tbl &lt;- data.frame(
   `T = 3` = c(ate_with_ci[3], true_ate_with_ci[3]), 
   check.names = FALSE)
 
-kable(results_manual_tbl, caption = &quot;ATE (95% CI)&quot;, align = c(&#39;l&#39;, &#39;c&#39;, &#39;c&#39;, &#39;c&#39;)) %&gt;% 
+kable(results_manual_tbl, caption = &quot;ATE (95% CI)&quot;, align = c(&#39;c&#39;, &#39;c&#39;, &#39;c&#39;, &#39;c&#39;)) %&gt;% 
   kable_styling(full_width = FALSE, font_size = 12)</code></pre>
 <table class="table" style="font-size: 12px; color: black; width: auto !important; margin-left: auto; margin-right: auto;">
 <caption style="font-size: initial !important;">
@@ -1162,7 +1167,7 @@ ATE (95% CI)
 </caption>
 <thead>
 <tr>
-<th style="text-align:left;">
+<th style="text-align:center;">
 ATE
 </th>
 <th style="text-align:center;">
@@ -1178,31 +1183,31 @@ T = 3
 </thead>
 <tbody>
 <tr>
-<td style="text-align:left;">
+<td style="text-align:center;">
 Estimated
 </td>
 <td style="text-align:center;">
--0.248 (-0.294, -0.202)
+0.101 (0.060, 0.141)
 </td>
 <td style="text-align:center;">
--0.278 (-0.331, -0.226)
+0.145 (0.099, 0.191)
 </td>
 <td style="text-align:center;">
--0.236 (-0.278, -0.195)
+0.150 (0.098, 0.201)
 </td>
 </tr>
 <tr>
-<td style="text-align:left;">
+<td style="text-align:center;">
 True
 </td>
 <td style="text-align:center;">
--0.251 (-0.256, -0.245)
+0.122 (0.115, 0.128)
 </td>
 <td style="text-align:center;">
--0.228 (-0.236, -0.221)
+0.153 (0.146, 0.160)
 </td>
 <td style="text-align:center;">
--0.187 (-0.196, -0.179)
+0.168 (0.161, 0.174)
 </td>
 </tr>
 </tbody>
@@ -1220,10 +1225,10 @@ adjustment to show the amount of confounding bias in our data</p>
   base_surv &lt;- survfit(crude_cox)
   s0 &lt;- summary(base_surv, times = times, extend = TRUE)$surv
   
-  # survival for treated group: S_baseline^exp(beta_D)
+  # Survival for treated group: S_baseline^exp(beta_D)
   surv_1 &lt;- s0^exp(treatment_effect)
   
-  # survival for control group: S_baseline^exp(0) 
+  # Survival for control group: S_baseline^exp(0) 
   surv_0 &lt;- s0
   
   # ATE
@@ -1241,30 +1246,29 @@ estimator</h3>
 (RMSE).</p>
 <pre class="r"><code>plan(multisession, workers = n_cores)
 
-calculate_rmse &lt;- function(datasets, true_ate_samples, times, method = &quot;package&quot;, 
-                                     ps_correct = TRUE, or_correct = TRUE) {
+calculate_rmse &lt;- function(datasets, true_ate_samples, times, method = &quot;package&quot;, ps_correct = TRUE, or_correct = TRUE) {
   
-  n_data &lt;- length(datasets)
+  n_datasets &lt;- length(datasets)
   
-  results &lt;- future_lapply(1:n_data, function(i) {
+  results &lt;- future_lapply(1:n_datasets, function(i) {
     require(survival)
     require(pseudo)
     require(adjustedCurves)
     
     est_results &lt;- switch(
       method,
-      &quot;package&quot; = pseudo_dr_ate_pkg(datasets[[i]], times, 
-          ps_correct = ps_correct, or_correct = or_correct, use_bootstrap = FALSE),
-      &quot;manual&quot;  = pseudo_dr_ate_manual(datasets[[i]], times, ps_correct = ps_correct, or_correct = or_correct),
-      &quot;crude&quot;   = crude_cox_estimator(datasets[[i]], times),
+      &quot;package&quot; = pseudo_dr_ate_pkg(datasets[[i]], times, ps_correct = ps_correct, 
+                                    or_correct = or_correct, use_bootstrap = FALSE),
+      &quot;manual&quot; = pseudo_dr_ate_manual(datasets[[i]], times, ps_correct = ps_correct, or_correct = or_correct),
+      &quot;crude&quot; = crude_cox_estimator(datasets[[i]], times),
       stop(&quot;Unknown: &quot;, method))
     
     squared_errors &lt;- (est_results$ATE - true_ate_samples[i, ])^2
     squared_errors
   }, future.seed = TRUE)
   
-  results_matrix &lt;- do.call(rbind, results)
-  rmse &lt;- sqrt(colMeans(results_matrix))
+  results_all &lt;- do.call(rbind, results)
+  rmse &lt;- sqrt(colMeans(results_all))
   return(rmse)
 }</code></pre>
 </div>
@@ -1281,23 +1285,23 @@ but the outcome model is misspecified.</p></li>
 propensity score model is misspecified.</p></li>
 <li><p>Scenario 4: Both models are misspecified.</p></li>
 </ul>
-<pre class="r"><code>rmse_1_package &lt;- calculate_rmse(datasets, true_ate_samples, times, method = &quot;package&quot;,
-                                  ps_correct = TRUE, or_correct = TRUE)
-rmse_2_package &lt;- calculate_rmse(datasets, true_ate_samples, times, method = &quot;package&quot;,
-                                  ps_correct = TRUE, or_correct = FALSE)
-rmse_3_package &lt;- calculate_rmse(datasets, true_ate_samples, times, method = &quot;package&quot;,
-                                  ps_correct = FALSE, or_correct = TRUE)
-rmse_4_package &lt;- calculate_rmse(datasets, true_ate_samples, times, method = &quot;package&quot;,
-                                  ps_correct = FALSE, or_correct = FALSE)
-
-rmse_1_manual &lt;- calculate_rmse(datasets, true_ate_samples, times, method = &quot;manual&quot;,
+<pre class="r"><code>rmse_1_package &lt;- calculate_rmse(datasets, true_ate_samples, times, method = &quot;package&quot;, 
                                  ps_correct = TRUE, or_correct = TRUE)
-rmse_2_manual &lt;- calculate_rmse(datasets, true_ate_samples, times, method = &quot;manual&quot;,
+rmse_2_package &lt;- calculate_rmse(datasets, true_ate_samples, times, method = &quot;package&quot;, 
                                  ps_correct = TRUE, or_correct = FALSE)
-rmse_3_manual &lt;- calculate_rmse(datasets, true_ate_samples, times, method = &quot;manual&quot;,
+rmse_3_package &lt;- calculate_rmse(datasets, true_ate_samples, times, method = &quot;package&quot;, 
                                  ps_correct = FALSE, or_correct = TRUE)
-rmse_4_manual &lt;- calculate_rmse(datasets, true_ate_samples, times, method = &quot;manual&quot;,
+rmse_4_package &lt;- calculate_rmse(datasets, true_ate_samples, times, method = &quot;package&quot;, 
                                  ps_correct = FALSE, or_correct = FALSE)
+
+rmse_1_manual &lt;- calculate_rmse(datasets, true_ate_samples, times, method = &quot;manual&quot;, 
+                                ps_correct = TRUE, or_correct = TRUE)
+rmse_2_manual &lt;- calculate_rmse(datasets, true_ate_samples, times, method = &quot;manual&quot;, 
+                                ps_correct = TRUE, or_correct = FALSE)
+rmse_3_manual &lt;- calculate_rmse(datasets, true_ate_samples, times, method = &quot;manual&quot;, 
+                                ps_correct = FALSE, or_correct = TRUE)
+rmse_4_manual &lt;- calculate_rmse(datasets, true_ate_samples, times, method = &quot;manual&quot;, 
+                                ps_correct = FALSE, or_correct = FALSE)
 
 rmse_crude &lt;- calculate_rmse(datasets, true_ate_samples, times, method = &quot;crude&quot;)</code></pre>
 <pre class="r"><code>scenarios &lt;- c(
@@ -1325,7 +1329,7 @@ rmse_table &lt;- data.frame(Scenario = scenarios, Package = package_rmse, Manual
 kable(rmse_table,
       col.names = c(&quot;Scenario&quot;, &quot;T = 1, 2, 3&quot;, &quot;T = 1, 2, 3&quot;),
       caption = &quot;Performance of the DR estimator (RMSE)&quot;,
-      align = c(&#39;l&#39;, &#39;c&#39;, &#39;c&#39;)) %&gt;%
+      align = c(&#39;c&#39;, &#39;c&#39;, &#39;c&#39;)) %&gt;%
   kable_styling(full_width = FALSE, font_size = 12) %&gt;%
   add_header_above(c(&quot; &quot; = 1, &quot;Package&quot; = 1, &quot;Manual&quot; = 1))</code></pre>
 <table class="table" style="font-size: 12px; color: black; width: auto !important; margin-left: auto; margin-right: auto;">
@@ -1348,7 +1352,7 @@ Manual
 </th>
 </tr>
 <tr>
-<th style="text-align:left;">
+<th style="text-align:center;">
 Scenario
 </th>
 <th style="text-align:center;">
@@ -1361,58 +1365,58 @@ T = 1, 2, 3
 </thead>
 <tbody>
 <tr>
-<td style="text-align:left;">
+<td style="text-align:center;">
 0: Crude Cox (Unadjusted)
 </td>
 <td style="text-align:center;">
 —
 </td>
 <td style="text-align:center;">
-0.069, 0.070, 0.065
+0.053, 0.069, 0.076
 </td>
 </tr>
 <tr>
-<td style="text-align:left;">
+<td style="text-align:center;">
 1: Both Correct
 </td>
 <td style="text-align:center;">
-0.030, 0.025, 0.023
+0.020, 0.022, 0.022
 </td>
 <td style="text-align:center;">
-0.029, 0.025, 0.023
+0.020, 0.022, 0.022
 </td>
 </tr>
 <tr>
-<td style="text-align:left;">
+<td style="text-align:center;">
 2: PS Correct, OR Incorrect
 </td>
 <td style="text-align:center;">
-0.030, 0.025, 0.025
+0.031, 0.033, 0.034
 </td>
 <td style="text-align:center;">
-0.030, 0.025, 0.025
+0.032, 0.035, 0.036
 </td>
 </tr>
 <tr>
-<td style="text-align:left;">
+<td style="text-align:center;">
 3: PS Incorrect, OR Correct
 </td>
 <td style="text-align:center;">
-0.027, 0.024, 0.022
+0.019, 0.021, 0.020
 </td>
 <td style="text-align:center;">
-0.026, 0.024, 0.022
+0.020, 0.021, 0.021
 </td>
 </tr>
 <tr>
-<td style="text-align:left;">
+<td style="text-align:center;">
 4: Both Incorrect
 </td>
 <td style="text-align:center;">
-0.095, 0.076, 0.062
+0.072, 0.075, 0.074
 </td>
 <td style="text-align:center;">
-0.094, 0.076, 0.062
+0.071, 0.074, 0.074
 </td>
 </tr>
 </tbody>

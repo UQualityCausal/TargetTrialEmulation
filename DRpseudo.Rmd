@@ -27,7 +27,7 @@ knitr::opts_chunk$set(
   warning = FALSE     
 )
 
-set.seed(123456)
+set.seed(123)
 library(survival)
 library(pseudo)
 library(adjustedCurves)
@@ -39,7 +39,7 @@ library(parallel)
 library(future.apply)
 library(future)
 
-n_cores <- parallel::detectCores() - 2
+n_cores <- detectCores() - 2
 ```
 
 ## Introduction
@@ -152,6 +152,15 @@ plot(dag)
 ```
 
 ```{r}
+# ---------------------------
+# Hazard model parameters
+# ---------------------------
+beta_0 <- -1.2      
+beta_D <- -1.0 
+beta_Z1 <- 0.4 
+beta_Z2 <- 1.2 
+beta_Z1Z2 <- 3.0 
+
 generate_data_noninf <- function(n = 1000) {
   mu <- rep(0, 3)
   sigma <- matrix(c(1, 0, 0, 0, 1, 0, 0, 0, 1), nrow = 3) 
@@ -160,14 +169,14 @@ generate_data_noninf <- function(n = 1000) {
   Z2 <- Z[, 2]
   Z3 <- Z[, 3]
   
-  logit_p <- (0.05 * Z1 + 3.5 * Z2 + 2.5 * Z3)/6
+  logit_p <- (0.5 * Z1 + 3.5 * Z2 + 2.5 * Z3)/6
   p <- exp(logit_p) / (1 + exp(logit_p))
   D <- rbinom(n, 1, p) # Treatment indicator
   
-  hazard <- exp(-0.5 + 1 * D + 0.6 * Z1 + 0.8 * Z2 + 0.7 * Z1 * Z2)
-
+  hazard <- exp(beta_0 + beta_D * D + beta_Z1 * Z1 + beta_Z2 * Z2 + beta_Z1Z2 * Z1 * Z2)
   T_event <- rexp(n, rate = hazard) # Event time from an exponential model
-  T_censor <- rexp(n, rate = exp(-3.2)) # Censoring time based on random censoring
+  
+  T_censor <- rexp(n, rate = exp(-5.0)) # Censoring time based on random censoring
   T_admin <- rep(7, n) # Administrative (random) censoring at time 7
   
   Time <- pmin(T_event, T_censor, T_admin) # Observed follow-up time
@@ -221,7 +230,7 @@ With the simulation truth above, we first calculate the true ATE at multiple tim
 
 ```{r}
 get_true_survival <- function(data, t, d_level) {
-  hazard <- exp(-0.5 + 1 * d_level + 0.6 * data$Z1 + 0.8 * data$Z2 + 0.7 * data$Z1 * data$Z2)
+  hazard <- exp(beta_0 + beta_D * d_level + beta_Z1 * data$Z1 + beta_Z2 * data$Z2 + beta_Z1Z2 * data$Z1 * data$Z2)
   survival_probs <- exp(-hazard * t) # baseline hazard is constant under an expotential survival model
   return(mean(survival_probs)) 
 }
@@ -238,16 +247,13 @@ results_true <- list(ATE = true_surv_1 - true_surv_0)
 We generate 100 datasets to compute the true ATEs at prespecified time points and corresponding 95% confidence intervals (CIs) using percentiles.
 
 ```{r}
-n_data <- 100
-datasets <- vector("list", n_data)
-for (i in 1:n_data) {
-  datasets[[i]] <- generate_data_noninf()
-}
+n_datasets <- 100
+datasets <- replicate(n_datasets, generate_data_noninf(), simplify = FALSE)
 
 times <- c(1, 2, 3)
-true_ate_samples <- matrix(NA, nrow = n_data, ncol = length(times))
+true_ate_samples <- matrix(NA, nrow = n_datasets, ncol = length(times))
 
-for (i in 1:n_data) {
+for (i in 1:n_datasets) {
   # Compute potential survival probabilities by setting treatment to 1 and 0 for all individuals
   true_surv_1 <- sapply(times, function(t) get_true_survival(datasets[[i]], t, d_level = 1))
   true_surv_0 <- sapply(times, function(t) get_true_survival(datasets[[i]], t, d_level = 0))
@@ -327,8 +333,7 @@ We estimate the ATEs at prespecified time points and corresponding 95% CIs.
 results_package <- pseudo_dr_ate_pkg(data, times)  
 
 ate_with_ci <- sapply(1:length(times), function(i) {
-  sprintf("%.3f (%.3f, %.3f)", results_package$ATE[i],
-  results_package$ci_lower[i], results_package$ci_upper[i])
+  sprintf("%.3f (%.3f, %.3f)", results_package$ATE[i], results_package$ci_lower[i], results_package$ci_upper[i])
 })
 
 results_manual_tbl <- data.frame(
@@ -338,7 +343,7 @@ results_manual_tbl <- data.frame(
   `T = 3` = c(ate_with_ci[3], true_ate_with_ci[3]), 
   check.names = FALSE)
 
-kable(results_manual_tbl, caption = "ATE (95% CI)", align = c('l', 'c', 'c', 'c')) %>% 
+kable(results_manual_tbl, caption = "ATE (95% CI)", align = c('c', 'c', 'c', 'c')) %>% 
   kable_styling(full_width = FALSE, font_size = 12)
 ```
 
@@ -455,7 +460,7 @@ results_manual_tbl <- data.frame(
   `T = 3` = c(ate_with_ci[3], true_ate_with_ci[3]), 
   check.names = FALSE)
 
-kable(results_manual_tbl, caption = "ATE (95% CI)", align = c('l', 'c', 'c', 'c')) %>% 
+kable(results_manual_tbl, caption = "ATE (95% CI)", align = c('c', 'c', 'c', 'c')) %>% 
   kable_styling(full_width = FALSE, font_size = 12)
 ```
 
@@ -472,10 +477,10 @@ crude_cox_estimator <- function(data, times) {
   base_surv <- survfit(crude_cox)
   s0 <- summary(base_surv, times = times, extend = TRUE)$surv
   
-  # survival for treated group: S_baseline^exp(beta_D)
+  # Survival for treated group: S_baseline^exp(beta_D)
   surv_1 <- s0^exp(treatment_effect)
   
-  # survival for control group: S_baseline^exp(0) 
+  # Survival for control group: S_baseline^exp(0) 
   surv_0 <- s0
   
   # ATE
@@ -494,30 +499,29 @@ We use the 100 datasets to calculate Root Mean Square Error (RMSE).
 ```{r}
 plan(multisession, workers = n_cores)
 
-calculate_rmse <- function(datasets, true_ate_samples, times, method = "package", 
-                                     ps_correct = TRUE, or_correct = TRUE) {
+calculate_rmse <- function(datasets, true_ate_samples, times, method = "package", ps_correct = TRUE, or_correct = TRUE) {
   
-  n_data <- length(datasets)
+  n_datasets <- length(datasets)
   
-  results <- future_lapply(1:n_data, function(i) {
+  results <- future_lapply(1:n_datasets, function(i) {
     require(survival)
     require(pseudo)
     require(adjustedCurves)
     
     est_results <- switch(
       method,
-      "package" = pseudo_dr_ate_pkg(datasets[[i]], times, 
-          ps_correct = ps_correct, or_correct = or_correct, use_bootstrap = FALSE),
-      "manual"  = pseudo_dr_ate_manual(datasets[[i]], times, ps_correct = ps_correct, or_correct = or_correct),
-      "crude"   = crude_cox_estimator(datasets[[i]], times),
+      "package" = pseudo_dr_ate_pkg(datasets[[i]], times, ps_correct = ps_correct, 
+                                    or_correct = or_correct, use_bootstrap = FALSE),
+      "manual" = pseudo_dr_ate_manual(datasets[[i]], times, ps_correct = ps_correct, or_correct = or_correct),
+      "crude" = crude_cox_estimator(datasets[[i]], times),
       stop("Unknown: ", method))
     
     squared_errors <- (est_results$ATE - true_ate_samples[i, ])^2
     squared_errors
   }, future.seed = TRUE)
   
-  results_matrix <- do.call(rbind, results)
-  rmse <- sqrt(colMeans(results_matrix))
+  results_all <- do.call(rbind, results)
+  rmse <- sqrt(colMeans(results_all))
   return(rmse)
 }
 ```
@@ -535,23 +539,23 @@ To illustrate the robustness of the DR estimator to model misspecification, we c
 -   Scenario 4: Both models are misspecified.
 
 ```{r}
-rmse_1_package <- calculate_rmse(datasets, true_ate_samples, times, method = "package",
-                                  ps_correct = TRUE, or_correct = TRUE)
-rmse_2_package <- calculate_rmse(datasets, true_ate_samples, times, method = "package",
-                                  ps_correct = TRUE, or_correct = FALSE)
-rmse_3_package <- calculate_rmse(datasets, true_ate_samples, times, method = "package",
-                                  ps_correct = FALSE, or_correct = TRUE)
-rmse_4_package <- calculate_rmse(datasets, true_ate_samples, times, method = "package",
-                                  ps_correct = FALSE, or_correct = FALSE)
-
-rmse_1_manual <- calculate_rmse(datasets, true_ate_samples, times, method = "manual",
+rmse_1_package <- calculate_rmse(datasets, true_ate_samples, times, method = "package", 
                                  ps_correct = TRUE, or_correct = TRUE)
-rmse_2_manual <- calculate_rmse(datasets, true_ate_samples, times, method = "manual",
+rmse_2_package <- calculate_rmse(datasets, true_ate_samples, times, method = "package", 
                                  ps_correct = TRUE, or_correct = FALSE)
-rmse_3_manual <- calculate_rmse(datasets, true_ate_samples, times, method = "manual",
+rmse_3_package <- calculate_rmse(datasets, true_ate_samples, times, method = "package", 
                                  ps_correct = FALSE, or_correct = TRUE)
-rmse_4_manual <- calculate_rmse(datasets, true_ate_samples, times, method = "manual",
+rmse_4_package <- calculate_rmse(datasets, true_ate_samples, times, method = "package", 
                                  ps_correct = FALSE, or_correct = FALSE)
+
+rmse_1_manual <- calculate_rmse(datasets, true_ate_samples, times, method = "manual", 
+                                ps_correct = TRUE, or_correct = TRUE)
+rmse_2_manual <- calculate_rmse(datasets, true_ate_samples, times, method = "manual", 
+                                ps_correct = TRUE, or_correct = FALSE)
+rmse_3_manual <- calculate_rmse(datasets, true_ate_samples, times, method = "manual", 
+                                ps_correct = FALSE, or_correct = TRUE)
+rmse_4_manual <- calculate_rmse(datasets, true_ate_samples, times, method = "manual", 
+                                ps_correct = FALSE, or_correct = FALSE)
 
 rmse_crude <- calculate_rmse(datasets, true_ate_samples, times, method = "crude")
 ```
@@ -582,7 +586,7 @@ rmse_table <- data.frame(Scenario = scenarios, Package = package_rmse, Manual = 
 kable(rmse_table,
       col.names = c("Scenario", "T = 1, 2, 3", "T = 1, 2, 3"),
       caption = "Performance of the DR estimator (RMSE)",
-      align = c('l', 'c', 'c')) %>%
+      align = c('c', 'c', 'c')) %>%
   kable_styling(full_width = FALSE, font_size = 12) %>%
   add_header_above(c(" " = 1, "Package" = 1, "Manual" = 1))
 ```

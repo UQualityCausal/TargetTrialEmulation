@@ -11,7 +11,7 @@
 
 <meta name="author" content="Yizhe Xu, Peirong Hao, Ravinder Singh, Kevin Ying, Adam Bress, Tom Greene" />
 
-<meta name="date" content="2025-11-30" />
+<meta name="date" content="2025-12-09" />
 
 <title>Augmented Inverse Probability Weighted Complete Case Estimator for Survival Analysis</title>
 
@@ -601,26 +601,30 @@ display: none;
 Complete Case Estimator for Survival Analysis</h1>
 <h4 class="author">Yizhe Xu<a href="#fn1" class="footnote-ref" id="fnref1"><sup>1</sup></a>, Peirong Hao, Ravinder Singh, Kevin Ying,
 Adam Bress, Tom Greene</h4>
-<h4 class="date">2025-11-30</h4>
+<h4 class="date">2025-12-09</h4>
 
 </div>
 
 
 <pre class="r"><code>knitr::opts_chunk$set(
   collapse = TRUE,
-  comment = &quot;#&gt;&quot;
+  comment = &quot;#&gt;&quot;,
+  message = FALSE,    
+  warning = FALSE 
 )
-#options(warn = -1)
-set.seed(123456)
+
+set.seed(123)
 library(survival)
-library(riskRegression)
 library(adjustedCurves)
 library(MASS)
-library(ggplot2)
-library(survminer)
-library(dplyr)
 library(knitr)
-library(kableExtra)</code></pre>
+library(kableExtra)
+library(dagitty)
+library(parallel)
+library(future.apply)
+library(future)
+
+n_cores &lt;- detectCores() - 2</code></pre>
 <div id="background" class="section level2">
 <h2>Background</h2>
 <p>We continue our previous discussion on doubly robust (DR) estimators
@@ -731,10 +735,32 @@ informative censoring scenario.</p>
 <div id="data-generation" class="section level3">
 <h3>Data Generation</h3>
 <p>We first simulate the data according to the variable relationships
-depicted in the directed acyclic graph (DAG) below ?? add DAG ?? check
-and revise my change on Tcensor to make sure the data is not too
-wired</p>
-<pre class="r"><code>generate_data_noninf &lt;- function(n = 3000) {
+depicted in the directed acyclic graph (DAG) below</p>
+<pre class="r"><code>dag &lt;- dagitty(&quot;dag {
+  Z1 -&gt; Death
+  Z2 -&gt; Death
+  Z1 -&gt; D
+  Z2 -&gt; D
+  Z3 -&gt; D
+}&quot;)
+
+coordinates(dag) &lt;- list(
+  x = c(Z1 = 0, Z2 = 0, Z3 = 0, D = 1.5, Death = 1.5),
+  y = c(Z1 = 1, Z2 = 0.5, Z3 = 0, D = 0, Death = 1)
+)
+
+plot(dag)</code></pre>
+<p><img role="img" src="data:image/png;base64,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" width="384" /></p>
+<pre class="r"><code># ---------------------------
+# Hazard model parameters
+# ---------------------------
+beta_0 &lt;- -1.2      
+beta_D &lt;- -1.0 
+beta_Z1 &lt;- 0.2 
+beta_Z2 &lt;- 1.0 
+beta_Z1Z2 &lt;- 1.5 
+
+generate_data_noninf &lt;- function(n = 1000) {
   mu &lt;- rep(0, 3)
   sigma &lt;- matrix(c(1, 0, 0, 0, 1, 0, 0, 0, 1), nrow = 3) 
   Z &lt;- mvrnorm(n, mu, sigma) # i.i.d. baseline covariates with mean zero and variance 1
@@ -742,51 +768,109 @@ wired</p>
   Z2 &lt;- Z[, 2]
   Z3 &lt;- Z[, 3]
   
-  logit_p &lt;- (0.35 * Z1 + 0.7 * Z2 + 1.05 * Z3)/3
+  logit_p &lt;- -0.2 + 0.2 * Z1 + 1.6 * Z2 + 1.6 * Z3
   p &lt;- exp(logit_p) / (1 + exp(logit_p))
   D &lt;- rbinom(n, 1, p) # Treatment indicator
   
-  hazard &lt;- exp(-1 + D + 1 * Z1 + 2 * Z2 + 1 * Z1 * Z2)
- 
+  hazard &lt;- exp(beta_0 + beta_D * D + beta_Z1 * Z1 + beta_Z2 * Z2 + beta_Z1Z2 * Z1 * Z2)
   T_event &lt;- rexp(n, rate = hazard) # Event time from an exponential model
   
-  hazard_cen &lt;- exp(-3 + 0.6 * D + 0.5 * Z1 + 1 * Z2)
-  T_censor &lt;- rexp(n, rate = exp(hazard_cen)) # Censoring time based on random censoring
+  hazard_cen &lt;- exp(-2.0 + 1.0 * D + 0.1 * Z1 + 0.8 * Z2)
+  T_censor &lt;- rexp(n, rate = hazard_cen) # Censoring time based on treatment and other covariates
   T_admin &lt;- rep(7, n) # Administrative (random) censoring at time 7
   
   Time &lt;- pmin(T_event, T_censor, T_admin) # Observed follow-up time
   Event &lt;- as.numeric(T_event &lt;= T_censor &amp; T_event &lt;= T_admin) # Event indicator
   
-  Censored &lt;- as.numeric(T_event &gt; T_censor &amp; T_event &lt;= T_admin)
+  Censored &lt;- as.numeric(T_event &gt; T_censor &amp; T_event &lt;= T_admin) # Censoring indicator
   
   return(data.frame(Z1 = Z1, Z2 = Z2, Z3 = Z3, D = D, Time = Time, Event = Event, Censored = Censored))
+}</code></pre>
+<pre class="r"><code>data &lt;- generate_data_noninf()
+
+attr(data$Z1, &quot;label&quot;) &lt;- &quot;Baseline value of Z1&quot;
+attr(data$Z2, &quot;label&quot;) &lt;- &quot;Baseline value of Z2&quot;
+attr(data$Z3, &quot;label&quot;) &lt;- &quot;Baseline value of Z3&quot;
+attr(data$D, &quot;label&quot;) &lt;- &quot;Treatment indicator (1 = treated, 0 = control)&quot;
+attr(data$Time, &quot;label&quot;) &lt;- &quot;Time index for longitudinal records&quot;
+attr(data$Event, &quot;label&quot;) &lt;- &quot;Event indicator (1 = event occurred, 0 = otherwise)&quot;
+attr(data$Censored, &quot;label&quot;) &lt;- &quot;Censoring indicator (1 = censored, 0 = otherwise)&quot;
+
+get_label &lt;- function(x) {
+  lbl &lt;- attr(x, &quot;label&quot;, exact = TRUE)
+  if (is.null(lbl)) &quot;&quot; else as.character(lbl)
 }
 
-# ?? Create a data dictionary outside the code, see IntentionToTreat.Rmd row 155
-# -----------------------------
-# Data Dictionary:
-# Z1, Z2, Z3: baseline covariates
-# D: treatment indicator (1 = treated, 0 = control)  
-# Time: observed time 
-# Event: event indicator (1 if event occurred, 0 otherwise)
-# -----------------------------
+dict &lt;- data.frame(
+  Variable = names(data),
+  Meaning  = vapply(data, get_label, character(1)),
+  check.names = FALSE
+)
 
-data &lt;- generate_data_noninf()
-summary(data$Time)
-#&gt;     Min.  1st Qu.   Median     Mean  3rd Qu.     Max. 
-#&gt; 0.000001 0.072632 0.299869 0.568093 0.774917 7.000000
+knitr::kable(dict, caption = &quot;Data Dictionary&quot;, row.names = FALSE) </code></pre>
+<table>
+<caption>Data Dictionary</caption>
+<thead>
+<tr class="header">
+<th align="left">Variable</th>
+<th align="left">Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">Z1</td>
+<td align="left">Baseline value of Z1</td>
+</tr>
+<tr class="even">
+<td align="left">Z2</td>
+<td align="left">Baseline value of Z2</td>
+</tr>
+<tr class="odd">
+<td align="left">Z3</td>
+<td align="left">Baseline value of Z3</td>
+</tr>
+<tr class="even">
+<td align="left">D</td>
+<td align="left">Treatment indicator (1 = treated, 0 = control)</td>
+</tr>
+<tr class="odd">
+<td align="left">Time</td>
+<td align="left">Time index for longitudinal records</td>
+</tr>
+<tr class="even">
+<td align="left">Event</td>
+<td align="left">Event indicator (1 = event occurred, 0 =
+otherwise)</td>
+</tr>
+<tr class="odd">
+<td align="left">Censored</td>
+<td align="left">Censoring indicator (1 = censored, 0 = otherwise)</td>
+</tr>
+</tbody>
+</table>
+<pre class="r"><code>summary(data$Time)
+#&gt;      Min.   1st Qu.    Median      Mean   3rd Qu.      Max. 
+#&gt; 0.0001578 0.3735075 1.3127507 2.2300846 3.3348024 7.0000000
 
 table(data$Event)
 #&gt; 
-#&gt;    0    1 
-#&gt; 1811 1189
-#?? Among the 729 subjects with no events, how many are early drop outs and how many are administratively censored?</code></pre>
+#&gt;   0   1 
+#&gt; 590 410</code></pre>
+<p>Among the 105 subjects with no events, 61 are early dropouts and 44
+are administratively censored. Administrative censoring is random, so no
+additional modeling is needed. Early dropout could be
+covariate-dependent or occur completely at random, and we assume it is
+non-informative in this data generation.</p>
+<pre class="r"><code>censored_subjects &lt;- data[data$Event == 0, ]
+(early_dropout &lt;- sum(censored_subjects$Time &lt; 7))
+#&gt; [1] 479
+(admin_censored &lt;- sum(censored_subjects$Time &gt;= 7))
+#&gt; [1] 111</code></pre>
 <p>With the simulation truth above, we first calculate the true ATE at
-multiple times. ?? revise this according to the changes in censoring
-mechanism above</p>
+multiple times.</p>
 <pre class="r"><code>get_true_survival &lt;- function(data, t, d_level) {
-  hazard &lt;- exp(-1 + d_level + 1 * data$Z1 + 2 * data$Z2 + 1 * data$Z1 * data$Z2)
-  survival_probs &lt;- exp(-hazard * t) # baseline hazard is constant under an expotential survival model
+  hazard &lt;- exp(beta_0 + beta_D * d_level + beta_Z1 * data$Z1 + beta_Z2 * data$Z2 + beta_Z1Z2 * data$Z1 * data$Z2)
+  survival_probs &lt;- exp(-hazard * t) # Baseline hazard is constant under an expotential survival model
   return(mean(survival_probs)) 
 }
 
@@ -797,15 +881,42 @@ true_surv_0 &lt;- sapply(times, function(t) get_true_survival(data, t, d_level =
 
 # Calculate ATE as difference in survival probabilities
 results_true &lt;- list(ATE = true_surv_1 - true_surv_0)</code></pre>
+<p>We generate 100 datasets to compute the true ATEs at prespecified
+time points and corresponding 95% confidence intervals (CIs) using
+percentiles.</p>
+<pre class="r"><code>n_datasets &lt;- 100
+datasets &lt;- replicate(n_datasets, generate_data_noninf(), simplify = FALSE)
+
+times &lt;- c(1, 2, 3)
+true_ate_samples &lt;- matrix(NA, nrow = n_datasets, ncol = length(times))
+
+for (i in 1:n_datasets) {
+  # Compute potential survival probabilities by setting treatment to 1 and 0 for all individuals
+  true_surv_1 &lt;- sapply(times, function(t) get_true_survival(datasets[[i]], t, d_level = 1))
+  true_surv_0 &lt;- sapply(times, function(t) get_true_survival(datasets[[i]], t, d_level = 0))
+  
+  # Calculate ATE as difference in survival probabilities
+  true_ate_samples[i, ] &lt;- true_surv_1 - true_surv_0
+}
+
+true_ate_mean &lt;- colMeans(true_ate_samples)
+true_ate_ci_lower &lt;- apply(true_ate_samples, 2, quantile, probs = 0.025)
+true_ate_ci_upper &lt;- apply(true_ate_samples, 2, quantile, probs = 0.975)
+
+results_true &lt;- list(ATE = true_ate_mean, ci_lower = true_ate_ci_lower, ci_upper = true_ate_ci_upper)
+
+true_ate_with_ci &lt;- sapply(1:length(times), function(i) {
+  sprintf(&quot;%.3f (%.3f, %.3f)&quot;, results_true$ATE[i], results_true$ci_lower[i], results_true$ci_upper[i])
+})</code></pre>
 </div>
 <div id="using-r-package" class="section level3">
 <h3>Using R package</h3>
 <p>First, we implement the AIPWCC estimator using the
 <em>adjustedsurv</em> function in the <a href="https://cran.r-project.org/web/packages/adjustedCurves/adjustedCurves.pdf">adjustedCurves</a>
 R package.</p>
-<pre class="r"><code>aipwcc_dr_ate_pkg &lt;- function(data, times, ps_correct = TRUE, cen_correct = TRUE, or_correct = TRUE) {
+<pre class="r"><code>aipwcc_dr_ate_pkg &lt;- function(data, times, ps_correct = TRUE, or_correct = TRUE, 
+                              cen_correct = TRUE, variance = &quot;asymptotic&quot;) {
   
-  data &lt;- data %&gt;% mutate(D = as.factor(D))
   data$D &lt;- factor(data$D, levels = c(0, 1))
   
   # Propensity score model
@@ -815,7 +926,8 @@ R package.</p>
     ps_model &lt;- glm(D ~ Z1, data = data, family = &quot;binomial&quot;)
   }
 
-  # Censoring model ?? cannot distinguish loss to follow-up and administrative censoring
+  # Censoring model 
+  # Note: Event==0 includes both loss to follow-up and administrative censoring
   if (cen_correct) {
     cen_model &lt;- coxph(Surv(Time, Event == 0) ~ D + Z1 + Z2, data = data, x = TRUE)
   } else {
@@ -832,212 +944,177 @@ R package.</p>
   
   ## AIPWCC estimator for survival probabilities 
   
-  # Using asymptotic variance
-  adj_surv_asymp &lt;- adjustedsurv(
-    data = data,
-    variable = &quot;D&quot;,
-    ev_time = &quot;Time&quot;,
-    event = &quot;Event&quot;,
-    method = &quot;aiptw&quot;,
-    treatment_model = ps_model,
-    censoring_model = cen_model,
-    outcome_model = or_model,
-    times = times, 
-    conf_int = TRUE,
-    conf_level = 0.95,
-    bootstrap = FALSE) 
+  if (variance == &quot;asymptotic&quot;) { # Using asymptotic variance
+    adj_surv &lt;- adjustedsurv(
+      data = data,
+      variable = &quot;D&quot;,
+      ev_time = &quot;Time&quot;,
+      event = &quot;Event&quot;,
+      method = &quot;aiptw&quot;,
+      treatment_model = ps_model,
+      censoring_model = cen_model,
+      outcome_model = or_model,
+      times = times, 
+      conf_int = TRUE,
+      conf_level = 0.95,
+      bootstrap = FALSE) 
+  } else if (variance == &quot;bootstrap&quot;){ # Using bootstrap variance
+    adj_surv &lt;- adjustedsurv(
+      data = data,
+      variable = &quot;D&quot;,
+      ev_time = &quot;Time&quot;,
+      event = &quot;Event&quot;,
+      method = &quot;aiptw&quot;,
+      treatment_model = ps_model,
+      censoring_model = cen_model,
+      outcome_model = or_model,
+      times = times,
+      conf_int = TRUE,
+      conf_level = 0.95,
+      bootstrap = TRUE,
+      n_boot = 50) # adjustedCurves doesn&#39;t support n_cores in bootstrap
+  }
 
   # Treatment effect is defined as the difference in survival probabilities.
-  ate_asymp_results &lt;- adjusted_curve_diff(
-    adj = adj_surv_asymp,
+  ate_results &lt;- adjusted_curve_diff(
+    adj = adj_surv,
     group_1 = &quot;1&quot;,  # Treated group
     group_2 = &quot;0&quot;,  # Control group
     conf_int = TRUE,
     conf_level = 0.95)
   
   # Extract survival probabilities at times of interest
-  ate_asymp_at_times &lt;- ate_asymp_results[ate_asymp_results$time %in% times, ]
+  ate_at_times &lt;- ate_results[ate_results$time %in% times, ]
   
-  
-  # Using bootstrap variance
-  adj_surv_boot &lt;- adjustedsurv(
-    data = data,
-    variable = &quot;D&quot;,
-    ev_time = &quot;Time&quot;,
-    event = &quot;Event&quot;,
-    method = &quot;aiptw&quot;,
-    treatment_model = ps_model,
-    censoring_model = cen_model,
-    outcome_model = or_model,
-    times = times,
-    conf_int = TRUE,
-    conf_level = 0.95,
-    bootstrap = TRUE,
-    n_boot = 200)  
-  
- # Treatment effect is defined as the difference in survival probabilities.
-  ate_boot_results &lt;- adjusted_curve_diff(
-    adj = adj_surv_boot,
-    group_1 = &quot;1&quot;,  # Treated group
-    group_2 = &quot;0&quot;,  # Control group
-    conf_int = TRUE,
-    conf_level = 0.95)
-  
-  # Extract survival probabilities at times of interest
-  ate_boot_at_times &lt;- ate_boot_results[ate_boot_results$time %in% times, ]
-  
-  
-  return(list(ATE_asymp = ate_asymp_at_times$diff, 
-              ci_lower_asymp = ate_asymp_at_times$ci_lower,
-              ci_upper_asymp = ate_asymp_at_times$ci_upper,
-              ATE_boot = ate_boot_at_times$diff, 
-              ci_lower_boot = ate_boot_at_times$ci_lower,
-              ci_upper_boot = ate_boot_at_times$ci_upper))
+  return(list(ATE = ate_at_times$diff, ci_lower = ate_at_times$ci_lower, ci_upper = ate_at_times$ci_upper))
 }</code></pre>
 <p>We estimate the ATEs at prespecified time points and corresponding
-95% confidence intervals (CIs). ?? reformat this table let rows
-represent the times and columns represent the type of variance
-estimator</p>
-<pre class="r"><code>results_package &lt;- aipwcc_dr_ate_pkg(data, times)  
+95% confidence intervals (CIs).</p>
+<pre class="r"><code>results_asymp &lt;- aipwcc_dr_ate_pkg(data, times, variance = &quot;asymptotic&quot;)
+results_boot &lt;- aipwcc_dr_ate_pkg(data, times, variance = &quot;bootstrap&quot;)
 
-results_package_tbl &lt;- cbind(Variance = c(rep(&quot;Asymptotic&quot;, 3), rep(&quot;Bootstrap&quot;, 3)),
-                             rbind(ATE = round(results_package$ATE_asymp, 2),
-                                   `CI lower` = round(results_package$ci_lower_asymp, 2),
-                                   `CI upper` = round(results_package$ci_upper_asymp, 2), 
-                                   ATE = round(results_package$ATE_boot, 2),
-                                   `CI lower` = round(results_package$ci_lower_boot, 2),
-                                   `CI upper` = round(results_package$ci_upper_boot, 2)))
+results_package_tbl &lt;- data.frame(
+  Time = paste0(&quot;T = &quot;, times),
+  Asymptotic = sprintf(&quot;%.3f (%.3f, %.3f)&quot;, results_asymp$ATE, results_asymp$ci_lower, results_asymp$ci_upper),
+  Bootstrap = sprintf(&quot;%.3f (%.3f, %.3f)&quot;, results_boot$ATE, results_boot$ci_lower, results_boot$ci_upper)
+)
 
-colnames(results_package_tbl)[2:4] &lt;- c(&quot;T=1&quot;, &quot;T=2&quot;, &quot;T=3&quot;)
-kable(results_package_tbl, caption = &quot;ATE and 95% Confidence Intervals&quot;) %&gt;% 
-  kable_styling(full_width = FALSE, font_size = 12) </code></pre>
-<table class="table" style="font-size: 12px; width: auto !important; margin-left: auto; margin-right: auto;">
+kable(results_package_tbl, 
+      caption = &quot;ATE (95% CI)&quot;,
+      col.names = c(&quot;Time&quot;, &quot;Asymptotic&quot;, &quot;Bootstrap&quot;),
+      align = c(&#39;c&#39;, &#39;c&#39;, &#39;c&#39;)) %&gt;% 
+  kable_styling(full_width = FALSE, font_size = 12)</code></pre>
+<table class="table" style="font-size: 12px; color: black; width: auto !important; margin-left: auto; margin-right: auto;">
 <caption style="font-size: initial !important;">
-ATE and 95% Confidence Intervals
+ATE (95% CI)
 </caption>
 <thead>
 <tr>
-<th style="text-align:left;">
+<th style="text-align:center;">
+Time
 </th>
-<th style="text-align:left;">
-Variance
+<th style="text-align:center;">
+Asymptotic
 </th>
-<th style="text-align:left;">
-T=1
-</th>
-<th style="text-align:left;">
-T=2
-</th>
-<th style="text-align:left;">
-T=3
+<th style="text-align:center;">
+Bootstrap
 </th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td style="text-align:left;">
-ATE
+<td style="text-align:center;">
+T = 1
 </td>
-<td style="text-align:left;">
-Asymptotic
+<td style="text-align:center;">
+0.099 (0.027, 0.171)
 </td>
-<td style="text-align:left;">
--0.13
-</td>
-<td style="text-align:left;">
--0.15
-</td>
-<td style="text-align:left;">
--0.16
+<td style="text-align:center;">
+0.099 (0.027, 0.171)
 </td>
 </tr>
 <tr>
-<td style="text-align:left;">
-CI lower
+<td style="text-align:center;">
+T = 2
 </td>
-<td style="text-align:left;">
-Asymptotic
+<td style="text-align:center;">
+0.158 (0.050, 0.267)
 </td>
-<td style="text-align:left;">
--0.17
-</td>
-<td style="text-align:left;">
--0.21
-</td>
-<td style="text-align:left;">
--0.23
+<td style="text-align:center;">
+0.158 (0.050, 0.267)
 </td>
 </tr>
 <tr>
-<td style="text-align:left;">
-CI upper
+<td style="text-align:center;">
+T = 3
 </td>
-<td style="text-align:left;">
-Asymptotic
+<td style="text-align:center;">
+0.193 (0.083, 0.303)
 </td>
-<td style="text-align:left;">
--0.09
-</td>
-<td style="text-align:left;">
--0.1
-</td>
-<td style="text-align:left;">
--0.09
-</td>
-</tr>
-<tr>
-<td style="text-align:left;">
-ATE
-</td>
-<td style="text-align:left;">
-Bootstrap
-</td>
-<td style="text-align:left;">
--0.13
-</td>
-<td style="text-align:left;">
--0.15
-</td>
-<td style="text-align:left;">
--0.16
-</td>
-</tr>
-<tr>
-<td style="text-align:left;">
-CI lower
-</td>
-<td style="text-align:left;">
-Bootstrap
-</td>
-<td style="text-align:left;">
--0.17
-</td>
-<td style="text-align:left;">
--0.21
-</td>
-<td style="text-align:left;">
--0.23
-</td>
-</tr>
-<tr>
-<td style="text-align:left;">
-CI upper
-</td>
-<td style="text-align:left;">
-Bootstrap
-</td>
-<td style="text-align:left;">
--0.09
-</td>
-<td style="text-align:left;">
--0.1
-</td>
-<td style="text-align:left;">
--0.09
+<td style="text-align:center;">
+0.193 (0.083, 0.303)
 </td>
 </tr>
 </tbody>
 </table>
+</div>
+<div id="crude-estimation" class="section level3">
+<h3>Crude estimation</h3>
+<p>Fit a crude Cox model with no covariate or propensity score
+adjustment to show the amount of confounding bias in our data</p>
+<pre class="r"><code>crude_cox_estimator &lt;- function(data, times) {
+  
+  crude_cox &lt;- coxph(Surv(Time, Event) ~ D, data = data)
+  treatment_effect &lt;- coef(crude_cox)[&quot;D&quot;]
+  
+  base_surv &lt;- survfit(crude_cox)
+  s0 &lt;- summary(base_surv, times = times, extend = TRUE)$surv
+  
+  # Survival for treated group: S_baseline^exp(beta_D)
+  surv_1 &lt;- s0^exp(treatment_effect)
+  
+  # Survival for control group: S_baseline^exp(0) 
+  surv_0 &lt;- s0
+  
+  # ATE
+  ATE &lt;- surv_1 - surv_0
+
+  return(list(ATE = ATE))
+}
+
+results_crude &lt;- crude_cox_estimator(data, times)</code></pre>
+</div>
+<div id="evaluate-the-performance-of-aipwcc-estimator" class="section level3">
+<h3>Evaluate the performance of AIPWCC estimator</h3>
+<p>We use the 100 datasets to calculate Root Mean Square Error
+(RMSE).</p>
+<pre class="r"><code>plan(multisession, workers = n_cores)
+
+calculate_rmse &lt;- function(datasets, true_ate_samples, times, method = &quot;package&quot;, variance = &quot;asymptotic&quot;, 
+                           ps_correct = TRUE, or_correct = TRUE, cen_correct = TRUE) {
+  
+  n_datasets &lt;- length(datasets)
+  
+  results &lt;- future_lapply(1:n_datasets, function(i) {
+    require(survival)
+    require(pseudo)
+    require(adjustedCurves)
+    
+    est_results &lt;- switch(
+      method,
+      &quot;package&quot; = aipwcc_dr_ate_pkg(datasets[[i]], times, variance = variance, ps_correct = ps_correct, 
+                                    or_correct = or_correct, cen_correct = cen_correct),
+      &quot;crude&quot; = crude_cox_estimator(datasets[[i]], times),
+      stop(&quot;Unknown: &quot;, method))
+    
+    squared_errors &lt;- (est_results$ATE - true_ate_samples[i, ])^2
+    squared_errors
+  }, future.seed = TRUE)
+  
+  results_all &lt;- do.call(rbind, results)
+  rmse &lt;- sqrt(colMeans(results_all))
+  return(rmse)
+}</code></pre>
 </div>
 <div id="model-misspecification-scenarios" class="section level3">
 <h3>Model misspecification scenarios</h3>
@@ -1062,111 +1139,195 @@ outcome model and propensity score model are both misspecified</p></li>
 <li><p>Scenario 8: All three models are misspecified</p></li>
 </ul>
 <pre class="r"><code># Scenario 1: All models correct
-results_1_package &lt;- aipwcc_dr_ate_pkg(data, times, ps_correct = TRUE, cen_correct = TRUE, or_correct = TRUE)
+rmse_1_asymp &lt;- calculate_rmse(datasets, true_ate_samples, times, method = &quot;package&quot;, variance = &quot;asymptotic&quot;,
+                               ps_correct = TRUE, cen_correct = TRUE, or_correct = TRUE)
+#rmse_1_boot &lt;- calculate_rmse(datasets, true_ate_samples, times, method = &quot;package&quot;, variance = &quot;bootstrap&quot;,
+                              #ps_correct = TRUE, cen_correct = TRUE, or_correct = TRUE)
 
-# Scenario 2: PS correct, Cen incorrect, OR correct 
-results_2_package &lt;- aipwcc_dr_ate_pkg(data, times, ps_correct = TRUE, cen_correct = FALSE, or_correct = TRUE)
+# Scenario 2: PS correct, Cen incorrect, OR correct
+rmse_2_asymp &lt;- calculate_rmse(datasets, true_ate_samples, times, method = &quot;package&quot;, variance = &quot;asymptotic&quot;,
+                               ps_correct = TRUE, cen_correct = FALSE, or_correct = TRUE)
+#rmse_2_boot &lt;- calculate_rmse(datasets, true_ate_samples, times, method = &quot;package&quot;, variance = &quot;bootstrap&quot;,
+                              #ps_correct = TRUE, cen_correct = FALSE, or_correct = TRUE)
 
 # Scenario 3: PS incorrect, Cen correct, OR correct
-results_3_package &lt;- aipwcc_dr_ate_pkg(data, times, ps_correct = FALSE, cen_correct = TRUE, or_correct = TRUE)
+rmse_3_asymp &lt;- calculate_rmse(datasets, true_ate_samples, times, method = &quot;package&quot;, variance = &quot;asymptotic&quot;,
+                               ps_correct = FALSE, cen_correct = TRUE, or_correct = TRUE)
+#rmse_3_boot &lt;- calculate_rmse(datasets, true_ate_samples, times, method = &quot;package&quot;, variance = &quot;bootstrap&quot;,
+                              #ps_correct = FALSE, cen_correct = TRUE, or_correct = TRUE)
 
 # Scenario 4: PS incorrect, Cen incorrect, OR correct
-results_4_package &lt;- aipwcc_dr_ate_pkg(data, times, ps_correct = FALSE, cen_correct = FALSE, or_correct = TRUE)
+rmse_4_asymp &lt;- calculate_rmse(datasets, true_ate_samples, times, method = &quot;package&quot;, variance = &quot;asymptotic&quot;,
+                               ps_correct = FALSE, cen_correct = FALSE, or_correct = TRUE)
+#rmse_4_boot &lt;- calculate_rmse(datasets, true_ate_samples, times, method = &quot;package&quot;, variance = &quot;bootstrap&quot;,
+                              #ps_correct = FALSE, cen_correct = FALSE, or_correct = TRUE)
 
 # Scenario 5: PS correct, Cen correct, OR incorrect
-results_5_package &lt;- aipwcc_dr_ate_pkg(data, times, ps_correct = TRUE, cen_correct = TRUE, or_correct = FALSE)
+rmse_5_asymp &lt;- calculate_rmse(datasets, true_ate_samples, times, method = &quot;package&quot;, variance = &quot;asymptotic&quot;,
+                               ps_correct = TRUE, cen_correct = TRUE, or_correct = FALSE)
+#rmse_5_boot &lt;- calculate_rmse(datasets, true_ate_samples, times, method = &quot;package&quot;, variance = &quot;bootstrap&quot;,
+                              #ps_correct = TRUE, cen_correct = TRUE, or_correct = FALSE)
 
 # Scenario 6: PS correct, Cen incorrect, OR incorrect
-results_6_package &lt;- aipwcc_dr_ate_pkg(data, times, ps_correct = TRUE, cen_correct = FALSE, or_correct = FALSE)
+rmse_6_asymp &lt;- calculate_rmse(datasets, true_ate_samples, times, method = &quot;package&quot;, variance = &quot;asymptotic&quot;,
+                               ps_correct = TRUE, cen_correct = FALSE, or_correct = FALSE)
+#rmse_6_boot &lt;- calculate_rmse(datasets, true_ate_samples, times, method = &quot;package&quot;, variance = &quot;bootstrap&quot;,
+                              #ps_correct = TRUE, cen_correct = FALSE, or_correct = FALSE)
 
 # Scenario 7: PS incorrect, Cen correct, OR incorrect
-results_7_package &lt;- aipwcc_dr_ate_pkg(data, times, ps_correct = FALSE, cen_correct = TRUE, or_correct = FALSE)
+rmse_7_asymp &lt;- calculate_rmse(datasets, true_ate_samples, times, method = &quot;package&quot;, variance = &quot;asymptotic&quot;,
+                               ps_correct = FALSE, cen_correct = TRUE, or_correct = FALSE)
+#rmse_7_boot &lt;- calculate_rmse(datasets, true_ate_samples, times, method = &quot;package&quot;, variance = &quot;bootstrap&quot;,
+                              #ps_correct = FALSE, cen_correct = TRUE, or_correct = FALSE)
 
 # Scenario 8: All models incorrect
-results_8_package &lt;- aipwcc_dr_ate_pkg(data, times, ps_correct = FALSE, cen_correct = FALSE, or_correct = FALSE)</code></pre>
-</div>
-<div id="crude-estimation" class="section level3">
-<h3>Crude estimation</h3>
-<p>Fit a crude Cox model with no covariate or propensity score
-adjustment to show the amount of confounding bias in our data</p>
-<pre class="r"><code>crude_cox_estimator &lt;- function(data, times) {
-  
-  crude_cox &lt;- coxph(Surv(Time, Event) ~ D, data = data)
-  treatment_effect &lt;- coef(crude_cox)[&quot;D1&quot;]
-  
-  base_surv &lt;- survfit(crude_cox)
-  s0 &lt;- summary(base_surv, times = times, extend = TRUE)$surv
-  
-  # survival for treated group: S_baseline^exp(beta_D)
-  surv_1 &lt;- s0^exp(treatment_effect)
-  
-  # survival for control group: S_baseline^exp(0) 
-  surv_0 &lt;- s0
-  
-  # ATE
-  ATE &lt;- surv_1 - surv_0
+rmse_8_asymp &lt;- calculate_rmse(datasets, true_ate_samples, times, method = &quot;package&quot;, variance = &quot;asymptotic&quot;,
+                               ps_correct = FALSE, cen_correct = FALSE, or_correct = FALSE)
+#rmse_8_boot &lt;- calculate_rmse(datasets, true_ate_samples, times, method = &quot;package&quot;, variance = &quot;bootstrap&quot;,
+                              #ps_correct = FALSE, cen_correct = FALSE, or_correct = FALSE)
 
-  return(list(ATE = ATE))
-}
-
-results_crude &lt;- crude_cox_estimator(data, times)</code></pre>
-</div>
-<div id="evaluate-the-performance-of-pseudo-observation-based-dr-estimator" class="section level3">
-<h3>Evaluate the performance of pseudo-observation-based DR
-estimator</h3>
-<p>?? replace bias metric with root-mean-squared-error metric ?? Add all
-8 scenarios and reformat the table: let rows represent the scenarios,
-and columns represent the type of variance estimator</p>
+# Scenario 0: crude estimator
+rmse_crude &lt;- calculate_rmse(datasets, true_ate_samples, times, method = &quot;crude&quot;)</code></pre>
 <pre class="r"><code>scenarios &lt;- c(
-  &quot;0: Crude Cox (Unadjusted)&quot;,
+  &quot;0: Crude Cox&quot;,
   &quot;1: All Correct&quot;,
-  &quot;2: PS Correct, OR Incorrect&quot;,
-  &quot;3: PS Incorrect, OR Correct&quot;,
-  &quot;4: Both Incorrect&quot;,
-  &quot;5: Both Correct&quot;,
-  &quot;6: PS Correct, OR Incorrect&quot;,
-  &quot;7: PS Incorrect, OR Correct&quot;,
+  &quot;2: PS Correct, Cen Incorrect, OR Correct&quot;,
+  &quot;3: PS Incorrect, Cen Correct, OR Correct&quot;,
+  &quot;4: PS Incorrect, Cen Incorrect, OR Correct&quot;,
+  &quot;5: PS Correct, Cen Correct, OR Incorrect&quot;,
+  &quot;6: PS Correct, Cen Incorrect, OR Incorrect&quot;,
+  &quot;7: PS Incorrect, Cen Correct, OR Incorrect&quot;,
   &quot;8: All Incorrect&quot;)
 
-# Combine bias values across all time points into a single string
-format_bias &lt;- function(bias_vector) {
-  paste(sprintf(&quot;%.3f&quot;, bias_vector), collapse = &quot;, &quot;)
+# Combine RMSE values across all time points into a single string
+format_rmse &lt;- function(rmse_vector) {
+  paste(sprintf(&quot;%.3f&quot;, rmse_vector), collapse = &quot;, &quot;)
 }
 
-# Package column (bias at T = 1, 2, 3)
-package_bias &lt;- c(&quot;—&quot;,  
-  format_bias(sapply(1:length(times), function(i) results_1_package$ATE[i] - results_true$ATE[i])),
-  format_bias(sapply(1:length(times), function(i) results_2_package$ATE[i] - results_true$ATE[i])),
-  format_bias(sapply(1:length(times), function(i) results_3_package$ATE[i] - results_true$ATE[i])),
-  format_bias(sapply(1:length(times), function(i) results_4_package$ATE[i] - results_true$ATE[i]))
-)
+# Asymptotic column
+asymp_rmse &lt;- c(format_rmse(rmse_crude), 
+                format_rmse(rmse_1_asymp), format_rmse(rmse_2_asymp), format_rmse(rmse_3_asymp), format_rmse(rmse_4_asymp),
+                format_rmse(rmse_5_asymp), format_rmse(rmse_6_asymp), format_rmse(rmse_7_asymp), format_rmse(rmse_8_asymp))
 
-# Manual column (bias at T = 1, 2, 3)
-manual_bias &lt;- c(
-  format_bias(sapply(1:length(times), function(i) results_crude$ATE[i] - results_true$ATE[i])),
-  format_bias(sapply(1:length(times), function(i) results_1_manual$ATE[i] - results_true$ATE[i])),
-  format_bias(sapply(1:length(times), function(i) results_2_manual$ATE[i] - results_true$ATE[i])),
-  format_bias(sapply(1:length(times), function(i) results_3_manual$ATE[i] - results_true$ATE[i])),
-  format_bias(sapply(1:length(times), function(i) results_4_manual$ATE[i] - results_true$ATE[i]))
-)
+# Bootstrap column
+# boot_rmse &lt;- c(format_rmse(rmse_1_boot), format_rmse(rmse_2_boot), format_rmse(rmse_3_boot), format_rmse(rmse_4_boot),
+#                format_rmse(rmse_5_boot), format_rmse(rmse_6_boot), format_rmse(rmse_7_boot), format_rmse(rmse_8_boot))
 
-bias_table &lt;- data.frame(
-  Scenario = scenarios,
-  Package = package_bias,
-  Manual = manual_bias
-)
+#rmse_table &lt;- data.frame(Scenario = scenarios, Asymptotic = asymp_rmse, Bootstrap = boot_rmse)
 
-kable(bias_table,
-      col.names = c(&quot;Scenario&quot;, &quot;T = 1, 2, 3&quot;, &quot;T = 1, 2, 3&quot;),
-      caption = &quot;Performance of the DR estimator&quot;,
-      align = c(&#39;l&#39;, &#39;c&#39;, &#39;c&#39;)) %&gt;%
+# kable(rmse_table,
+#       col.names = c(&quot;Scenario&quot;, &quot;T = 1, 2, 3&quot;, &quot;T = 1, 2, 3&quot;),
+#       caption = &quot;Performance of the AIPWCC estimator (RMSE)&quot;,
+#       align = c(&#39;c&#39;, &#39;c&#39;, &#39;c&#39;)) %&gt;%
+#   kable_styling(full_width = FALSE, font_size = 12) %&gt;%
+#   add_header_above(c(&quot; &quot; = 1, &quot;Asymptotic&quot; = 1, &quot;Bootstrap&quot; = 1))
+
+rmse_table &lt;- data.frame(Scenario = scenarios, Asymptotic = asymp_rmse)
+
+kable(rmse_table,
+      col.names = c(&quot;Scenario&quot;, &quot;T = 1, 2, 3&quot;),
+      caption = &quot;Performance of the AIPWCC estimator (RMSE)&quot;,
+      align = c(&#39;c&#39;, &#39;c&#39;, &#39;c&#39;)) %&gt;%
   kable_styling(full_width = FALSE, font_size = 12) %&gt;%
-  add_header_above(c(&quot; &quot; = 1, &quot;Package&quot; = 1, &quot;Manual&quot; = 1)) %&gt;%
-  footnote(general = sprintf(&quot;True ATE: %.3f, %.3f, %.3f&quot;,
-           results_true$ATE[1], results_true$ATE[2], results_true$ATE[3]),
-           general_title = &quot;&quot;, footnote_as_chunk = TRUE)
-
-#?? look further into the results at T=1 -- both correct models yielded larger bias than other scenarios</code></pre>
+  add_header_above(c(&quot; &quot; = 1, &quot;Asymptotic&quot; = 1))</code></pre>
+<table class="table" style="font-size: 12px; color: black; width: auto !important; margin-left: auto; margin-right: auto;">
+<caption style="font-size: initial !important;">
+Performance of the AIPWCC estimator (RMSE)
+</caption>
+<thead>
+<tr>
+<th style="empty-cells: hide;border-bottom:hidden;" colspan="1">
+</th>
+<th style="border-bottom:hidden;padding-bottom:0; padding-left:3px;padding-right:3px;text-align: center; " colspan="1">
+<div style="border-bottom: 1px solid #ddd; padding-bottom: 5px; ">
+Asymptotic
+</div>
+</th>
+</tr>
+<tr>
+<th style="text-align:center;">
+Scenario
+</th>
+<th style="text-align:center;">
+T = 1, 2, 3
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center;">
+0: Crude Cox
+</td>
+<td style="text-align:center;">
+0.096, 0.128, 0.143
+</td>
+</tr>
+<tr>
+<td style="text-align:center;">
+1: All Correct
+</td>
+<td style="text-align:center;">
+0.050, 0.055, 0.057
+</td>
+</tr>
+<tr>
+<td style="text-align:center;">
+2: PS Correct, Cen Incorrect, OR Correct
+</td>
+<td style="text-align:center;">
+0.052, 0.078, 0.080
+</td>
+</tr>
+<tr>
+<td style="text-align:center;">
+3: PS Incorrect, Cen Correct, OR Correct
+</td>
+<td style="text-align:center;">
+0.025, 0.028, 0.033
+</td>
+</tr>
+<tr>
+<td style="text-align:center;">
+4: PS Incorrect, Cen Incorrect, OR Correct
+</td>
+<td style="text-align:center;">
+0.024, 0.027, 0.033
+</td>
+</tr>
+<tr>
+<td style="text-align:center;">
+5: PS Correct, Cen Correct, OR Incorrect
+</td>
+<td style="text-align:center;">
+0.068, 0.070, 0.071
+</td>
+</tr>
+<tr>
+<td style="text-align:center;">
+6: PS Correct, Cen Incorrect, OR Incorrect
+</td>
+<td style="text-align:center;">
+0.069, 0.089, 0.091
+</td>
+</tr>
+<tr>
+<td style="text-align:center;">
+7: PS Incorrect, Cen Correct, OR Incorrect
+</td>
+<td style="text-align:center;">
+0.153, 0.171, 0.184
+</td>
+</tr>
+<tr>
+<td style="text-align:center;">
+8: All Incorrect
+</td>
+<td style="text-align:center;">
+0.141, 0.154, 0.161
+</td>
+</tr>
+</tbody>
+</table>
 </div>
 </div>
 <div id="funding" class="section level2">

@@ -22,19 +22,23 @@ editor_options:
 ```{r setup, message=FALSE, warning=FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE,
-  comment = "#>"
+  comment = "#>",
+  message = FALSE,    
+  warning = FALSE 
 )
-#options(warn = -1)
-set.seed(123456)
+
+set.seed(123)
 library(survival)
-library(riskRegression)
 library(adjustedCurves)
 library(MASS)
-library(ggplot2)
-library(survminer)
-library(dplyr)
 library(knitr)
 library(kableExtra)
+library(dagitty)
+library(parallel)
+library(future.apply)
+library(future)
+
+n_cores <- detectCores() - 2
 ```
 
 ## Background
@@ -85,10 +89,34 @@ We now demonstrate how to implement the AIPWCC estimator under the informative c
 ### Data Generation
 
 We first simulate the data according to the variable relationships depicted in the directed acyclic graph (DAG) below
-?? add DAG
-?? check and revise my change on Tcensor to make sure the data is not too wired
+```{r fig.width=4, fig.height=3}
+dag <- dagitty("dag {
+  Z1 -> Death
+  Z2 -> Death
+  Z1 -> D
+  Z2 -> D
+  Z3 -> D
+}")
+
+coordinates(dag) <- list(
+  x = c(Z1 = 0, Z2 = 0, Z3 = 0, D = 1.5, Death = 1.5),
+  y = c(Z1 = 1, Z2 = 0.5, Z3 = 0, D = 0, Death = 1)
+)
+
+plot(dag)
+```
+
 ```{r}
-generate_data_noninf <- function(n = 3000) {
+# ---------------------------
+# Hazard model parameters
+# ---------------------------
+beta_0 <- -1.2      
+beta_D <- -1.0 
+beta_Z1 <- 0.2 
+beta_Z2 <- 1.0 
+beta_Z1Z2 <- 1.5 
+
+generate_data_noninf <- function(n = 1000) {
   mu <- rep(0, 3)
   sigma <- matrix(c(1, 0, 0, 0, 1, 0, 0, 0, 1), nrow = 3) 
   Z <- mvrnorm(n, mu, sigma) # i.i.d. baseline covariates with mean zero and variance 1
@@ -96,48 +124,73 @@ generate_data_noninf <- function(n = 3000) {
   Z2 <- Z[, 2]
   Z3 <- Z[, 3]
   
-  logit_p <- (0.35 * Z1 + 0.7 * Z2 + 1.05 * Z3)/3
+  logit_p <- -0.2 + 0.2 * Z1 + 1.6 * Z2 + 1.6 * Z3
   p <- exp(logit_p) / (1 + exp(logit_p))
   D <- rbinom(n, 1, p) # Treatment indicator
   
-  hazard <- exp(-1 + D + 1 * Z1 + 2 * Z2 + 1 * Z1 * Z2)
- 
+  hazard <- exp(beta_0 + beta_D * D + beta_Z1 * Z1 + beta_Z2 * Z2 + beta_Z1Z2 * Z1 * Z2)
   T_event <- rexp(n, rate = hazard) # Event time from an exponential model
   
-  hazard_cen <- exp(-3 + 0.6 * D + 0.5 * Z1 + 1 * Z2)
-  T_censor <- rexp(n, rate = exp(hazard_cen)) # Censoring time based on random censoring
+  hazard_cen <- exp(-2.0 + 1.0 * D + 0.1 * Z1 + 0.8 * Z2)
+  T_censor <- rexp(n, rate = hazard_cen) # Censoring time based on treatment and other covariates
   T_admin <- rep(7, n) # Administrative (random) censoring at time 7
   
   Time <- pmin(T_event, T_censor, T_admin) # Observed follow-up time
   Event <- as.numeric(T_event <= T_censor & T_event <= T_admin) # Event indicator
   
-  Censored <- as.numeric(T_event > T_censor & T_event <= T_admin)
+  Censored <- as.numeric(T_event > T_censor & T_event <= T_admin) # Censoring indicator
   
   return(data.frame(Z1 = Z1, Z2 = Z2, Z3 = Z3, D = D, Time = Time, Event = Event, Censored = Censored))
 }
+```
 
-# ?? Create a data dictionary outside the code, see IntentionToTreat.Rmd row 155
-# -----------------------------
-# Data Dictionary:
-# Z1, Z2, Z3: baseline covariates
-# D: treatment indicator (1 = treated, 0 = control)  
-# Time: observed time 
-# Event: event indicator (1 if event occurred, 0 otherwise)
-# -----------------------------
-
+```{r}
 data <- generate_data_noninf()
+
+attr(data$Z1, "label") <- "Baseline value of Z1"
+attr(data$Z2, "label") <- "Baseline value of Z2"
+attr(data$Z3, "label") <- "Baseline value of Z3"
+attr(data$D, "label") <- "Treatment indicator (1 = treated, 0 = control)"
+attr(data$Time, "label") <- "Time index for longitudinal records"
+attr(data$Event, "label") <- "Event indicator (1 = event occurred, 0 = otherwise)"
+attr(data$Censored, "label") <- "Censoring indicator (1 = censored, 0 = otherwise)"
+
+get_label <- function(x) {
+  lbl <- attr(x, "label", exact = TRUE)
+  if (is.null(lbl)) "" else as.character(lbl)
+}
+
+dict <- data.frame(
+  Variable = names(data),
+  Meaning  = vapply(data, get_label, character(1)),
+  check.names = FALSE
+)
+
+knitr::kable(dict, caption = "Data Dictionary", row.names = FALSE) 
+```
+
+```{r}
 summary(data$Time)
 
 table(data$Event)
-#?? Among the 729 subjects with no events, how many are early drop outs and how many are administratively censored?
+```
+
+Among the 105 subjects with no events, 61 are early dropouts and 44 are administratively censored.
+Administrative censoring is random, so no additional modeling is needed.
+Early dropout could be covariate-dependent or occur completely at random, and we assume it is non-informative in this data generation.
+
+```{r}
+censored_subjects <- data[data$Event == 0, ]
+(early_dropout <- sum(censored_subjects$Time < 7))
+(admin_censored <- sum(censored_subjects$Time >= 7))
 ```
 
 With the simulation truth above, we first calculate the true ATE at multiple times.
-?? revise the truth according to the changes in censoring mechanism above 
+
 ```{r}
 get_true_survival <- function(data, t, d_level) {
-  hazard <- exp(-1 + d_level + 1 * data$Z1 + 2 * data$Z2 + 1 * data$Z1 * data$Z2)
-  survival_probs <- exp(-hazard * t) # baseline hazard is constant under an expotential survival model
+  hazard <- exp(beta_0 + beta_D * d_level + beta_Z1 * data$Z1 + beta_Z2 * data$Z2 + beta_Z1Z2 * data$Z1 * data$Z2)
+  survival_probs <- exp(-hazard * t) # Baseline hazard is constant under an expotential survival model
   return(mean(survival_probs)) 
 }
 
@@ -150,16 +203,43 @@ true_surv_0 <- sapply(times, function(t) get_true_survival(data, t, d_level = 0)
 results_true <- list(ATE = true_surv_1 - true_surv_0)
 ```
 
+We generate 100 datasets to compute the true ATEs at prespecified time points and corresponding 95% confidence intervals (CIs) using percentiles.
+
+```{r}
+n_datasets <- 100
+datasets <- replicate(n_datasets, generate_data_noninf(), simplify = FALSE)
+
+times <- c(1, 2, 3)
+true_ate_samples <- matrix(NA, nrow = n_datasets, ncol = length(times))
+
+for (i in 1:n_datasets) {
+  # Compute potential survival probabilities by setting treatment to 1 and 0 for all individuals
+  true_surv_1 <- sapply(times, function(t) get_true_survival(datasets[[i]], t, d_level = 1))
+  true_surv_0 <- sapply(times, function(t) get_true_survival(datasets[[i]], t, d_level = 0))
+  
+  # Calculate ATE as difference in survival probabilities
+  true_ate_samples[i, ] <- true_surv_1 - true_surv_0
+}
+
+true_ate_mean <- colMeans(true_ate_samples)
+true_ate_ci_lower <- apply(true_ate_samples, 2, quantile, probs = 0.025)
+true_ate_ci_upper <- apply(true_ate_samples, 2, quantile, probs = 0.975)
+
+results_true <- list(ATE = true_ate_mean, ci_lower = true_ate_ci_lower, ci_upper = true_ate_ci_upper)
+
+true_ate_with_ci <- sapply(1:length(times), function(i) {
+  sprintf("%.3f (%.3f, %.3f)", results_true$ATE[i], results_true$ci_lower[i], results_true$ci_upper[i])
+})
+```
 
 ### Using R package 
 
 First, we implement the AIPWCC estimator using the _adjustedsurv_ function in the [adjustedCurves](https://cran.r-project.org/web/packages/adjustedCurves/adjustedCurves.pdf) R package.
 
-?? Add an argument of choice of variance estimator to the function
 ```{r}
-aipwcc_dr_ate_pkg <- function(data, times, ps_correct = TRUE, cen_correct = TRUE, or_correct = TRUE) {
+aipwcc_dr_ate_pkg <- function(data, times, ps_correct = TRUE, or_correct = TRUE, 
+                              cen_correct = TRUE, variance = "asymptotic") {
   
-  data <- data %>% mutate(D = as.factor(D))
   data$D <- factor(data$D, levels = c(0, 1))
   
   # Propensity score model
@@ -170,7 +250,7 @@ aipwcc_dr_ate_pkg <- function(data, times, ps_correct = TRUE, cen_correct = TRUE
   }
 
   # Censoring model 
-  # ?? cannot distinguish loss to follow-up and administrative censoring
+  # Note: Event==0 includes both loss to follow-up and administrative censoring
   if (cen_correct) {
     cen_model <- coxph(Surv(Time, Event == 0) ~ D + Z1 + Z2, data = data, x = TRUE)
   } else {
@@ -187,86 +267,129 @@ aipwcc_dr_ate_pkg <- function(data, times, ps_correct = TRUE, cen_correct = TRUE
   
   ## AIPWCC estimator for survival probabilities 
   
-  # Using asymptotic variance
-  adj_surv_asymp <- adjustedsurv(
-    data = data,
-    variable = "D",
-    ev_time = "Time",
-    event = "Event",
-    method = "aiptw",
-    treatment_model = ps_model,
-    censoring_model = cen_model,
-    outcome_model = or_model,
-    times = times, 
-    conf_int = TRUE,
-    conf_level = 0.95,
-    bootstrap = FALSE) 
+  if (variance == "asymptotic") { # Using asymptotic variance
+    adj_surv <- adjustedsurv(
+      data = data,
+      variable = "D",
+      ev_time = "Time",
+      event = "Event",
+      method = "aiptw",
+      treatment_model = ps_model,
+      censoring_model = cen_model,
+      outcome_model = or_model,
+      times = times, 
+      conf_int = TRUE,
+      conf_level = 0.95,
+      bootstrap = FALSE) 
+  } else if (variance == "bootstrap"){ # Using bootstrap variance
+    adj_surv <- adjustedsurv(
+      data = data,
+      variable = "D",
+      ev_time = "Time",
+      event = "Event",
+      method = "aiptw",
+      treatment_model = ps_model,
+      censoring_model = cen_model,
+      outcome_model = or_model,
+      times = times,
+      conf_int = TRUE,
+      conf_level = 0.95,
+      bootstrap = TRUE,
+      n_boot = 50) # adjustedCurves doesn't support n_cores in bootstrap
+  }
 
   # Treatment effect is defined as the difference in survival probabilities.
-  ate_asymp_results <- adjusted_curve_diff(
-    adj = adj_surv_asymp,
+  ate_results <- adjusted_curve_diff(
+    adj = adj_surv,
     group_1 = "1",  # Treated group
     group_2 = "0",  # Control group
     conf_int = TRUE,
     conf_level = 0.95)
   
   # Extract survival probabilities at times of interest
-  ate_asymp_at_times <- ate_asymp_results[ate_asymp_results$time %in% times, ]
+  ate_at_times <- ate_results[ate_results$time %in% times, ]
   
-  
-  # Using bootstrap variance
-  adj_surv_boot <- adjustedsurv(
-    data = data,
-    variable = "D",
-    ev_time = "Time",
-    event = "Event",
-    method = "aiptw",
-    treatment_model = ps_model,
-    censoring_model = cen_model,
-    outcome_model = or_model,
-    times = times,
-    conf_int = TRUE,
-    conf_level = 0.95,
-    bootstrap = TRUE,
-    n_boot = 200)  # using multi-cores is an option but always produce threds error
-  
- # Treatment effect is defined as the difference in survival probabilities.
-  ate_boot_results <- adjusted_curve_diff(
-    adj = adj_surv_boot,
-    group_1 = "1",  # Treated group
-    group_2 = "0",  # Control group
-    conf_int = TRUE,
-    conf_level = 0.95)
-  
-  # Extract survival probabilities at times of interest
-  ate_boot_at_times <- ate_boot_results[ate_boot_results$time %in% times, ]
-  
-  
-  return(list(ATE_asymp = ate_asymp_at_times$diff, 
-              ci_lower_asymp = ate_asymp_at_times$ci_lower,
-              ci_upper_asymp = ate_asymp_at_times$ci_upper,
-              ATE_boot = ate_boot_at_times$diff, 
-              ci_lower_boot = ate_boot_at_times$ci_lower,
-              ci_upper_boot = ate_boot_at_times$ci_upper))
+  return(list(ATE = ate_at_times$diff, ci_lower = ate_at_times$ci_lower, ci_upper = ate_at_times$ci_upper))
 }
 ```
 
 We estimate the ATEs at prespecified time points and corresponding 95% confidence intervals (CIs).
-?? reformat this table let rows represent the times and columns represent the type of variance estimator
 ```{r}
-results_package <- aipwcc_dr_ate_pkg(data, times)  
+results_asymp <- aipwcc_dr_ate_pkg(data, times, variance = "asymptotic")
+results_boot <- aipwcc_dr_ate_pkg(data, times, variance = "bootstrap")
 
-results_package_tbl <- cbind(Variance = c(rep("Asymptotic", 3), rep("Bootstrap", 3)),
-                             rbind(ATE = round(results_package$ATE_asymp, 2),
-                                   `CI lower` = round(results_package$ci_lower_asymp, 2),
-                                   `CI upper` = round(results_package$ci_upper_asymp, 2), 
-                                   ATE = round(results_package$ATE_boot, 2),
-                                   `CI lower` = round(results_package$ci_lower_boot, 2),
-                                   `CI upper` = round(results_package$ci_upper_boot, 2)))
+results_package_tbl <- data.frame(
+  Time = paste0("T = ", times),
+  Asymptotic = sprintf("%.3f (%.3f, %.3f)", results_asymp$ATE, results_asymp$ci_lower, results_asymp$ci_upper),
+  Bootstrap = sprintf("%.3f (%.3f, %.3f)", results_boot$ATE, results_boot$ci_lower, results_boot$ci_upper)
+)
 
-colnames(results_package_tbl)[2:4] <- c("T=1", "T=2", "T=3")
-kable(results_package_tbl, caption = "ATE and 95% Confidence Intervals") %>% 
-  kable_styling(full_width = FALSE, font_size = 12) 
+kable(results_package_tbl, 
+      caption = "ATE (95% CI)",
+      col.names = c("Time", "Asymptotic", "Bootstrap"),
+      align = c('c', 'c', 'c')) %>% 
+  kable_styling(full_width = FALSE, font_size = 12)
+```
+
+### Crude estimation
+
+Fit a crude Cox model with no covariate or propensity score adjustment to show the amount of confounding bias in our data
+```{r}
+crude_cox_estimator <- function(data, times) {
+  
+  crude_cox <- coxph(Surv(Time, Event) ~ D, data = data)
+  treatment_effect <- coef(crude_cox)["D"]
+  
+  base_surv <- survfit(crude_cox)
+  s0 <- summary(base_surv, times = times, extend = TRUE)$surv
+  
+  # Survival for treated group: S_baseline^exp(beta_D)
+  surv_1 <- s0^exp(treatment_effect)
+  
+  # Survival for control group: S_baseline^exp(0) 
+  surv_0 <- s0
+  
+  # ATE
+  ATE <- surv_1 - surv_0
+
+  return(list(ATE = ATE))
+}
+
+results_crude <- crude_cox_estimator(data, times)
+```
+
+### Evaluate the performance of AIPWCC estimator
+
+We use the 100 datasets to calculate Root Mean Square Error (RMSE).
+
+```{r}
+plan(multisession, workers = n_cores)
+
+calculate_rmse <- function(datasets, true_ate_samples, times, method = "package", variance = "asymptotic", 
+                           ps_correct = TRUE, or_correct = TRUE, cen_correct = TRUE) {
+  
+  n_datasets <- length(datasets)
+  
+  results <- future_lapply(1:n_datasets, function(i) {
+    require(survival)
+    require(pseudo)
+    require(adjustedCurves)
+    
+    est_results <- switch(
+      method,
+      "package" = aipwcc_dr_ate_pkg(datasets[[i]], times, variance = variance, ps_correct = ps_correct, 
+                                    or_correct = or_correct, cen_correct = cen_correct),
+      "crude" = crude_cox_estimator(datasets[[i]], times),
+      stop("Unknown: ", method))
+    
+    squared_errors <- (est_results$ATE - true_ate_samples[i, ])^2
+    squared_errors
+  }, future.seed = TRUE)
+  
+  results_all <- do.call(rbind, results)
+  rmse <- sqrt(colMeans(results_all))
+  return(rmse)
+}
 ```
 
 ### Model misspecification scenarios
@@ -289,113 +412,102 @@ To illustrate the robustness of the AIPWCC estimator to model misspecification, 
 
 -   Scenario 8: All three models are misspecified
 
-```{r eval=FALSE}
+```{r}
 # Scenario 1: All models correct
-results_1_package <- aipwcc_dr_ate_pkg(data, times, ps_correct = TRUE, cen_correct = TRUE, or_correct = TRUE)
+rmse_1_asymp <- calculate_rmse(datasets, true_ate_samples, times, method = "package", variance = "asymptotic",
+                               ps_correct = TRUE, cen_correct = TRUE, or_correct = TRUE)
+#rmse_1_boot <- calculate_rmse(datasets, true_ate_samples, times, method = "package", variance = "bootstrap",
+                              #ps_correct = TRUE, cen_correct = TRUE, or_correct = TRUE)
 
-# Scenario 2: PS correct, Cen incorrect, OR correct 
-results_2_package <- aipwcc_dr_ate_pkg(data, times, ps_correct = TRUE, cen_correct = FALSE, or_correct = TRUE)
+# Scenario 2: PS correct, Cen incorrect, OR correct
+rmse_2_asymp <- calculate_rmse(datasets, true_ate_samples, times, method = "package", variance = "asymptotic",
+                               ps_correct = TRUE, cen_correct = FALSE, or_correct = TRUE)
+#rmse_2_boot <- calculate_rmse(datasets, true_ate_samples, times, method = "package", variance = "bootstrap",
+                              #ps_correct = TRUE, cen_correct = FALSE, or_correct = TRUE)
 
 # Scenario 3: PS incorrect, Cen correct, OR correct
-results_3_package <- aipwcc_dr_ate_pkg(data, times, ps_correct = FALSE, cen_correct = TRUE, or_correct = TRUE)
+rmse_3_asymp <- calculate_rmse(datasets, true_ate_samples, times, method = "package", variance = "asymptotic",
+                               ps_correct = FALSE, cen_correct = TRUE, or_correct = TRUE)
+#rmse_3_boot <- calculate_rmse(datasets, true_ate_samples, times, method = "package", variance = "bootstrap",
+                              #ps_correct = FALSE, cen_correct = TRUE, or_correct = TRUE)
 
 # Scenario 4: PS incorrect, Cen incorrect, OR correct
-results_4_package <- aipwcc_dr_ate_pkg(data, times, ps_correct = FALSE, cen_correct = FALSE, or_correct = TRUE)
+rmse_4_asymp <- calculate_rmse(datasets, true_ate_samples, times, method = "package", variance = "asymptotic",
+                               ps_correct = FALSE, cen_correct = FALSE, or_correct = TRUE)
+#rmse_4_boot <- calculate_rmse(datasets, true_ate_samples, times, method = "package", variance = "bootstrap",
+                              #ps_correct = FALSE, cen_correct = FALSE, or_correct = TRUE)
 
 # Scenario 5: PS correct, Cen correct, OR incorrect
-results_5_package <- aipwcc_dr_ate_pkg(data, times, ps_correct = TRUE, cen_correct = TRUE, or_correct = FALSE)
+rmse_5_asymp <- calculate_rmse(datasets, true_ate_samples, times, method = "package", variance = "asymptotic",
+                               ps_correct = TRUE, cen_correct = TRUE, or_correct = FALSE)
+#rmse_5_boot <- calculate_rmse(datasets, true_ate_samples, times, method = "package", variance = "bootstrap",
+                              #ps_correct = TRUE, cen_correct = TRUE, or_correct = FALSE)
 
 # Scenario 6: PS correct, Cen incorrect, OR incorrect
-results_6_package <- aipwcc_dr_ate_pkg(data, times, ps_correct = TRUE, cen_correct = FALSE, or_correct = FALSE)
+rmse_6_asymp <- calculate_rmse(datasets, true_ate_samples, times, method = "package", variance = "asymptotic",
+                               ps_correct = TRUE, cen_correct = FALSE, or_correct = FALSE)
+#rmse_6_boot <- calculate_rmse(datasets, true_ate_samples, times, method = "package", variance = "bootstrap",
+                              #ps_correct = TRUE, cen_correct = FALSE, or_correct = FALSE)
 
 # Scenario 7: PS incorrect, Cen correct, OR incorrect
-results_7_package <- aipwcc_dr_ate_pkg(data, times, ps_correct = FALSE, cen_correct = TRUE, or_correct = FALSE)
+rmse_7_asymp <- calculate_rmse(datasets, true_ate_samples, times, method = "package", variance = "asymptotic",
+                               ps_correct = FALSE, cen_correct = TRUE, or_correct = FALSE)
+#rmse_7_boot <- calculate_rmse(datasets, true_ate_samples, times, method = "package", variance = "bootstrap",
+                              #ps_correct = FALSE, cen_correct = TRUE, or_correct = FALSE)
 
 # Scenario 8: All models incorrect
-results_8_package <- aipwcc_dr_ate_pkg(data, times, ps_correct = FALSE, cen_correct = FALSE, or_correct = FALSE)
+rmse_8_asymp <- calculate_rmse(datasets, true_ate_samples, times, method = "package", variance = "asymptotic",
+                               ps_correct = FALSE, cen_correct = FALSE, or_correct = FALSE)
+#rmse_8_boot <- calculate_rmse(datasets, true_ate_samples, times, method = "package", variance = "bootstrap",
+                              #ps_correct = FALSE, cen_correct = FALSE, or_correct = FALSE)
+
+# Scenario 0: crude estimator
+rmse_crude <- calculate_rmse(datasets, true_ate_samples, times, method = "crude")
 ```
 
-### Crude estimation
-Fit a crude Cox model with no covariate or propensity score adjustment to show the amount of confounding bias in our data
 ```{r}
-crude_cox_estimator <- function(data, times) {
-  
-  crude_cox <- coxph(Surv(Time, Event) ~ D, data = data)
-  treatment_effect <- coef(crude_cox)["D1"]
-  
-  base_surv <- survfit(crude_cox)
-  s0 <- summary(base_surv, times = times, extend = TRUE)$surv
-  
-  # survival for treated group: S_baseline^exp(beta_D)
-  surv_1 <- s0^exp(treatment_effect)
-  
-  # survival for control group: S_baseline^exp(0) 
-  surv_0 <- s0
-  
-  # ATE
-  ATE <- surv_1 - surv_0
-
-  return(list(ATE = ATE))
-}
-
-results_crude <- crude_cox_estimator(data, times)
-```
-
-### Evaluate the performance of pseudo-observation-based DR estimator
-?? replace bias metric with root-mean-squared-error metric 
-?? Add all 8 scenarios and reformat the table: let rows represent the scenarios, and columns represent the type of variance estimator
-?? Remove eval=F after you fixed the code
-```{r eval=FALSE}
 scenarios <- c(
-  "0: Crude Cox (Unadjusted)",
+  "0: Crude Cox",
   "1: All Correct",
-  "2: PS Correct, OR Incorrect",
-  "3: PS Incorrect, OR Correct",
-  "4: Both Incorrect",
-  "5: Both Correct",
-  "6: PS Correct, OR Incorrect",
-  "7: PS Incorrect, OR Correct",
+  "2: PS Correct, Cen Incorrect, OR Correct",
+  "3: PS Incorrect, Cen Correct, OR Correct",
+  "4: PS Incorrect, Cen Incorrect, OR Correct",
+  "5: PS Correct, Cen Correct, OR Incorrect",
+  "6: PS Correct, Cen Incorrect, OR Incorrect",
+  "7: PS Incorrect, Cen Correct, OR Incorrect",
   "8: All Incorrect")
 
-# Combine bias values across all time points into a single string
-format_bias <- function(bias_vector) {
-  paste(sprintf("%.3f", bias_vector), collapse = ", ")
+# Combine RMSE values across all time points into a single string
+format_rmse <- function(rmse_vector) {
+  paste(sprintf("%.3f", rmse_vector), collapse = ", ")
 }
 
-# Package column (bias at T = 1, 2, 3)
-package_bias <- c("—",  
-  format_bias(sapply(1:length(times), function(i) results_1_package$ATE[i] - results_true$ATE[i])),
-  format_bias(sapply(1:length(times), function(i) results_2_package$ATE[i] - results_true$ATE[i])),
-  format_bias(sapply(1:length(times), function(i) results_3_package$ATE[i] - results_true$ATE[i])),
-  format_bias(sapply(1:length(times), function(i) results_4_package$ATE[i] - results_true$ATE[i]))
-)
+# Asymptotic column
+asymp_rmse <- c(format_rmse(rmse_crude), 
+                format_rmse(rmse_1_asymp), format_rmse(rmse_2_asymp), format_rmse(rmse_3_asymp), format_rmse(rmse_4_asymp),
+                format_rmse(rmse_5_asymp), format_rmse(rmse_6_asymp), format_rmse(rmse_7_asymp), format_rmse(rmse_8_asymp))
 
-# Manual column (bias at T = 1, 2, 3)
-manual_bias <- c(
-  format_bias(sapply(1:length(times), function(i) results_crude$ATE[i] - results_true$ATE[i])),
-  format_bias(sapply(1:length(times), function(i) results_1_manual$ATE[i] - results_true$ATE[i])),
-  format_bias(sapply(1:length(times), function(i) results_2_manual$ATE[i] - results_true$ATE[i])),
-  format_bias(sapply(1:length(times), function(i) results_3_manual$ATE[i] - results_true$ATE[i])),
-  format_bias(sapply(1:length(times), function(i) results_4_manual$ATE[i] - results_true$ATE[i]))
-)
+# Bootstrap column
+# boot_rmse <- c(format_rmse(rmse_1_boot), format_rmse(rmse_2_boot), format_rmse(rmse_3_boot), format_rmse(rmse_4_boot),
+#                format_rmse(rmse_5_boot), format_rmse(rmse_6_boot), format_rmse(rmse_7_boot), format_rmse(rmse_8_boot))
 
-bias_table <- data.frame(
-  Scenario = scenarios,
-  Package = package_bias,
-  Manual = manual_bias
-)
+#rmse_table <- data.frame(Scenario = scenarios, Asymptotic = asymp_rmse, Bootstrap = boot_rmse)
 
-kable(bias_table,
-      col.names = c("Scenario", "T = 1, 2, 3", "T = 1, 2, 3"),
-      caption = "Performance of the DR estimator",
-      align = c('l', 'c', 'c')) %>%
+# kable(rmse_table,
+#       col.names = c("Scenario", "T = 1, 2, 3", "T = 1, 2, 3"),
+#       caption = "Performance of the AIPWCC estimator (RMSE)",
+#       align = c('c', 'c', 'c')) %>%
+#   kable_styling(full_width = FALSE, font_size = 12) %>%
+#   add_header_above(c(" " = 1, "Asymptotic" = 1, "Bootstrap" = 1))
+
+rmse_table <- data.frame(Scenario = scenarios, Asymptotic = asymp_rmse)
+
+kable(rmse_table,
+      col.names = c("Scenario", "T = 1, 2, 3"),
+      caption = "Performance of the AIPWCC estimator (RMSE)",
+      align = c('c', 'c', 'c')) %>%
   kable_styling(full_width = FALSE, font_size = 12) %>%
-  add_header_above(c(" " = 1, "Package" = 1, "Manual" = 1)) %>%
-  footnote(general = sprintf("True ATE: %.3f, %.3f, %.3f",
-           results_true$ATE[1], results_true$ATE[2], results_true$ATE[3]),
-           general_title = "", footnote_as_chunk = TRUE)
-
-#?? look further into the results at T=1 -- both correct models yielded larger bias than other scenarios
+  add_header_above(c(" " = 1, "Asymptotic" = 1))
 ```
 
 ## Funding
