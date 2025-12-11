@@ -27,7 +27,7 @@ knitr::opts_chunk$set(
   warning = FALSE     
 )
 
-set.seed(123)
+set.seed(789)
 library(survival)
 library(pseudo)
 library(adjustedCurves)
@@ -134,7 +134,7 @@ We now demonstrate how to implement the pseudo-observation-based DR estimator un
 
 We first simulate the data according to the variable relationships depicted in the directed acyclic graph (DAG) below
 
-```{r fig.width=4, fig.height=3}
+```{r fig.width=3, fig.height=2}
 dag <- dagitty("dag {
   Z1 -> Death
   Z2 -> Death
@@ -169,8 +169,8 @@ generate_data_noninf <- function(n = 1000) {
   Z2 <- Z[, 2]
   Z3 <- Z[, 3]
   
-  logit_p <- (0.5 * Z1 + 3.5 * Z2 + 2.5 * Z3)/6
-  p <- exp(logit_p) / (1 + exp(logit_p))
+  logit_p <- (-0.4 + 0.6 * Z1 + 1.7 * Z2 + 0.1 * Z3) / 2
+  p <- plogis(logit_p) # exp(logit_p) / (1 + exp(logit_p))
   D <- rbinom(n, 1, p) # Treatment indicator
   
   hazard <- exp(beta_0 + beta_D * D + beta_Z1 * Z1 + beta_Z2 * Z2 + beta_Z1Z2 * Z1 * Z2)
@@ -229,16 +229,16 @@ censored_subjects <- data[data$Event == 0, ]
 With the simulation truth above, we first calculate the true ATE at multiple times.
 
 ```{r}
-get_true_survival <- function(data, t, d_level) {
-  hazard <- exp(beta_0 + beta_D * d_level + beta_Z1 * data$Z1 + beta_Z2 * data$Z2 + beta_Z1Z2 * data$Z1 * data$Z2)
+get_true_survival <- function(data, t, D) {
+  hazard <- exp(beta_0 + beta_D * D + beta_Z1 * data$Z1 + beta_Z2 * data$Z2 + beta_Z1Z2 * data$Z1 * data$Z2)
   survival_probs <- exp(-hazard * t) # baseline hazard is constant under an expotential survival model
   return(mean(survival_probs)) 
 }
 
 # Compute potential survival probabilities by setting treatment to 1 and 0 for all individuals
 times <- c(1, 2, 3)
-true_surv_1 <- sapply(times, function(t) get_true_survival(data, t, d_level = 1))
-true_surv_0 <- sapply(times, function(t) get_true_survival(data, t, d_level = 0))
+true_surv_1 <- sapply(times, function(t) get_true_survival(data, t, D = 1))
+true_surv_0 <- sapply(times, function(t) get_true_survival(data, t, D = 0))
 
 # Calculate ATE as difference in survival probabilities
 results_true <- list(ATE = true_surv_1 - true_surv_0)
@@ -255,8 +255,8 @@ true_ate_samples <- matrix(NA, nrow = n_datasets, ncol = length(times))
 
 for (i in 1:n_datasets) {
   # Compute potential survival probabilities by setting treatment to 1 and 0 for all individuals
-  true_surv_1 <- sapply(times, function(t) get_true_survival(datasets[[i]], t, d_level = 1))
-  true_surv_0 <- sapply(times, function(t) get_true_survival(datasets[[i]], t, d_level = 0))
+  true_surv_1 <- sapply(times, function(t) get_true_survival(datasets[[i]], t, D = 1))
+  true_surv_0 <- sapply(times, function(t) get_true_survival(datasets[[i]], t, D = 0))
   
   # Calculate ATE as difference in survival probabilities
   true_ate_samples[i, ] <- true_surv_1 - true_surv_0
