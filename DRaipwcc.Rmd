@@ -28,6 +28,7 @@ knitr::opts_chunk$set(
 )
 
 set.seed(123)
+library(truncnorm)
 library(survival)
 library(adjustedCurves)
 library(MASS)
@@ -110,37 +111,36 @@ plot(dag)
 # ---------------------------
 # Hazard model parameters
 # ---------------------------
-beta_0 <- -1.2      
-beta_D <- -1.0 
-beta_Z1 <- 0.8 
-beta_Z2 <- 1.2 
-beta_Z1Z2 <- 2.5 
+beta_0 <- -2.3      
+beta_D <- -0.8 
+beta_Z1 <- 0.5 
+beta_Z2 <- 1.0 
+beta_Z1Z2 <- 1.4 
 
 generate_data_noninf <- function(n = 1000) {
-  mu <- rep(0, 3)
-  sigma <- matrix(c(1, 0, 0, 0, 1, 0, 0, 0, 1), nrow = 3) 
-  Z <- mvrnorm(n, mu, sigma) # i.i.d. baseline covariates with mean zero and variance 1
-  Z1 <- Z[, 1]
-  Z2 <- Z[, 2]
-  Z3 <- Z[, 3]
+  Z1 <- rtruncnorm(n, a = -2, b = 2, mean = 0, sd = 0.9)
+  Z2 <- rtruncnorm(n, a = -1.5, b = 1.5, mean = 0, sd = 0.5)
+  Z3 <- rtruncnorm(n, a = -1, b = 1, mean = 0, sd = 0.3)
+  Z4 <- rnorm(n, 0, 1.0)
+  Z5 <- rnorm(n, 0, 0.5)
   
-  logit_p <- (-0.2 + 0.3 * Z1 + 0.5 * Z2 + 0.3 * Z3) 
+  logit_p <- -0.05 + 0.15 * Z1 + 0.30 * Z2 + 0.45 * Z3 + 0.70 * (Z1 * Z2)
   p <- plogis(logit_p) # exp(logit_p) / (1 + exp(logit_p))
   D <- rbinom(n, 1, p) # Treatment indicator
   
-  hazard <- exp(beta_0 + beta_D * D + beta_Z1 * Z1 + beta_Z2 * Z2 + beta_Z1Z2 * Z1 * Z2)
+  hazard <- exp(beta_0 + beta_D * D + beta_Z1 * Z1 + beta_Z2 * Z2 + beta_Z1Z2 * (Z1 * Z2))
   T_event <- rexp(n, rate = hazard) # Event time from an exponential model
   
-  hazard_cen <- exp(-2.0 + 1.0 * D + 0.2 * Z1 + 1.0 * Z2)
+  hazard_cen <- exp(-4.9 + 0.15 * D + 0.08 * Z1 + 0.12 * Z2 + 0.25 * (Z1 * Z2) + 0.25 * Z3 + 0.10 * (Z1^2))
   T_censor <- rexp(n, rate = hazard_cen) # Censoring time based on treatment and other covariates
-  T_admin <- rep(7, n) # Administrative (random) censoring at time 7
+  T_admin <- rep(12, n) # Administrative (random) censoring time
   
   Time <- pmin(T_event, T_censor, T_admin) # Observed follow-up time
   Event <- as.numeric(T_event <= T_censor & T_event <= T_admin) # Event indicator
   
   Censored <- as.numeric(T_event > T_censor & T_event <= T_admin) # Censoring indicator
   
-  return(data.frame(Z1 = Z1, Z2 = Z2, Z3 = Z3, D = D, Time = Time, Event = Event, Censored = Censored))
+  return(data.frame(Z1 = Z1, Z2 = Z2, Z3 = Z3,  Z4 = Z4, Z5 = Z5, D = D, Time = Time, Event = Event, Censored = Censored))
 }
 ```
 
@@ -150,6 +150,8 @@ data <- generate_data_noninf()
 attr(data$Z1, "label") <- "Baseline value of Z1"
 attr(data$Z2, "label") <- "Baseline value of Z2"
 attr(data$Z3, "label") <- "Baseline value of Z3"
+attr(data$Z4, "label") <- "Baseline value of Z4"
+attr(data$Z5, "label") <- "Baseline value of Z5"
 attr(data$D, "label") <- "Treatment indicator (1 = treated, 0 = control)"
 attr(data$Time, "label") <- "Time index for longitudinal records"
 attr(data$Event, "label") <- "Event indicator (1 = event occurred, 0 = otherwise)"
@@ -175,17 +177,19 @@ summary(data$Time)
 table(data$Event)
 ```
 
-Among the 105 subjects with no events, 61 are early dropouts and 44 are administratively censored.
-Administrative censoring is random, so no additional modeling is needed.
-Early dropout could be covariate-dependent or occur completely at random, and we assume it is non-informative in this data generation.
-
 ```{r}
 censored_subjects <- data[data$Event == 0, ]
-(early_dropout <- sum(censored_subjects$Time < 7))
-(admin_censored <- sum(censored_subjects$Time >= 7))
+(early_dropout <- sum(censored_subjects$Time < 12))
+(admin_censored <- sum(censored_subjects$Time >= 12))
+```
+Among the `r nrow(censored_subjects)` subjects with no events, `r early_dropout` are early dropouts and `r admin_censored` are administratively censored.
+Administrative censoring is random, so no additional modeling is needed.
+Early dropout could be covariate-dependent or occur completely at random, and we assume it is informative in this data generation.
+```{r}
+nrow(data[data$Event == 1 & data$Time <= 3, ])
 ```
 
-With the simulation truth above, we first calculate the true ATE at multiple times.
+With the simulation above, we can calculate the true survival probability.
 
 ```{r}
 get_true_survival <- function(data, t, D) {
@@ -193,17 +197,9 @@ get_true_survival <- function(data, t, D) {
   survival_probs <- exp(-hazard * t) # Baseline hazard is constant under an expotential survival model
   return(mean(survival_probs)) 
 }
-
-# Compute potential survival probabilities by setting treatment to 1 and 0 for all individuals
-times <- c(1, 2, 3)
-true_surv_1 <- sapply(times, function(t) get_true_survival(data, t, D = 1))
-true_surv_0 <- sapply(times, function(t) get_true_survival(data, t, D = 0))
-
-# Calculate ATE as difference in survival probabilities
-results_true <- list(ATE = true_surv_1 - true_surv_0)
 ```
 
-We generate 100 datasets to compute the true ATEs at prespecified time points and corresponding 95% confidence intervals (CIs) using percentiles.
+We generate multiple datasets to compute the true ATEs at prespecified time points and corresponding 95% confidence intervals (CIs) using percentiles.
 
 ```{r}
 n_datasets <- 100
@@ -226,10 +222,6 @@ true_ate_ci_lower <- apply(true_ate_samples, 2, quantile, probs = 0.025)
 true_ate_ci_upper <- apply(true_ate_samples, 2, quantile, probs = 0.975)
 
 results_true <- list(ATE = true_ate_mean, ci_lower = true_ate_ci_lower, ci_upper = true_ate_ci_upper)
-
-true_ate_with_ci <- sapply(1:length(times), function(i) {
-  sprintf("%.3f (%.3f, %.3f)", results_true$ATE[i], results_true$ci_lower[i], results_true$ci_upper[i])
-})
 ```
 
 ### Using R package 
@@ -244,17 +236,17 @@ aipwcc_dr_ate_pkg <- function(data, times, ps_correct = TRUE, or_correct = TRUE,
   
   # Propensity score model
   if (ps_correct) {
-    ps_model <- glm(D ~ Z1 + Z2 + Z3, data = data, family = "binomial")
+    ps_model <- glm(D ~ Z1 * Z2 + Z3, data = data, family = "binomial")
   } else {
-    ps_model <- glm(D ~ Z1, data = data, family = "binomial")
+    ps_model <- glm(D ~ Z1 + Z4 + Z5, data = data, family = "binomial")
   }
 
   # Censoring model 
   # Note: Event==0 includes both loss to follow-up and administrative censoring
   if (cen_correct) {
-    cen_model <- coxph(Surv(Time, Event == 0) ~ D + Z1 + Z2, data = data, x = TRUE)
+    cen_model <- coxph(Surv(Time, Event == 0) ~ D + Z1 * Z2 + Z3 + I(Z1^2), data = data, x = TRUE)
   } else {
-    cen_model <- coxph(Surv(Time, Event == 0) ~ D + Z1, data = data, x = TRUE)
+    cen_model <- coxph(Surv(Time, Event == 0) ~ D + Z1 + Z2, data = data, x = TRUE)
   }
   
   # Outcome regression (Cox proportional hazard model)
@@ -295,7 +287,7 @@ aipwcc_dr_ate_pkg <- function(data, times, ps_correct = TRUE, or_correct = TRUE,
       conf_int = TRUE,
       conf_level = 0.95,
       bootstrap = TRUE,
-      n_boot = 50) # adjustedCurves doesn't support n_cores in bootstrap
+      n_boot = 50) 
   }
 
   # Treatment effect is defined as the difference in survival probabilities.
@@ -320,13 +312,14 @@ results_boot <- aipwcc_dr_ate_pkg(data, times, variance = "bootstrap")
 
 results_package_tbl <- data.frame(
   Time = paste0("T = ", times),
+  True = sprintf("%.3f (%.3f, %.3f)", results_true$ATE, results_true$ci_lower, results_true$ci_upper),
   Asymptotic = sprintf("%.3f (%.3f, %.3f)", results_asymp$ATE, results_asymp$ci_lower, results_asymp$ci_upper),
   Bootstrap = sprintf("%.3f (%.3f, %.3f)", results_boot$ATE, results_boot$ci_lower, results_boot$ci_upper)
 )
 
 kable(results_package_tbl, 
       caption = "ATE (95% CI)",
-      col.names = c("Time", "Asymptotic", "Bootstrap"),
+      col.names = c("Time", "True", "Asymptotic", "Bootstrap"),
       align = c('c', 'c', 'c')) %>% 
   kable_styling(full_width = FALSE, font_size = 12)
 ```
@@ -336,7 +329,6 @@ kable(results_package_tbl,
 Fit a crude Cox model with no covariate or propensity score adjustment to show the amount of confounding bias in our data
 ```{r}
 crude_cox_estimator <- function(data, times) {
-  
   crude_cox <- coxph(Surv(Time, Event) ~ D, data = data)
   treatment_effect <- coef(crude_cox)["D"]
   
@@ -348,10 +340,8 @@ crude_cox_estimator <- function(data, times) {
   
   # Survival for control group: S_baseline^exp(0) 
   surv_0 <- s0
-  
-  # ATE
-  ATE <- surv_1 - surv_0
 
+  ATE <- surv_1 - surv_0
   return(list(ATE = ATE))
 }
 
@@ -360,35 +350,37 @@ results_crude <- crude_cox_estimator(data, times)
 
 ### Evaluate the performance of AIPWCC estimator
 
-We use the 100 datasets to calculate Root Mean Square Error (RMSE).
+We use the datasets generated previously to calculate RMSE, bias, and variance.
 
 ```{r}
 plan(multisession, workers = n_cores)
 
-calculate_rmse <- function(datasets, true_ate_samples, times, method = "package", variance = "asymptotic", 
-                           ps_correct = TRUE, or_correct = TRUE, cen_correct = TRUE) {
+calculate_metrics <- function(datasets, true_ate_samples, times, method = "package", variance = "asymptotic", 
+                              ps_correct = TRUE, or_correct = TRUE, cen_correct = TRUE) {
   
   n_datasets <- length(datasets)
   
-  results <- future_lapply(1:n_datasets, function(i) {
-    require(survival)
-    require(pseudo)
-    require(adjustedCurves)
+  ate <- future_lapply(1:n_datasets, function(i) {
+    library(survival)
+    library(adjustedCurves)
     
     est_results <- switch(
       method,
-      "package" = aipwcc_dr_ate_pkg(datasets[[i]], times, variance = variance, ps_correct = ps_correct, 
-                                    or_correct = or_correct, cen_correct = cen_correct),
+      "package" = aipwcc_dr_ate_pkg(datasets[[i]], times, variance = variance, 
+                                    ps_correct = ps_correct, or_correct = or_correct, cen_correct = cen_correct),
       "crude" = crude_cox_estimator(datasets[[i]], times),
       stop("Unknown: ", method))
     
-    squared_errors <- (est_results$ATE - true_ate_samples[i, ])^2
-    squared_errors
+    est_results$ATE
   }, future.seed = TRUE)
   
-  results_all <- do.call(rbind, results)
-  rmse <- sqrt(colMeans(results_all))
-  return(rmse)
+  ate_all <- do.call(rbind, ate)
+  
+  bias <- colMeans(ate_all - true_ate_samples)
+  variance <- apply(ate_all, 2, var)
+  rmse <- sqrt(colMeans((ate_all - true_ate_samples)^2))
+  
+  return(list(bias = bias, variance = variance, rmse = rmse))
 }
 ```
 
@@ -414,61 +406,59 @@ To illustrate the robustness of the AIPWCC estimator to model misspecification, 
 
 ```{r}
 # Scenario 1: All models correct
-rmse_1_asymp <- calculate_rmse(datasets, true_ate_samples, times, method = "package", variance = "asymptotic",
-                               ps_correct = TRUE, cen_correct = TRUE, or_correct = TRUE)
-#rmse_1_boot <- calculate_rmse(datasets, true_ate_samples, times, method = "package", variance = "bootstrap",
-                              #ps_correct = TRUE, cen_correct = TRUE, or_correct = TRUE)
+metrics_1_asymp <- calculate_metrics(datasets, true_ate_samples, times, method = "package", variance = "asymptotic",
+                                     ps_correct = TRUE, cen_correct = TRUE, or_correct = TRUE)
+metrics_1_boot <- calculate_metrics(datasets, true_ate_samples, times, method = "package", variance = "bootstrap",
+                                    ps_correct = TRUE, cen_correct = TRUE, or_correct = TRUE)
 
 # Scenario 2: PS correct, Cen incorrect, OR correct
-rmse_2_asymp <- calculate_rmse(datasets, true_ate_samples, times, method = "package", variance = "asymptotic",
-                               ps_correct = TRUE, cen_correct = FALSE, or_correct = TRUE)
-#rmse_2_boot <- calculate_rmse(datasets, true_ate_samples, times, method = "package", variance = "bootstrap",
-                              #ps_correct = TRUE, cen_correct = FALSE, or_correct = TRUE)
+metrics_2_asymp <- calculate_metrics(datasets, true_ate_samples, times, method = "package", variance = "asymptotic",
+                                     ps_correct = TRUE, cen_correct = FALSE, or_correct = TRUE)
+metrics_2_boot <- calculate_metrics(datasets, true_ate_samples, times, method = "package", variance = "bootstrap",
+                                    ps_correct = TRUE, cen_correct = FALSE, or_correct = TRUE)
 
 # Scenario 3: PS incorrect, Cen correct, OR correct
-rmse_3_asymp <- calculate_rmse(datasets, true_ate_samples, times, method = "package", variance = "asymptotic",
-                               ps_correct = FALSE, cen_correct = TRUE, or_correct = TRUE)
-#rmse_3_boot <- calculate_rmse(datasets, true_ate_samples, times, method = "package", variance = "bootstrap",
-                              #ps_correct = FALSE, cen_correct = TRUE, or_correct = TRUE)
+metrics_3_asymp <- calculate_metrics(datasets, true_ate_samples, times, method = "package", variance = "asymptotic",
+                                     ps_correct = FALSE, cen_correct = TRUE, or_correct = TRUE)
+metrics_3_boot <- calculate_metrics(datasets, true_ate_samples, times, method = "package", variance = "bootstrap",
+                                    ps_correct = FALSE, cen_correct = TRUE, or_correct = TRUE)
 
 # Scenario 4: PS incorrect, Cen incorrect, OR correct
-rmse_4_asymp <- calculate_rmse(datasets, true_ate_samples, times, method = "package", variance = "asymptotic",
-                               ps_correct = FALSE, cen_correct = FALSE, or_correct = TRUE)
-#rmse_4_boot <- calculate_rmse(datasets, true_ate_samples, times, method = "package", variance = "bootstrap",
-                              #ps_correct = FALSE, cen_correct = FALSE, or_correct = TRUE)
+metrics_4_asymp <- calculate_metrics(datasets, true_ate_samples, times, method = "package", variance = "asymptotic",
+                                     ps_correct = FALSE, cen_correct = FALSE, or_correct = TRUE)
+metrics_4_boot <- calculate_metrics(datasets, true_ate_samples, times, method = "package", variance = "bootstrap",
+                                    ps_correct = FALSE, cen_correct = FALSE, or_correct = TRUE)
 
 # Scenario 5: PS correct, Cen correct, OR incorrect
-rmse_5_asymp <- calculate_rmse(datasets, true_ate_samples, times, method = "package", variance = "asymptotic",
-                               ps_correct = TRUE, cen_correct = TRUE, or_correct = FALSE)
-#rmse_5_boot <- calculate_rmse(datasets, true_ate_samples, times, method = "package", variance = "bootstrap",
-                              #ps_correct = TRUE, cen_correct = TRUE, or_correct = FALSE)
+metrics_5_asymp <- calculate_metrics(datasets, true_ate_samples, times, method = "package", variance = "asymptotic",
+                                     ps_correct = TRUE, cen_correct = TRUE, or_correct = FALSE)
+metrics_5_boot <- calculate_metrics(datasets, true_ate_samples, times, method = "package", variance = "bootstrap",
+                                    ps_correct = TRUE, cen_correct = TRUE, or_correct = FALSE)
 
 # Scenario 6: PS correct, Cen incorrect, OR incorrect
-rmse_6_asymp <- calculate_rmse(datasets, true_ate_samples, times, method = "package", variance = "asymptotic",
-                               ps_correct = TRUE, cen_correct = FALSE, or_correct = FALSE)
-#rmse_6_boot <- calculate_rmse(datasets, true_ate_samples, times, method = "package", variance = "bootstrap",
-                              #ps_correct = TRUE, cen_correct = FALSE, or_correct = FALSE)
+metrics_6_asymp <- calculate_metrics(datasets, true_ate_samples, times, method = "package", variance = "asymptotic",
+                                     ps_correct = TRUE, cen_correct = FALSE, or_correct = FALSE)
+metrics_6_boot <- calculate_metrics(datasets, true_ate_samples, times, method = "package", variance = "bootstrap",
+                                    ps_correct = TRUE, cen_correct = FALSE, or_correct = FALSE)
 
 # Scenario 7: PS incorrect, Cen correct, OR incorrect
-rmse_7_asymp <- calculate_rmse(datasets, true_ate_samples, times, method = "package", variance = "asymptotic",
-                               ps_correct = FALSE, cen_correct = TRUE, or_correct = FALSE)
-#rmse_7_boot <- calculate_rmse(datasets, true_ate_samples, times, method = "package", variance = "bootstrap",
-                              #ps_correct = FALSE, cen_correct = TRUE, or_correct = FALSE)
+metrics_7_asymp <- calculate_metrics(datasets, true_ate_samples, times, method = "package", variance = "asymptotic",
+                                     ps_correct = FALSE, cen_correct = TRUE, or_correct = FALSE)
+metrics_7_boot <- calculate_metrics(datasets, true_ate_samples, times, method = "package", variance = "bootstrap",
+                                    ps_correct = FALSE, cen_correct = TRUE, or_correct = FALSE)
 
 # Scenario 8: All models incorrect
-rmse_8_asymp <- calculate_rmse(datasets, true_ate_samples, times, method = "package", variance = "asymptotic",
-                               ps_correct = FALSE, cen_correct = FALSE, or_correct = FALSE)
-#rmse_8_boot <- calculate_rmse(datasets, true_ate_samples, times, method = "package", variance = "bootstrap",
-                              #ps_correct = FALSE, cen_correct = FALSE, or_correct = FALSE)
+metrics_8_asymp <- calculate_metrics(datasets, true_ate_samples, times, method = "package", variance = "asymptotic",
+                                     ps_correct = FALSE, cen_correct = FALSE, or_correct = FALSE)
+metrics_8_boot <- calculate_metrics(datasets, true_ate_samples, times, method = "package", variance = "bootstrap",
+                                    ps_correct = FALSE, cen_correct = FALSE, or_correct = FALSE)
 
-# Scenario 0: crude estimator
-rmse_crude <- calculate_rmse(datasets, true_ate_samples, times, method = "crude")
+# Scenario 0: Crude Cox
+metrics_crude <- calculate_metrics(datasets, true_ate_samples, times, method = "crude")
 ```
 
 ```{r}
-scenarios <- c(
-  "0: Crude Cox",
-  "1: All Correct",
+scenarios <- c("1: All Correct",
   "2: PS Correct, Cen Incorrect, OR Correct",
   "3: PS Incorrect, Cen Correct, OR Correct",
   "4: PS Incorrect, Cen Incorrect, OR Correct",
@@ -477,38 +467,79 @@ scenarios <- c(
   "7: PS Incorrect, Cen Correct, OR Incorrect",
   "8: All Incorrect")
 
-# Combine RMSE values across all time points into a single string
-format_rmse <- function(rmse_vector) {
-  paste(sprintf("%.3f", rmse_vector), collapse = ", ")
+# Combine values across all time points into a single string
+format_values <- function(vec) {
+  paste(sprintf("%.4f", vec), collapse = ", ")
 }
 
-# Asymptotic column
-asymp_rmse <- c(format_rmse(rmse_crude), 
-                format_rmse(rmse_1_asymp), format_rmse(rmse_2_asymp), format_rmse(rmse_3_asymp), format_rmse(rmse_4_asymp),
-                format_rmse(rmse_5_asymp), format_rmse(rmse_6_asymp), format_rmse(rmse_7_asymp), format_rmse(rmse_8_asymp))
+# RMSE table
+rmse_asymp <- c(format_values(metrics_1_asymp$rmse), format_values(metrics_2_asymp$rmse), 
+                format_values(metrics_3_asymp$rmse), format_values(metrics_4_asymp$rmse),
+                format_values(metrics_5_asymp$rmse), format_values(metrics_6_asymp$rmse), 
+                format_values(metrics_7_asymp$rmse), format_values(metrics_8_asymp$rmse))
 
-# Bootstrap column
-# boot_rmse <- c(format_rmse(rmse_1_boot), format_rmse(rmse_2_boot), format_rmse(rmse_3_boot), format_rmse(rmse_4_boot),
-#                format_rmse(rmse_5_boot), format_rmse(rmse_6_boot), format_rmse(rmse_7_boot), format_rmse(rmse_8_boot))
+rmse_boot <- c(format_values(metrics_1_boot$rmse), format_values(metrics_2_boot$rmse), 
+               format_values(metrics_3_boot$rmse), format_values(metrics_4_boot$rmse),
+               format_values(metrics_5_boot$rmse), format_values(metrics_6_boot$rmse), 
+               format_values(metrics_7_boot$rmse), format_values(metrics_8_boot$rmse))
 
-#rmse_table <- data.frame(Scenario = scenarios, Asymptotic = asymp_rmse, Bootstrap = boot_rmse)
-
-# kable(rmse_table,
-#       col.names = c("Scenario", "T = 1, 2, 3", "T = 1, 2, 3"),
-#       caption = "Performance of the AIPWCC estimator (RMSE)",
-#       align = c('c', 'c', 'c')) %>%
-#   kable_styling(full_width = FALSE, font_size = 12) %>%
-#   add_header_above(c(" " = 1, "Asymptotic" = 1, "Bootstrap" = 1))
-
-rmse_table <- data.frame(Scenario = scenarios, Asymptotic = asymp_rmse)
+rmse_table <- data.frame(Scenario = scenarios, Asymptotic = rmse_asymp, Bootstrap = rmse_boot)
 
 kable(rmse_table,
-      col.names = c("Scenario", "T = 1, 2, 3"),
+      col.names = c("Scenario", "T = 1, 2, 3", "T = 1, 2, 3"),
       caption = "Performance of the AIPWCC estimator (RMSE)",
       align = c('c', 'c', 'c')) %>%
   kable_styling(full_width = FALSE, font_size = 12) %>%
-  add_header_above(c(" " = 1, "Asymptotic" = 1))
+  add_header_above(c(" " = 1, "Asymptotic" = 1, "Bootstrap" = 1)) %>%
+  footnote(general = paste0("Crude Cox: ", format_values(metrics_crude$rmse)), general_title = "")
 ```
+
+```{r}
+# Bias table
+bias_asymp <- c(format_values(metrics_1_asymp$bias), format_values(metrics_2_asymp$bias), 
+                format_values(metrics_3_asymp$bias), format_values(metrics_4_asymp$bias),
+                format_values(metrics_5_asymp$bias), format_values(metrics_6_asymp$bias), 
+                format_values(metrics_7_asymp$bias), format_values(metrics_8_asymp$bias))
+
+bias_boot <- c(format_values(metrics_1_boot$bias), format_values(metrics_2_boot$bias), 
+               format_values(metrics_3_boot$bias), format_values(metrics_4_boot$bias),
+               format_values(metrics_5_boot$bias), format_values(metrics_6_boot$bias), 
+               format_values(metrics_7_boot$bias), format_values(metrics_8_boot$bias))
+
+bias_table <- data.frame(Scenario = scenarios, Asymptotic = bias_asymp, Bootstrap = bias_boot)
+
+kable(bias_table,
+      col.names = c("Scenario", "T = 1, 2, 3", "T = 1, 2, 3"),
+      caption = "Performance of the AIPWCC estimator (Bias)",
+      align = c('c', 'c', 'c')) %>%
+  kable_styling(full_width = FALSE, font_size = 12) %>%
+  add_header_above(c(" " = 1, "Asymptotic" = 1, "Bootstrap" = 1)) %>%
+  footnote(general = paste0("Crude Cox: ", format_values(metrics_crude$bias)), general_title = "")
+```
+
+```{r}
+# Variance table
+var_asymp <- c(format_values(metrics_1_asymp$variance), format_values(metrics_2_asymp$variance), 
+               format_values(metrics_3_asymp$variance), format_values(metrics_4_asymp$variance),
+               format_values(metrics_5_asymp$variance), format_values(metrics_6_asymp$variance), 
+               format_values(metrics_7_asymp$variance), format_values(metrics_8_asymp$variance))
+
+var_boot <- c(format_values(metrics_1_boot$variance), format_values(metrics_2_boot$variance), 
+              format_values(metrics_3_boot$variance), format_values(metrics_4_boot$variance),
+              format_values(metrics_5_boot$variance), format_values(metrics_6_boot$variance), 
+              format_values(metrics_7_boot$variance), format_values(metrics_8_boot$variance))
+
+var_table <- data.frame(Scenario = scenarios, Asymptotic = var_asymp, Bootstrap = var_boot)
+
+kable(var_table,
+      col.names = c("Scenario", "T = 1, 2, 3", "T = 1, 2, 3"),
+      caption = "Performance of the AIPWCC estimator (Variance)",
+      align = c('c', 'c', 'c')) %>%
+  kable_styling(full_width = FALSE, font_size = 12) %>%
+  add_header_above(c(" " = 1, "Asymptotic" = 1, "Bootstrap" = 1)) %>%
+  footnote(general = paste0("Crude Cox: ", format_values(metrics_crude$variance)), general_title = "")
+```
+
 
 ## Funding
 
