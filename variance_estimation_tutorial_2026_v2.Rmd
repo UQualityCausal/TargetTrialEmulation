@@ -1,28 +1,31 @@
 ---
-title: "Estimating the Variance of IPW-Weighted CIF Using Influence Functions"
+title: "Estimating the Variance of IP-Weighted Risk Ratios Using Influence Functions"
+author: "Chong Zhang, Dan Scharfstein, Yizhe Xu^[Corresponding author: yizhe.xu@hsc.utah.edu]"
 date: '`r Sys.Date()`'
 output:
   pdf_document:
     toc: true
     toc_depth: '3'
-  html_document:
-    toc: true
-    toc_depth: 3
-    toc_float: true
-    number_sections: true
-    theme: readable
-    highlight: tango
-    code_folding: show
+  #html_document:
+    #mathjax: "https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"
+vignette: >
+  \VignetteIndexEntry{Estimating the Variance of IP-Weighted Risk Ratios Using Influence Functions}
+  %\VignetteEncoding{UTF-8}
+  %\VignetteEngine{knitr::rmarkdown}
+editor_options: 
+  markdown: 
+    wrap: sentence
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
 set.seed(42)
+library(tinytex)
 ```
 
 # Introduction and Goal
 
-This document provides a complete implementation of variance estimation for inverse probability weighted (IPW) cumulative incidence functions (CIF) using influence functions.
+This tutorial provides a complete implementation of variance estimation for an intention-to-treat effect estimated as inverse probability weighted (IPW) risk ratio using influence functions, where the risk is the subdistribution cumulative incidence function (CIF) to account for the competing risk of death.
 
 ## The Problem
 
@@ -866,4 +869,7 @@ This tutorial demonstrated:
 
 **Key advantage:** The influence function approach is computationally efficient for large datasets, avoiding the need for time-consuming bootstrap.
 
+# Funding
+
+This work was supported by Utah Clinical & Translational Science Institute (CTSI) Translational Innovation Pilot (TIP) Program Award (NCATS UM1TR004409).
 
