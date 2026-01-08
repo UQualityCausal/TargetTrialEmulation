@@ -11,7 +11,7 @@
 
 <meta name="author" content="Peirong Hao, Ravinder Singh, Kevin Ying, Adam Bress, Tom Greene, Yizhe Xu" />
 
-<meta name="date" content="2025-12-17" />
+<meta name="date" content="2026-01-07" />
 
 <title>Doubly Robust Estimation of Causal Effects in Survival Analysis</title>
 
@@ -601,7 +601,7 @@ display: none;
 in Survival Analysis</h1>
 <h4 class="author">Peirong Hao, Ravinder Singh, Kevin Ying, Adam Bress,
 Tom Greene, Yizhe Xu<a href="#fn1" class="footnote-ref" id="fnref1"><sup>1</sup></a></h4>
-<h4 class="date">2025-12-17</h4>
+<h4 class="date">2026-01-07</h4>
 
 </div>
 
@@ -613,7 +613,7 @@ Tom Greene, Yizhe Xu<a href="#fn1" class="footnote-ref" id="fnref1"><sup>1</sup>
   warning = FALSE     
 )
 
-set.seed(123)
+set.seed(123456)
 library(truncnorm)
 library(survival)
 library(pseudo)
@@ -771,46 +771,45 @@ depicted in the directed acyclic graph (DAG) below</p>
   Z2 -&gt; Death
   Z1 -&gt; D
   Z2 -&gt; D
-  Z3 -&gt; D
 }&quot;)
 
 coordinates(dag) &lt;- list(
-  x = c(Z1 = 0, Z2 = 0, Z3 = 0, D = 1.5, Death = 1.5),
-  y = c(Z1 = 1, Z2 = 0.5, Z3 = 0, D = 0, Death = 1)
+  x = c(Z1 = 0, Z2 = 0, D = 1, Death = 1),
+  y = c(Z1 = 1, Z2 = 0, D = 0, Death = 1)
 )
 
 plot(dag)</code></pre>
-<p><img role="img" src="data:image/png;base64,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" width="288" /></p>
+<p><img role="img" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAkAAAAGACAMAAAByRC0tAAAAmVBMVEUAAAAAADoAAGYAOjoAOmYAOpAAZrY6AAA6OgA6Ojo6OmY6ZpA6ZrY6kNtmAABmOgBmOjpmZpBmkLZmtttmtv+QOgCQZjqQZmaQtraQttuQ29uQ2/+2ZgC2Zjq2kDq2kGa229u22/+2//++vr7bkDrbtmbbtpDbtrbb27bb2//b/7bb////tmb/25D/27b/29v//7b//9v///9+4XG7AAAACXBIWXMAAB2HAAAdhwGP5fFlAAAOWElEQVR4nO3ce2PTRhaGcQVSUiBA6abtspgFGsPSYqDO9/9wK8mSrcvIlnTmct4z7/PP0sAmozO/SPIlKR4YE1SkXgDDjoCYKAJiogiIiSIgJoqAmCgCYqIIiIkiICaKgJgoAmKiCIiJIiAmioCYKAJiogiIiSIgJoqAmCgCYqIIiIkiICaKgJgoAmKiCIiJIiAmioCYqJmA/nlZ9HtSf3j//mn558fPPwZcIZvb/f392b/fnrbv8fM3nr6oCNCnm/Y/bz0thwm6vyBo29vB67devqgE0G50RmJpO0+oD6i4uvPxJVfcA+1/K7/42wOq6w/lB768OnyAJe+soBLQi8Of9l9+Lzzt2XJAlZ+iwrs7nneqD/EUpKMzhE6Ayr6Vtx8/fZV/veWANkWzjs3BUbMaH4thHrqfJNQDVN+AeLiILQa0dd3wlFczAlLTlKA+oOoE4OGysRRQ5XZshYB05SY0AFRu5aM/xV9qIaDqyun4qjveA+nKKWgAqPyu93AbvQxQ+wBskHsp9yxxgw0ZAKo2U34TtAzQxnnjtXdeTVNPj+kDtC36S2gWsvFyMWVe0who53zNYuKyxlLm4JMeUHUDPb5SfefT0Ppy+nEAinoTXb1yMX6sXr2ees3rl6rcfFI/CqtOeOM7nequ6JbPAGnKdft8aPw8kIcn72YD2riuVO+cd9UsYZN8Ej8TvXU9gN/y9kdZZ/g4XgvzsXkzAVU30KNTTfVcON+LqKmzfsavxvt49WAeoOoGevQA3s9NGPPWeT5J3w+0K4aVX3w7/ABL2wU/o3cketmx9YDqN5YREFCD90T7uftYD2jwNmkCUl8H0NPXHzx9Uv5cGBNFQEwUATFRBMREERATRUBGmvGOxCARkJEIiPmMgJigeCcgArJYrQceUKQDYMMOJ59Y4w8JiIRS1MwdHxAFpagderTRB70HIqHYHSduAxAFRe447nhjD/0ojITi1Zm1HUAUFK0kfmI8D0RCMepN2RYgCopQKj+RnommoLANvkXtAeJJKGgJ/UR7LYyCwjUcrUlAJBSq0Vzjjjniq/EUFKLUU436do7UB2uv9BON+36g9MdrKwXzjP2GMgWHbCYVs4z+jkQVR20iHZNM8JZWFccNnw4+ad4TreXYkVMzwyRvqldz9LDpGWCin8ogIUmappfqx3o0zQAtVbNL93NhqsYAlLK5JfzBQmWTAEnb1JL+ZKqyWQCkjU/qH23WNw/dKZxX4p+NVzgRvakcVvJfrqByKirTOankgJTORV9Kx5QeEAnNSe2MNADSOx016Z2QCkCaB6QhzdNRAkj1jFKnejZaAKm9SUyeaj6aAGmfVKK0T0URIPWzSpH6kWgCRELDAOahCxDCxCKGMA1lgDCGFieMSagDBDK38IHMQR8gmNEFDWYGGgHhTC9YOBNQCQjg0WvQcPioBQQ1Q99BHbtWQFhT9BrWgasFlCshtKNWDAhulj6CO2bNgADHKQzweHUDQpyoIMSjVQ4Ic6jrwjxS9YBA57o80OPUDwjtce26QPlgAMKd7uxwjxACEPB85wV8eBiAbBOCPjYUQNhTPhv2kcEAQh/0VOhHBQQIftau4I8JCRD0zaYzeD5ogCxMvJOFowEDZGLmTTYOBQ2QlbmbOQ48QEYmb+IgHiABWSCEfwRtkIDg54++/k6YgLC3AHnto1ABAe8C7spdwQJCvQ21xQcaEOReIK75bMiAAHcDbsEXgwaERghrtfMCBwS1J0hrnR06IJxtQVnnwvABgewMxiqXZwAQwuboX+HaTABSvz/a1yfIBiDdj48N87EDSPEu6V2Zj8wAUrtPSpflKzuAdBLSuCavWQKkcLf0rch3pgBp2zBdqwmTMUCq9kzTWoJlDZCebdOyjsDZA6Rk53SsInwGAWl45JwLH6OAku9f6q8fMZuAEu9gPnzMAkpJKKPTz4NhQMn2MS8/hgGl2crM+NgGlGA3s/NjG1Ds29n8+JgHFHVPc/RjHlDEXc2RTwaAYhHK8vTzkAWgKHubq58sAIXf3mz55AIo8A5n7CcXQCE3OWc+GQEKts95+8kIUJjH2ZnzyQtQgN3O3k9egLzvd/Z8cgPklxBPPw/5AfK46/RTlR0gXxtPPocyBORl7+mnKUdA8u0nn2N5AhIKoJ9TmQKSPAInn27ZAlrtgH565QtopQTy6ZcxoDWEePoZljWgxR7oZ1TegJaRIB9HuQNaoIJ+XGUPaC4M8nFHQPNs0M9EBFR1UQf5TEVAdedPMDz9TEdAh84ZoZ8zEVDbFBPyORsBHXNLoZ/zEVCnMRbyuRQBdRt6oZ+LEVC/rhjymREBDTqpoZ85EdCw1g35zIqAxt03pV4HRATkiH7mR0COCGh+BDSOl7AFEdCwzk00CV2OgAbxYfyyCKhXHw0FXY6AuvGljMURUKcxFwq6FAEd49s51kRAbXxD2aoI6BDf0royAqrjm+rXRkAPc4CQ0FQExB8sFEVAc58upCBn2QPiL1eQlTsg/noXYXkD4i+YEpc1oOUeKGhYxoDWYSChfvkCWiuBgnrlCkjCgIQ6ZQpIZoCCTuUJSAyAgtpyBOTjBMKTUFOGgPzsPQUdyg6Qv40noarcAPncdQp6yA2Q7y0nobwA+d9vCsoIUJjNzl1QPoBCnSwyPwllAyjcNuctKBNAYTc5Z0J5AAq9wxkLygFQjO3NllAGgOLsba6CzAOKt7F5ErIOKOauZinIOKDIW5qhINOA4p8S8jsJWQaUYjezE2QXUKqtzIyQWUDp9jEvQUYBpd3EnAjZBJR6B1N//YhZBKRh+zSsIUoGAenYOx2rCJ89QGo2Ts1CgmYNkKZvfE1rCZYxQLr2TNdqwmQKkL4N07ci31kCpHG3NK7Ja3YAad0qrevylBlAevdJ78p8ZASQ7k3SvTpZNgBp3yHt6xNkAhDA9gAscV0GAGF8e2Oscnn4gFB2BmWdC0MHhLQtSGudHTggrD3BWu28oAHhbQjeii+FDAhxNxDXfDZcQKhbAbrsqWABofpBXrkrVEDIm2BKECYg9C1AX38nSED488c/gjZAQDaGb+MoEAFZmbyR40ADZGTsdSaOBQyQiZkfs3A0WIAMDLwf/gEhAbLwDTsM/piAAMHP2hn6UcEAQh/0dNhHhgIIe8rngz42DEDQI54R8PFBAAKe78xwjxAAEO5wl4R6lPoBoU52aaDHqR4Q5lhXBXmoygGBfluuDPFodQNCnKgkwOPVDAhwnOLgjlkxILhZegntqNUCQhukv7COXCsgrCn6DerYdQKCGmGAgI5fJSCg+QUKZwIaAcEML2QoQ9AHCOebL2wgc1AHCGRuEcKYhDJAGEOLFcI0dAFCmFjMAOahCRDAuKKnfiaKAKmfVZK0T0UPIOWDSpfuwWgBpP0bLWWj2WgalRJA9HMuzYJUACKfSw0mpGhcGgDRz+XUCkoPiHzm1ZuTnpElB0Q/c9MpKDEg8llSZ1pqxpYWEP0sS6GgpIDIZ3HHkWkZXUJAPP2s6Tg1JcNLB4h+1tXOTcn0UgEin/U1s9MxwESA6EfSYXo6JpgEEPlIqyeoYogpANGPvPt7JVOMD0jJgcOnRFB0QDoOG7F7R6nXFB+QioPGjIB4+jFYVED0Y6+IgMjHYvEA0Y/JYgEiH6NFAkQ/VosDiHzMFgMQTz+GiwCIfiwXHBD52C40IPoxXlhA5GO+oIDox34BAZFPDoUDRD9ZFBJQsE/N9JT8lysw7AiIiSIgJoqAmCgCYqIIiIkiICaKgJgoAmKiCIiJIiAmioCYqJmA/nlZ9HvS/btHf4ZZHOt38f0N29MGPX7+ZtHn/l7/8/1vxdXbRf8/OaDyaxJQnC6+Q2bb26Pr+RT274oX9f/GB7TfFAQUrQuE+oCKq7u5n3dXBAbUrfwip69S/QcBxev8bwXaNg7Kffnye1HMxxATUE2mpf35piCguJ0TdAJU9q3cm5++zvukMQGVl6x2ld9flX9+/oqA4jZNqAeoUlHMvIhFBLTt3ACVf776F2+iozd5HesDqr7Xm63af3pa7tuzN8cT0o/31QeuntWPvXbNPdNdA+jTz+VfPf84ay1LAVVf63he3F7dfuWjsBRNEBoA2rV3F99u2gdmH4//sKnazD6g/2yW3IIvBFSt5MTlRyWJgJLkFDQAVD52ri9IRz/t5nUfrb0YAvq5/28vtAxQ7wHY6WPur+T6raLMb4ORDwBV23V3eA7m+k11Hbs5XNOqD9z+Vf7hy6vmetK5B6puS8rryn+L/ueaahmgjeO2bApQ6tlm0WDmbkC7411Hc0raHe+NynNTvXldQI8+tp/rycPlFgHaulTyEpao2YA2p6vGbrCBpagRoOYflLbmPAmwBFB1qbwdfZSAkuTgMwGoRHKUUKo4nVZ+/O+P9pbW8TDeP6BvN86TGgElyHX9enABKjkMXoaqVew//3LTvVWOAahah+szElD0JvhMPArrPAZrAXU/FAtQfXvlgkJAsZvi43oeqDQwlnA4Jz1+9vrff4/vgUIB2ky9NEdAcZvmM/FMdHuj3PtnzTOKjpvoQIC2k6+rEFDMJq9edaPXwioNzWOxUx0lu1iXsOqiOfG0EgFF7Cwfx6vxT5qPPvrY+QcnJd9fRgJUP3U58XcEFK0LfKbeD1TtXvXs8sOPd4cPbQ6XsP37m/bftM81hgK0K4ad7ocIKFqX/IzekXi6UHVf+upvZ+fVsjsCyrzBe6KPb8jYHR+2H05Q79pd/LW5P6pfA+td3QgoxzqAnr7+0PmLff32n8e//tX89+df6v/8enxZbF9d8W7DPhPN2DgCYqIIiIkiICaKgJgoAmKiCIiJIiAmioCYKAJiogiIiSIgJoqAmCgCYqIIiIkiICaKgJgoAmKiCIiJIiAmioCYKAJiogiIiSIgJoqAmKj/AxJzzQeDjeHEAAAAAElFTkSuQmCC" width="288" /></p>
 <pre class="r"><code># ---------------------------
 # Hazard model parameters
 # ---------------------------
 beta_0 &lt;- -2.6      
-beta_D &lt;- -0.6 
-beta_Z1 &lt;- 0.15 
-beta_Z2 &lt;- 1.0 
-beta_Z1Z2 &lt;- 1.4 
+beta_D &lt;- -0.8 
+beta_Z1 &lt;- 0.25 
+beta_Z2 &lt;- 0.7
+beta_Z1Z2 &lt;- 0.9 
+beta_Z2sq &lt;- 0.35
 
 generate_data_noninf &lt;- function(n = 2000) {
-  Z1 &lt;- rtruncnorm(n, a = -2, b = 2, mean = 0, sd = 1.0)
-  Z2 &lt;- rtruncnorm(n, a = -1.5, b = 1.5, mean = 0, sd = 0.5)
-  Z3 &lt;- rtruncnorm(n, a = -1, b = 1, mean = 0, sd = 0.25)
-  Z4 &lt;- rnorm(n, 0, 1.0)
-  Z5 &lt;- rnorm(n, 0, 0.5)
+  Z1 &lt;- rtruncnorm(n, a = -2, b = 2, mean = 0, sd = 0.9)
+  Z2 &lt;- rtruncnorm(n, a = -1.5, b = 1.5, mean = 0, sd = 0.75)
+  Z3 &lt;- rtruncnorm(n, a = -1, b = 1, mean = 0, sd = 0.5)
+  Z4 &lt;- rnorm(n, 0, 1)
   
-  logit_p &lt;- -0.2 + 0.1 * Z1 + 0.9 * Z2 + 0.7 * Z3 + 0.5 * (Z1 * Z2)
+  logit_p &lt;- (-0.1 + 0.15 * Z1 + 1.2 * Z2 + 5 * (Z1 * Z2) + 2 * (Z2^2)) / 8
   p &lt;- plogis(logit_p) # exp(logit_p) / (1 + exp(logit_p))
   D &lt;- rbinom(n, 1, p) # Treatment indicator
   
-  hazard &lt;- exp(beta_0 + beta_D * D + beta_Z1 * Z1 + beta_Z2 * Z2 + beta_Z1Z2 * (Z1 * Z2))
+  hazard &lt;- exp(beta_0 + beta_D * D + beta_Z1 * Z1 + beta_Z2 * Z2 + beta_Z1Z2 * (Z1 * Z2) + beta_Z2sq * (Z2^2))
   T_event &lt;- rexp(n, rate = hazard) # Event time from an exponential model
   
-  T_censor &lt;- rexp(n, rate = exp(-4.5)) # Censoring time based on random censoring
-  T_admin &lt;- rep(12, n) # Administrative (random) censoring time
+  T_censor &lt;- rexp(n, rate = exp(-5)) # Censoring time based on random censoring
+  T_admin &lt;- rep(5, n) # Administrative (random) censoring
   
   Time &lt;- pmin(T_event, T_censor, T_admin) # Observed follow-up time
   Event &lt;- as.numeric(T_event &lt;= T_censor &amp; T_event &lt;= T_admin) # Event indicator
   
-  return(data.frame(Z1 = Z1, Z2 = Z2, Z3 = Z3, Z4 = Z4, Z5 = Z5, D = D, Time = Time, Event = Event))
+  return(data.frame(Z1 = Z1, Z2 = Z2, Z3 = Z3, Z4 = Z4, D = D, Time = Time, Event = Event))
 }</code></pre>
 <pre class="r"><code>data &lt;- generate_data_noninf()
 
@@ -818,7 +817,6 @@ attr(data$Z1, &quot;label&quot;) &lt;- &quot;Baseline value of Z1&quot;
 attr(data$Z2, &quot;label&quot;) &lt;- &quot;Baseline value of Z2&quot;
 attr(data$Z3, &quot;label&quot;) &lt;- &quot;Baseline value of Z3&quot;
 attr(data$Z4, &quot;label&quot;) &lt;- &quot;Baseline value of Z4&quot;
-attr(data$Z5, &quot;label&quot;) &lt;- &quot;Baseline value of Z5&quot;
 attr(data$D, &quot;label&quot;) &lt;- &quot;Treatment indicator (1 = treated, 0 = control)&quot;
 attr(data$Time, &quot;label&quot;) &lt;- &quot;Time index for longitudinal records&quot;
 attr(data$Event, &quot;label&quot;) &lt;- &quot;Event indicator (1 = event occurred, 0 = otherwise)&quot;
@@ -861,18 +859,14 @@ knitr::kable(dict, caption = &quot;Data Dictionary&quot;, row.names = FALSE) </c
 <td align="left">Baseline value of Z4</td>
 </tr>
 <tr class="odd">
-<td align="left">Z5</td>
-<td align="left">Baseline value of Z5</td>
-</tr>
-<tr class="even">
 <td align="left">D</td>
 <td align="left">Treatment indicator (1 = treated, 0 = control)</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td align="left">Time</td>
 <td align="left">Time index for longitudinal records</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td align="left">Event</td>
 <td align="left">Event indicator (1 = event occurred, 0 =
 otherwise)</td>
@@ -880,29 +874,29 @@ otherwise)</td>
 </tbody>
 </table>
 <pre class="r"><code>summary(data$Time)
-#&gt;      Min.   1st Qu.    Median      Mean   3rd Qu.      Max. 
-#&gt;  0.001019  3.627881  9.870909  7.909612 12.000000 12.000000
+#&gt;     Min.  1st Qu.   Median     Mean  3rd Qu.     Max. 
+#&gt; 0.002976 3.637413 5.000000 4.120334 5.000000 5.000000
 
 table(data$Event)
 #&gt; 
 #&gt;    0    1 
-#&gt; 1072  928</code></pre>
+#&gt; 1437  563</code></pre>
 <pre class="r"><code>censored_subjects &lt;- data[data$Event == 0, ]
-(early_dropout &lt;- sum(censored_subjects$Time &lt; 12))
-#&gt; [1] 191
-(admin_censored &lt;- sum(censored_subjects$Time &gt;= 12))
-#&gt; [1] 881</code></pre>
-<p>Among the 1072 subjects with no events, 191 are early dropouts and
-881 are administratively censored. Administrative censoring is random,
+(early_dropout &lt;- sum(censored_subjects$Time &lt; 5))
+#&gt; [1] 61
+(admin_censored &lt;- sum(censored_subjects$Time &gt;= 5))
+#&gt; [1] 1376</code></pre>
+<p>Among the 1437 subjects with no events, 61 are early dropouts and
+1376 are administratively censored. Administrative censoring is random,
 so no additional modeling is needed. Early dropout could be
 covariate-dependent or occur completely at random, and we assume it is
 non-informative in this data generation.</p>
 <pre class="r"><code>nrow(data[data$Event == 1 &amp; data$Time &lt;= 3, ])
-#&gt; [1] 366</code></pre>
+#&gt; [1] 384</code></pre>
 <p>With the simulation above, we can calculate the true survival
 probability.</p>
 <pre class="r"><code>get_true_survival &lt;- function(data, t, D) {
-  hazard &lt;- exp(beta_0 + beta_D * D + beta_Z1 * data$Z1 + beta_Z2 * data$Z2 + beta_Z1Z2 * data$Z1 * data$Z2)
+  hazard &lt;- exp(beta_0 + beta_D * D + beta_Z1 * data$Z1 + beta_Z2 * data$Z2 + beta_Z1Z2 * data$Z1 * data$Z2 + beta_Z2sq * data$Z2^2)
   survival_probs &lt;- exp(-hazard * t) # baseline hazard is constant under an expotential survival model
   return(mean(survival_probs)) 
 }</code></pre>
@@ -943,17 +937,18 @@ R package.</p>
   
   # Propensity score model
   if (ps_correct) {
-    ps_model &lt;- glm(D ~ Z1 * Z2 + Z3, data = data, family = &quot;binomial&quot;)
+    ps_model &lt;- glm(D ~ Z1 * Z2 + I(Z2^2), data = data, family = &quot;binomial&quot;)
   } else {
-    ps_model &lt;- glm(D ~ Z1 + Z4 + Z5, data = data, family = &quot;binomial&quot;)
+    ps_model &lt;- glm(D ~ Z4 + I(Z4^2), data = data, family = &quot;binomial&quot;)
   }
 
   # Covariates used in the outcome model
   if (or_correct) {
     data$Z1_Z2 &lt;- data$Z1 * data$Z2
-    or_covars &lt;- c(&quot;Z1&quot;, &quot;Z2&quot;, &quot;Z1_Z2&quot;)
+    data$Z2sq &lt;- data$Z2 * data$Z2
+    or_covars &lt;- c(&quot;Z1&quot;, &quot;Z2&quot;, &quot;Z1_Z2&quot;, &quot;Z2sq&quot;)
   } else {
-    or_covars &lt;- c(&quot;Z1&quot;, &quot;Z3&quot;)
+    or_covars &lt;- c(&quot;Z4&quot;, &quot;Z3&quot;)
   }
   
   data$D &lt;- as.factor(data$D)
@@ -1029,13 +1024,13 @@ T = 3
 Estimated
 </td>
 <td style="text-align:center;">
-0.057 (0.034, 0.079)
+0.059 (0.036, 0.083)
 </td>
 <td style="text-align:center;">
-0.085 (0.056, 0.115)
+0.107 (0.076, 0.137)
 </td>
 <td style="text-align:center;">
-0.107 (0.074, 0.140)
+0.125 (0.091, 0.160)
 </td>
 </tr>
 <tr>
@@ -1043,13 +1038,13 @@ Estimated
 True
 </td>
 <td style="text-align:center;">
-0.039 (0.038, 0.041)
+0.054 (0.052, 0.056)
 </td>
 <td style="text-align:center;">
-0.067 (0.065, 0.069)
+0.092 (0.089, 0.094)
 </td>
 <td style="text-align:center;">
-0.089 (0.088, 0.092)
+0.121 (0.118, 0.123)
 </td>
 </tr>
 </tbody>
@@ -1071,11 +1066,11 @@ the package above</li>
   
   # Outcome regression (Cox proportional hazard model)
   if (or_correct) {
-    or_model_1 &lt;- coxph(Surv(Time, Event) ~ Z1 * Z2, data = data_1)
-    or_model_0 &lt;- coxph(Surv(Time, Event) ~ Z1 * Z2, data = data_0)
+    or_model_1 &lt;- coxph(Surv(Time, Event) ~ Z1 * Z2 + I(Z2^2), data = data_1)
+    or_model_0 &lt;- coxph(Surv(Time, Event) ~ Z1 * Z2 + I(Z2^2), data = data_0)
   } else {
-    or_model_1 &lt;- coxph(Surv(Time, Event) ~ Z1 + Z3, data = data_1)
-    or_model_0 &lt;- coxph(Surv(Time, Event) ~ Z1 + Z3, data = data_0)
+    or_model_1 &lt;- coxph(Surv(Time, Event) ~ Z4 + Z3, data = data_1)
+    or_model_0 &lt;- coxph(Surv(Time, Event) ~ Z4 + Z3, data = data_0)
   }
   
   # Extract the linear predictors (Beta^T * Z) from fitted Cox models 
@@ -1083,8 +1078,13 @@ the package above</li>
   lp_0 &lt;- predict(or_model_0, newdata = data, type = &quot;lp&quot;)
   
   # Baseline survival functions
-  base_surv_1 &lt;- survfit(or_model_1, newdata = data.frame(Z1=0, Z2=0, Z3=0))
-  base_surv_0 &lt;- survfit(or_model_0, newdata = data.frame(Z1=0, Z2=0, Z3=0))
+  if (or_correct) {
+    base_surv_1 &lt;- survfit(or_model_1, newdata = data.frame(Z1 = 0, Z2 = 0))
+    base_surv_0 &lt;- survfit(or_model_0, newdata = data.frame(Z1 = 0, Z2 = 0))
+  } else {
+    base_surv_1 &lt;- survfit(or_model_1, newdata = data.frame(Z4 = 0, Z3 = 0))
+    base_surv_0 &lt;- survfit(or_model_0, newdata = data.frame(Z4 = 0, Z3 = 0))
+  }
   
   # Baseline survival probabilities at different times
   s0_t_1 &lt;- summary(base_surv_1, times = times, extend = TRUE)$surv # &#39;extend&#39; allows extrapolation when needed
@@ -1096,14 +1096,14 @@ the package above</li>
   
   # Propensity scores
   if (ps_correct) {
-    ps_model &lt;- glm(D ~ Z1 * Z2 + Z3, data = data, family = &quot;binomial&quot;)
+    ps_model &lt;- glm(D ~ Z1 * Z2 + I(Z2^2), data = data, family = &quot;binomial&quot;)
   } else {
-    ps_model &lt;- glm(D ~ Z1 + Z4 + Z5, data = data, family = &quot;binomial&quot;)
+    ps_model &lt;- glm(D ~ Z4 + I(Z4^2), data = data, family = &quot;binomial&quot;)
   }
   e &lt;- predict(ps_model, type = &quot;response&quot;)
   
   # Pseudo-observations (individual estimates of the survival function at specified time points)
-  pseudo_obs &lt;- pseudo::pseudosurv(time = data$Time, event = data$Event, tmax = times)$pseudo
+  pseudo_obs &lt;- pseudosurv(time = data$Time, event = data$Event, tmax = times)$pseudo
   
   surv_1 &lt;- numeric(length(times))
   surv_0 &lt;- numeric(length(times))
@@ -1190,13 +1190,13 @@ T = 3
 Estimated
 </td>
 <td style="text-align:center;">
-0.057 (0.032, 0.082)
+0.060 (0.035, 0.084)
 </td>
 <td style="text-align:center;">
-0.086 (0.054, 0.117)
+0.107 (0.077, 0.138)
 </td>
 <td style="text-align:center;">
-0.107 (0.075, 0.139)
+0.126 (0.093, 0.159)
 </td>
 </tr>
 <tr>
@@ -1204,13 +1204,13 @@ Estimated
 True
 </td>
 <td style="text-align:center;">
-0.039 (0.038, 0.041)
+0.054 (0.052, 0.056)
 </td>
 <td style="text-align:center;">
-0.067 (0.065, 0.069)
+0.092 (0.089, 0.094)
 </td>
 <td style="text-align:center;">
-0.089 (0.088, 0.092)
+0.121 (0.118, 0.123)
 </td>
 </tr>
 </tbody>
@@ -1377,7 +1377,7 @@ T = 1, 2, 3
 —
 </td>
 <td style="text-align:center;">
-0.0222, 0.0370, 0.0486
+0.0221, 0.0355, 0.0454
 </td>
 </tr>
 <tr>
@@ -1385,10 +1385,10 @@ T = 1, 2, 3
 1: Both Correct
 </td>
 <td style="text-align:center;">
-0.0116, 0.0145, 0.0174
+0.0128, 0.0162, 0.0176
 </td>
 <td style="text-align:center;">
-0.0115, 0.0145, 0.0171
+0.0128, 0.0162, 0.0176
 </td>
 </tr>
 <tr>
@@ -1396,10 +1396,10 @@ T = 1, 2, 3
 2: PS Correct, OR Incorrect
 </td>
 <td style="text-align:center;">
-0.0122, 0.0151, 0.0181
+0.0131, 0.0167, 0.0179
 </td>
 <td style="text-align:center;">
-0.0122, 0.0151, 0.0181
+0.0131, 0.0167, 0.0179
 </td>
 </tr>
 <tr>
@@ -1407,10 +1407,10 @@ T = 1, 2, 3
 3: PS Incorrect, OR Correct
 </td>
 <td style="text-align:center;">
-0.0123, 0.0149, 0.0177
+0.0126, 0.0165, 0.0182
 </td>
 <td style="text-align:center;">
-0.0116, 0.0145, 0.0169
+0.0134, 0.0171, 0.0180
 </td>
 </tr>
 <tr>
@@ -1418,10 +1418,10 @@ T = 1, 2, 3
 4: Both Incorrect
 </td>
 <td style="text-align:center;">
-0.0292, 0.0450, 0.0561
+0.0300, 0.0438, 0.0514
 </td>
 <td style="text-align:center;">
-0.0292, 0.0451, 0.0563
+0.0300, 0.0438, 0.0514
 </td>
 </tr>
 </tbody>
@@ -1482,7 +1482,7 @@ T = 1, 2, 3
 —
 </td>
 <td style="text-align:center;">
--0.0215, -0.0359, -0.0471
+-0.0208, -0.0333, -0.0424
 </td>
 </tr>
 <tr>
@@ -1490,10 +1490,10 @@ T = 1, 2, 3
 1: Both Correct
 </td>
 <td style="text-align:center;">
-0.0008, 0.0007, 0.0003
+-0.0009, -0.0015, -0.0019
 </td>
 <td style="text-align:center;">
-0.0008, 0.0007, 0.0003
+-0.0008, -0.0013, -0.0018
 </td>
 </tr>
 <tr>
@@ -1501,10 +1501,10 @@ T = 1, 2, 3
 2: PS Correct, OR Incorrect
 </td>
 <td style="text-align:center;">
-0.0008, 0.0007, 0.0003
+-0.0014, -0.0019, -0.0023
 </td>
 <td style="text-align:center;">
-0.0008, 0.0007, 0.0003
+-0.0014, -0.0019, -0.0023
 </td>
 </tr>
 <tr>
@@ -1512,10 +1512,10 @@ T = 1, 2, 3
 3: PS Incorrect, OR Correct
 </td>
 <td style="text-align:center;">
-0.0040, 0.0014, -0.0025
+0.0020, -0.0016, -0.0053
 </td>
 <td style="text-align:center;">
-0.0007, 0.0003, -0.0004
+-0.0027, -0.0037, -0.0042
 </td>
 </tr>
 <tr>
@@ -1523,10 +1523,10 @@ T = 1, 2, 3
 4: Both Incorrect
 </td>
 <td style="text-align:center;">
--0.0266, -0.0422, -0.0530
+-0.0268, -0.0397, -0.0475
 </td>
 <td style="text-align:center;">
--0.0266, -0.0423, -0.0531
+-0.0268, -0.0397, -0.0474
 </td>
 </tr>
 </tbody>
@@ -1587,7 +1587,7 @@ T = 1, 2, 3
 —
 </td>
 <td style="text-align:center;">
-0.0000, 0.0001, 0.0001
+0.0001, 0.0001, 0.0003
 </td>
 </tr>
 <tr>
@@ -1595,10 +1595,10 @@ T = 1, 2, 3
 1: Both Correct
 </td>
 <td style="text-align:center;">
-0.0001, 0.0002, 0.0003
+0.0002, 0.0003, 0.0003
 </td>
 <td style="text-align:center;">
-0.0001, 0.0002, 0.0003
+0.0002, 0.0003, 0.0003
 </td>
 </tr>
 <tr>
@@ -1606,10 +1606,10 @@ T = 1, 2, 3
 2: PS Correct, OR Incorrect
 </td>
 <td style="text-align:center;">
-0.0002, 0.0002, 0.0003
+0.0002, 0.0003, 0.0003
 </td>
 <td style="text-align:center;">
-0.0002, 0.0002, 0.0003
+0.0002, 0.0003, 0.0003
 </td>
 </tr>
 <tr>
@@ -1617,10 +1617,10 @@ T = 1, 2, 3
 3: PS Incorrect, OR Correct
 </td>
 <td style="text-align:center;">
-0.0001, 0.0002, 0.0003
+0.0002, 0.0003, 0.0003
 </td>
 <td style="text-align:center;">
-0.0001, 0.0002, 0.0003
+0.0002, 0.0003, 0.0003
 </td>
 </tr>
 <tr>
@@ -1628,10 +1628,10 @@ T = 1, 2, 3
 4: Both Incorrect
 </td>
 <td style="text-align:center;">
-0.0001, 0.0002, 0.0003
+0.0002, 0.0003, 0.0004
 </td>
 <td style="text-align:center;">
-0.0001, 0.0002, 0.0003
+0.0002, 0.0003, 0.0004
 </td>
 </tr>
 </tbody>

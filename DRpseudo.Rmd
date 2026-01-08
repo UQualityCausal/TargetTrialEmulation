@@ -27,7 +27,7 @@ knitr::opts_chunk$set(
   warning = FALSE     
 )
 
-set.seed(123)
+set.seed(123456)
 library(truncnorm)
 library(survival)
 library(pseudo)
@@ -141,12 +141,11 @@ dag <- dagitty("dag {
   Z2 -> Death
   Z1 -> D
   Z2 -> D
-  Z3 -> D
 }")
 
 coordinates(dag) <- list(
-  x = c(Z1 = 0, Z2 = 0, Z3 = 0, D = 1.5, Death = 1.5),
-  y = c(Z1 = 1, Z2 = 0.5, Z3 = 0, D = 0, Death = 1)
+  x = c(Z1 = 0, Z2 = 0, D = 1, Death = 1),
+  y = c(Z1 = 1, Z2 = 0, D = 0, Death = 1)
 )
 
 plot(dag)
@@ -157,32 +156,32 @@ plot(dag)
 # Hazard model parameters
 # ---------------------------
 beta_0 <- -2.6      
-beta_D <- -0.6 
-beta_Z1 <- 0.15 
-beta_Z2 <- 1.0 
-beta_Z1Z2 <- 1.4 
+beta_D <- -0.8 
+beta_Z1 <- 0.25 
+beta_Z2 <- 0.7
+beta_Z1Z2 <- 0.9 
+beta_Z2sq <- 0.35
 
 generate_data_noninf <- function(n = 2000) {
-  Z1 <- rtruncnorm(n, a = -2, b = 2, mean = 0, sd = 1.0)
-  Z2 <- rtruncnorm(n, a = -1.5, b = 1.5, mean = 0, sd = 0.5)
-  Z3 <- rtruncnorm(n, a = -1, b = 1, mean = 0, sd = 0.25)
-  Z4 <- rnorm(n, 0, 1.0)
-  Z5 <- rnorm(n, 0, 0.5)
+  Z1 <- rtruncnorm(n, a = -2, b = 2, mean = 0, sd = 0.9)
+  Z2 <- rtruncnorm(n, a = -1.5, b = 1.5, mean = 0, sd = 0.75)
+  Z3 <- rtruncnorm(n, a = -1, b = 1, mean = 0, sd = 0.5)
+  Z4 <- rnorm(n, 0, 1)
   
-  logit_p <- -0.2 + 0.1 * Z1 + 0.9 * Z2 + 0.7 * Z3 + 0.5 * (Z1 * Z2)
+  logit_p <- (-0.1 + 0.15 * Z1 + 1.2 * Z2 + 5 * (Z1 * Z2) + 2 * (Z2^2)) / 8
   p <- plogis(logit_p) # exp(logit_p) / (1 + exp(logit_p))
   D <- rbinom(n, 1, p) # Treatment indicator
   
-  hazard <- exp(beta_0 + beta_D * D + beta_Z1 * Z1 + beta_Z2 * Z2 + beta_Z1Z2 * (Z1 * Z2))
+  hazard <- exp(beta_0 + beta_D * D + beta_Z1 * Z1 + beta_Z2 * Z2 + beta_Z1Z2 * (Z1 * Z2) + beta_Z2sq * (Z2^2))
   T_event <- rexp(n, rate = hazard) # Event time from an exponential model
   
-  T_censor <- rexp(n, rate = exp(-4.5)) # Censoring time based on random censoring
-  T_admin <- rep(12, n) # Administrative (random) censoring time
+  T_censor <- rexp(n, rate = exp(-5)) # Censoring time based on random censoring
+  T_admin <- rep(5, n) # Administrative (random) censoring
   
   Time <- pmin(T_event, T_censor, T_admin) # Observed follow-up time
   Event <- as.numeric(T_event <= T_censor & T_event <= T_admin) # Event indicator
   
-  return(data.frame(Z1 = Z1, Z2 = Z2, Z3 = Z3, Z4 = Z4, Z5 = Z5, D = D, Time = Time, Event = Event))
+  return(data.frame(Z1 = Z1, Z2 = Z2, Z3 = Z3, Z4 = Z4, D = D, Time = Time, Event = Event))
 }
 ```
 
@@ -193,7 +192,6 @@ attr(data$Z1, "label") <- "Baseline value of Z1"
 attr(data$Z2, "label") <- "Baseline value of Z2"
 attr(data$Z3, "label") <- "Baseline value of Z3"
 attr(data$Z4, "label") <- "Baseline value of Z4"
-attr(data$Z5, "label") <- "Baseline value of Z5"
 attr(data$D, "label") <- "Treatment indicator (1 = treated, 0 = control)"
 attr(data$Time, "label") <- "Time index for longitudinal records"
 attr(data$Event, "label") <- "Event indicator (1 = event occurred, 0 = otherwise)"
@@ -220,8 +218,8 @@ table(data$Event)
 
 ```{r}
 censored_subjects <- data[data$Event == 0, ]
-(early_dropout <- sum(censored_subjects$Time < 12))
-(admin_censored <- sum(censored_subjects$Time >= 12))
+(early_dropout <- sum(censored_subjects$Time < 5))
+(admin_censored <- sum(censored_subjects$Time >= 5))
 ```
 Among the `r nrow(censored_subjects)` subjects with no events, `r early_dropout` are early dropouts and `r admin_censored` are administratively censored.
 Administrative censoring is random, so no additional modeling is needed.
@@ -234,7 +232,7 @@ With the simulation above, we can calculate the true survival probability.
 
 ```{r}
 get_true_survival <- function(data, t, D) {
-  hazard <- exp(beta_0 + beta_D * D + beta_Z1 * data$Z1 + beta_Z2 * data$Z2 + beta_Z1Z2 * data$Z1 * data$Z2)
+  hazard <- exp(beta_0 + beta_D * D + beta_Z1 * data$Z1 + beta_Z2 * data$Z2 + beta_Z1Z2 * data$Z1 * data$Z2 + beta_Z2sq * data$Z2^2)
   survival_probs <- exp(-hazard * t) # baseline hazard is constant under an expotential survival model
   return(mean(survival_probs)) 
 }
@@ -278,17 +276,18 @@ pseudo_dr_ate_pkg <- function(data, times, ps_correct = TRUE, or_correct = TRUE,
   
   # Propensity score model
   if (ps_correct) {
-    ps_model <- glm(D ~ Z1 * Z2 + Z3, data = data, family = "binomial")
+    ps_model <- glm(D ~ Z1 * Z2 + I(Z2^2), data = data, family = "binomial")
   } else {
-    ps_model <- glm(D ~ Z1 + Z4 + Z5, data = data, family = "binomial")
+    ps_model <- glm(D ~ Z4 + I(Z4^2), data = data, family = "binomial")
   }
 
   # Covariates used in the outcome model
   if (or_correct) {
     data$Z1_Z2 <- data$Z1 * data$Z2
-    or_covars <- c("Z1", "Z2", "Z1_Z2")
+    data$Z2sq <- data$Z2 * data$Z2
+    or_covars <- c("Z1", "Z2", "Z1_Z2", "Z2sq")
   } else {
-    or_covars <- c("Z1", "Z3")
+    or_covars <- c("Z4", "Z3")
   }
   
   data$D <- as.factor(data$D)
@@ -358,11 +357,11 @@ pseudo_dr_ate_manual <- function(data, times, ps_correct = TRUE, or_correct = TR
   
   # Outcome regression (Cox proportional hazard model)
   if (or_correct) {
-    or_model_1 <- coxph(Surv(Time, Event) ~ Z1 * Z2, data = data_1)
-    or_model_0 <- coxph(Surv(Time, Event) ~ Z1 * Z2, data = data_0)
+    or_model_1 <- coxph(Surv(Time, Event) ~ Z1 * Z2 + I(Z2^2), data = data_1)
+    or_model_0 <- coxph(Surv(Time, Event) ~ Z1 * Z2 + I(Z2^2), data = data_0)
   } else {
-    or_model_1 <- coxph(Surv(Time, Event) ~ Z1 + Z3, data = data_1)
-    or_model_0 <- coxph(Surv(Time, Event) ~ Z1 + Z3, data = data_0)
+    or_model_1 <- coxph(Surv(Time, Event) ~ Z4 + Z3, data = data_1)
+    or_model_0 <- coxph(Surv(Time, Event) ~ Z4 + Z3, data = data_0)
   }
   
   # Extract the linear predictors (Beta^T * Z) from fitted Cox models 
@@ -370,8 +369,13 @@ pseudo_dr_ate_manual <- function(data, times, ps_correct = TRUE, or_correct = TR
   lp_0 <- predict(or_model_0, newdata = data, type = "lp")
   
   # Baseline survival functions
-  base_surv_1 <- survfit(or_model_1, newdata = data.frame(Z1=0, Z2=0, Z3=0))
-  base_surv_0 <- survfit(or_model_0, newdata = data.frame(Z1=0, Z2=0, Z3=0))
+  if (or_correct) {
+    base_surv_1 <- survfit(or_model_1, newdata = data.frame(Z1 = 0, Z2 = 0))
+    base_surv_0 <- survfit(or_model_0, newdata = data.frame(Z1 = 0, Z2 = 0))
+  } else {
+    base_surv_1 <- survfit(or_model_1, newdata = data.frame(Z4 = 0, Z3 = 0))
+    base_surv_0 <- survfit(or_model_0, newdata = data.frame(Z4 = 0, Z3 = 0))
+  }
   
   # Baseline survival probabilities at different times
   s0_t_1 <- summary(base_surv_1, times = times, extend = TRUE)$surv # 'extend' allows extrapolation when needed
@@ -383,14 +387,14 @@ pseudo_dr_ate_manual <- function(data, times, ps_correct = TRUE, or_correct = TR
   
   # Propensity scores
   if (ps_correct) {
-    ps_model <- glm(D ~ Z1 * Z2 + Z3, data = data, family = "binomial")
+    ps_model <- glm(D ~ Z1 * Z2 + I(Z2^2), data = data, family = "binomial")
   } else {
-    ps_model <- glm(D ~ Z1 + Z4 + Z5, data = data, family = "binomial")
+    ps_model <- glm(D ~ Z4 + I(Z4^2), data = data, family = "binomial")
   }
   e <- predict(ps_model, type = "response")
   
   # Pseudo-observations (individual estimates of the survival function at specified time points)
-  pseudo_obs <- pseudo::pseudosurv(time = data$Time, event = data$Event, tmax = times)$pseudo
+  pseudo_obs <- pseudosurv(time = data$Time, event = data$Event, tmax = times)$pseudo
   
   surv_1 <- numeric(length(times))
   surv_0 <- numeric(length(times))

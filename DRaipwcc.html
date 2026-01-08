@@ -11,7 +11,7 @@
 
 <meta name="author" content="Yizhe Xu, Peirong Hao, Ravinder Singh, Kevin Ying, Adam Bress, Tom Greene" />
 
-<meta name="date" content="2025-12-17" />
+<meta name="date" content="2026-01-07" />
 
 <title>Augmented Inverse Probability Weighted Complete Case Estimator for Survival Analysis</title>
 
@@ -601,7 +601,7 @@ display: none;
 Complete Case Estimator for Survival Analysis</h1>
 <h4 class="author">Yizhe Xu<a href="#fn1" class="footnote-ref" id="fnref1"><sup>1</sup></a>, Peirong Hao, Ravinder Singh, Kevin Ying,
 Adam Bress, Tom Greene</h4>
-<h4 class="date">2025-12-17</h4>
+<h4 class="date">2026-01-07</h4>
 
 </div>
 
@@ -755,33 +755,32 @@ plot(dag)</code></pre>
 <pre class="r"><code># ---------------------------
 # Hazard model parameters
 # ---------------------------
-beta_0 &lt;- -2.3      
+beta_0 &lt;- -2.5     
 beta_D &lt;- -0.8 
-beta_Z1 &lt;- 0.5 
-beta_Z2 &lt;- 1.0 
-beta_Z1Z2 &lt;- 1.4 
+beta_Z1 &lt;- 0.25 
+beta_Z2 &lt;- 0.55
+beta_Z3 &lt;- 0.7
 
-generate_data_noninf &lt;- function(n = 1000) {
-  Z1 &lt;- rtruncnorm(n, a = -2, b = 2, mean = 0, sd = 0.9)
-  Z2 &lt;- rtruncnorm(n, a = -1.5, b = 1.5, mean = 0, sd = 0.5)
-  Z3 &lt;- rtruncnorm(n, a = -1, b = 1, mean = 0, sd = 0.3)
-  Z4 &lt;- rnorm(n, 0, 1.0)
-  Z5 &lt;- rnorm(n, 0, 0.5)
+generate_data_noninf &lt;- function(n = 500) {
+  Z1 &lt;- rtruncnorm(n, a = -2, b = 2, mean = 0, sd = 1)
+  Z2 &lt;- rtruncnorm(n, a = -1.5, b = 1.5, mean = 0, sd = 0.7)
+  Z3 &lt;- rtruncnorm(n, a = -1, b = 1, mean = 0, sd = 0.55)
+  Z4 &lt;- rnorm(n, 0, 1)
+  Z5 &lt;- rnorm(n, 0, 1)
   
-  logit_p &lt;- -0.05 + 0.15 * Z1 + 0.30 * Z2 + 0.45 * Z3 + 0.70 * (Z1 * Z2)
+  logit_p &lt;- (-0.2 + 0.25 * Z1 + 1.2 * Z2 + 1.1 * Z3) / 2.6
   p &lt;- plogis(logit_p) # exp(logit_p) / (1 + exp(logit_p))
   D &lt;- rbinom(n, 1, p) # Treatment indicator
   
-  hazard &lt;- exp(beta_0 + beta_D * D + beta_Z1 * Z1 + beta_Z2 * Z2 + beta_Z1Z2 * (Z1 * Z2))
+  hazard &lt;- exp(beta_0 + beta_D * D + beta_Z1 * Z1 + beta_Z2 * Z2 + beta_Z3 * Z3)
   T_event &lt;- rexp(n, rate = hazard) # Event time from an exponential model
   
-  hazard_cen &lt;- exp(-4.9 + 0.15 * D + 0.08 * Z1 + 0.12 * Z2 + 0.25 * (Z1 * Z2) + 0.25 * Z3 + 0.10 * (Z1^2))
+  hazard_cen &lt;- exp(-1.7 + 1 * D + 0.15 * Z1 + 0.5 * D * Z1 + 0.6 * Z2 + 0.9 * Z3)
   T_censor &lt;- rexp(n, rate = hazard_cen) # Censoring time based on treatment and other covariates
-  T_admin &lt;- rep(12, n) # Administrative (random) censoring time
+  T_admin &lt;- rep(5, n) # Administrative (random) censoring
   
   Time &lt;- pmin(T_event, T_censor, T_admin) # Observed follow-up time
   Event &lt;- as.numeric(T_event &lt;= T_censor &amp; T_event &lt;= T_admin) # Event indicator
-  
   Censored &lt;- as.numeric(T_event &gt; T_censor &amp; T_event &lt;= T_admin) # Censoring indicator
   
   return(data.frame(Z1 = Z1, Z2 = Z2, Z3 = Z3,  Z4 = Z4, Z5 = Z5, D = D, Time = Time, Event = Event, Censored = Censored))
@@ -859,29 +858,29 @@ otherwise)</td>
 </tbody>
 </table>
 <pre class="r"><code>summary(data$Time)
-#&gt;     Min.  1st Qu.   Median     Mean  3rd Qu.     Max. 
-#&gt;  0.02078  2.73107  8.75467  7.51852 12.00000 12.00000
+#&gt;    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+#&gt; 0.01486 0.64450 2.00442 2.36068 4.52851 5.00000
 
 table(data$Event)
 #&gt; 
 #&gt;   0   1 
-#&gt; 449 551</code></pre>
+#&gt; 432  68</code></pre>
 <pre class="r"><code>censored_subjects &lt;- data[data$Event == 0, ]
-(early_dropout &lt;- sum(censored_subjects$Time &lt; 12))
-#&gt; [1] 51
-(admin_censored &lt;- sum(censored_subjects$Time &gt;= 12))
-#&gt; [1] 398</code></pre>
-<p>Among the 449 subjects with no events, 51 are early dropouts and 398
+(early_dropout &lt;- sum(censored_subjects$Time &lt; 5))
+#&gt; [1] 315
+(admin_censored &lt;- sum(censored_subjects$Time &gt;= 5))
+#&gt; [1] 117</code></pre>
+<p>Among the 432 subjects with no events, 315 are early dropouts and 117
 are administratively censored. Administrative censoring is random, so no
 additional modeling is needed. Early dropout could be
 covariate-dependent or occur completely at random, and we assume it is
 informative in this data generation.</p>
 <pre class="r"><code>nrow(data[data$Event == 1 &amp; data$Time &lt;= 3, ])
-#&gt; [1] 247</code></pre>
+#&gt; [1] 56</code></pre>
 <p>With the simulation above, we can calculate the true survival
 probability.</p>
 <pre class="r"><code>get_true_survival &lt;- function(data, t, D) {
-  hazard &lt;- exp(beta_0 + beta_D * D + beta_Z1 * data$Z1 + beta_Z2 * data$Z2 + beta_Z1Z2 * data$Z1 * data$Z2)
+  hazard &lt;- exp(beta_0 + beta_D * D + beta_Z1 * data$Z1 + beta_Z2 * data$Z2 + beta_Z3 * data$Z3)
   survival_probs &lt;- exp(-hazard * t) # Baseline hazard is constant under an expotential survival model
   return(mean(survival_probs)) 
 }</code></pre>
@@ -921,30 +920,29 @@ R package.</p>
   
   # Propensity score model
   if (ps_correct) {
-    ps_model &lt;- glm(D ~ Z1 * Z2 + Z3, data = data, family = &quot;binomial&quot;)
+    ps_model &lt;- glm(D ~ Z1 + Z2 + Z3, data = data, family = &quot;binomial&quot;)
   } else {
-    ps_model &lt;- glm(D ~ Z1 + Z4 + Z5, data = data, family = &quot;binomial&quot;)
+    ps_model &lt;- glm(D ~ Z4 + Z5 + I(Z4^2) + I(Z5^2), data = data, family = &quot;binomial&quot;)
   }
 
   # Censoring model 
   # Note: Event==0 includes both loss to follow-up and administrative censoring
   if (cen_correct) {
-    cen_model &lt;- coxph(Surv(Time, Event == 0) ~ D + Z1 * Z2 + Z3 + I(Z1^2), data = data, x = TRUE)
+    cen_model &lt;- coxph(Surv(Time, Event == 0) ~ D * Z1 + Z2 + Z3, data = data, x = TRUE)
   } else {
-    cen_model &lt;- coxph(Surv(Time, Event == 0) ~ D + Z1 + Z2, data = data, x = TRUE)
+    cen_model &lt;- coxph(Surv(Time, Event == 0) ~ Z4 + Z5 + I(Z4^2) + I(Z5^2), data = data, x = TRUE)
   }
   
   # Outcome regression (Cox proportional hazard model)
   if (or_correct) {
-    or_model &lt;- coxph(Surv(Time, Event) ~ D + Z1 * Z2, data = data, x = TRUE)
+    or_model &lt;- coxph(Surv(Time, Event) ~ D + Z1 + Z2 + Z3, data = data, x = TRUE)
   } else {
-    or_model &lt;- coxph(Surv(Time, Event) ~ D + Z1 + Z3, data = data, x = TRUE)
+    or_model &lt;- coxph(Surv(Time, Event) ~ Z4 + Z5 + I(Z4^2) + I(Z5^2), data = data, x = TRUE)
   }
   
   
-  ## AIPWCC estimator for survival probabilities 
-  
-  if (variance == &quot;asymptotic&quot;) { # Using asymptotic variance
+  # AIPWCC estimator for survival probabilities 
+  if (variance == &quot;asymptotic&quot;) { # Use asymptotic variance
     adj_surv &lt;- adjustedsurv(
       data = data,
       variable = &quot;D&quot;,
@@ -958,7 +956,7 @@ R package.</p>
       conf_int = TRUE,
       conf_level = 0.95,
       bootstrap = FALSE) 
-  } else if (variance == &quot;bootstrap&quot;){ # Using bootstrap variance
+  } else if (variance == &quot;bootstrap&quot;){ # Use bootstrap variance
     adj_surv &lt;- adjustedsurv(
       data = data,
       variable = &quot;D&quot;,
@@ -972,7 +970,7 @@ R package.</p>
       conf_int = TRUE,
       conf_level = 0.95,
       bootstrap = TRUE,
-      n_boot = 50) 
+      n_boot = 100) 
   }
 
   # Treatment effect is defined as the difference in survival probabilities.
@@ -1031,13 +1029,13 @@ Bootstrap
 T = 1
 </td>
 <td style="text-align:center;">
-0.063 (0.060, 0.066)
+0.047 (0.046, 0.049)
 </td>
 <td style="text-align:center;">
-0.046 (0.008, 0.083)
+0.046 (-0.008, 0.101)
 </td>
 <td style="text-align:center;">
-0.046 (0.008, 0.083)
+0.046 (-0.008, 0.101)
 </td>
 </tr>
 <tr>
@@ -1045,13 +1043,13 @@ T = 1
 T = 2
 </td>
 <td style="text-align:center;">
-0.103 (0.099, 0.107)
+0.087 (0.085, 0.090)
 </td>
 <td style="text-align:center;">
-0.107 (0.059, 0.154)
+0.093 (0.025, 0.162)
 </td>
 <td style="text-align:center;">
-0.107 (0.059, 0.154)
+0.093 (0.025, 0.162)
 </td>
 </tr>
 <tr>
@@ -1059,13 +1057,13 @@ T = 2
 T = 3
 </td>
 <td style="text-align:center;">
-0.132 (0.128, 0.136)
+0.120 (0.117, 0.124)
 </td>
 <td style="text-align:center;">
-0.158 (0.107, 0.209)
+0.139 (0.058, 0.220)
 </td>
 <td style="text-align:center;">
-0.158 (0.107, 0.209)
+0.139 (0.058, 0.220)
 </td>
 </tr>
 </tbody>
@@ -1271,10 +1269,10 @@ T = 1, 2, 3
 1: All Correct
 </td>
 <td style="text-align:center;">
-0.0162, 0.0221, 0.0247
+0.0237, 0.0405, 0.0588
 </td>
 <td style="text-align:center;">
-0.0162, 0.0221, 0.0247
+0.0237, 0.0405, 0.0588
 </td>
 </tr>
 <tr>
@@ -1282,10 +1280,10 @@ T = 1, 2, 3
 2: PS Correct, Cen Incorrect, OR Correct
 </td>
 <td style="text-align:center;">
-0.0162, 0.0221, 0.0247
+0.0231, 0.0372, 0.0453
 </td>
 <td style="text-align:center;">
-0.0162, 0.0221, 0.0247
+0.0231, 0.0372, 0.0453
 </td>
 </tr>
 <tr>
@@ -1293,10 +1291,10 @@ T = 1, 2, 3
 3: PS Incorrect, Cen Correct, OR Correct
 </td>
 <td style="text-align:center;">
-0.0161, 0.0221, 0.0251
+0.0239, 0.0416, 0.0646
 </td>
 <td style="text-align:center;">
-0.0161, 0.0221, 0.0251
+0.0239, 0.0416, 0.0646
 </td>
 </tr>
 <tr>
@@ -1304,10 +1302,10 @@ T = 1, 2, 3
 4: PS Incorrect, Cen Incorrect, OR Correct
 </td>
 <td style="text-align:center;">
-0.0161, 0.0221, 0.0251
+0.0230, 0.0373, 0.0460
 </td>
 <td style="text-align:center;">
-0.0161, 0.0221, 0.0251
+0.0230, 0.0373, 0.0460
 </td>
 </tr>
 <tr>
@@ -1315,10 +1313,10 @@ T = 1, 2, 3
 5: PS Correct, Cen Correct, OR Incorrect
 </td>
 <td style="text-align:center;">
-0.0165, 0.0218, 0.0245
+0.0240, 0.0405, 0.0570
 </td>
 <td style="text-align:center;">
-0.0165, 0.0218, 0.0245
+0.0240, 0.0405, 0.0570
 </td>
 </tr>
 <tr>
@@ -1326,10 +1324,10 @@ T = 1, 2, 3
 6: PS Correct, Cen Incorrect, OR Incorrect
 </td>
 <td style="text-align:center;">
-0.0165, 0.0218, 0.0245
+0.0229, 0.0352, 0.0394
 </td>
 <td style="text-align:center;">
-0.0165, 0.0218, 0.0245
+0.0229, 0.0352, 0.0394
 </td>
 </tr>
 <tr>
@@ -1337,10 +1335,10 @@ T = 1, 2, 3
 7: PS Incorrect, Cen Correct, OR Incorrect
 </td>
 <td style="text-align:center;">
-0.0312, 0.0434, 0.0497
+0.0263, 0.0463, 0.0683
 </td>
 <td style="text-align:center;">
-0.0312, 0.0434, 0.0497
+0.0263, 0.0463, 0.0683
 </td>
 </tr>
 <tr>
@@ -1348,17 +1346,17 @@ T = 1, 2, 3
 8: All Incorrect
 </td>
 <td style="text-align:center;">
-0.0312, 0.0434, 0.0497
+0.0245, 0.0402, 0.0488
 </td>
 <td style="text-align:center;">
-0.0312, 0.0434, 0.0497
+0.0245, 0.0402, 0.0488
 </td>
 </tr>
 </tbody>
 <tfoot>
 <tr>
 <td style="padding: 0; " colspan="100%">
-<sup></sup> Crude Cox: 0.0246, 0.0381, 0.0470
+<sup></sup> Crude Cox: 0.0172, 0.0308, 0.0418
 </td>
 </tr>
 </tfoot>
@@ -1420,10 +1418,10 @@ T = 1, 2, 3
 1: All Correct
 </td>
 <td style="text-align:center;">
-0.0002, 0.0000, 0.0016
+-0.0003, -0.0034, -0.0048
 </td>
 <td style="text-align:center;">
-0.0002, 0.0000, 0.0016
+-0.0003, -0.0034, -0.0048
 </td>
 </tr>
 <tr>
@@ -1431,10 +1429,10 @@ T = 1, 2, 3
 2: PS Correct, Cen Incorrect, OR Correct
 </td>
 <td style="text-align:center;">
-0.0002, 0.0000, 0.0016
+-0.0006, -0.0046, -0.0058
 </td>
 <td style="text-align:center;">
-0.0002, 0.0000, 0.0016
+-0.0006, -0.0046, -0.0058
 </td>
 </tr>
 <tr>
@@ -1442,10 +1440,10 @@ T = 1, 2, 3
 3: PS Incorrect, Cen Correct, OR Correct
 </td>
 <td style="text-align:center;">
-0.0002, 0.0004, 0.0018
+0.0001, -0.0031, -0.0053
 </td>
 <td style="text-align:center;">
-0.0002, 0.0004, 0.0018
+0.0001, -0.0031, -0.0053
 </td>
 </tr>
 <tr>
@@ -1453,10 +1451,10 @@ T = 1, 2, 3
 4: PS Incorrect, Cen Incorrect, OR Correct
 </td>
 <td style="text-align:center;">
-0.0002, 0.0004, 0.0018
+-0.0003, -0.0046, -0.0065
 </td>
 <td style="text-align:center;">
-0.0002, 0.0004, 0.0018
+-0.0003, -0.0046, -0.0065
 </td>
 </tr>
 <tr>
@@ -1464,10 +1462,10 @@ T = 1, 2, 3
 5: PS Correct, Cen Correct, OR Incorrect
 </td>
 <td style="text-align:center;">
-0.0003, 0.0002, 0.0017
+-0.0008, -0.0037, -0.0039
 </td>
 <td style="text-align:center;">
-0.0003, 0.0002, 0.0017
+-0.0008, -0.0037, -0.0039
 </td>
 </tr>
 <tr>
@@ -1475,10 +1473,10 @@ T = 1, 2, 3
 6: PS Correct, Cen Incorrect, OR Incorrect
 </td>
 <td style="text-align:center;">
-0.0003, 0.0002, 0.0017
+0.0002, -0.0032, -0.0052
 </td>
 <td style="text-align:center;">
-0.0003, 0.0002, 0.0017
+0.0002, -0.0032, -0.0052
 </td>
 </tr>
 <tr>
@@ -1486,10 +1484,10 @@ T = 1, 2, 3
 7: PS Incorrect, Cen Correct, OR Incorrect
 </td>
 <td style="text-align:center;">
--0.0261, -0.0366, -0.0415
+-0.0103, -0.0212, -0.0285
 </td>
 <td style="text-align:center;">
--0.0261, -0.0366, -0.0415
+-0.0103, -0.0212, -0.0285
 </td>
 </tr>
 <tr>
@@ -1497,17 +1495,17 @@ T = 1, 2, 3
 8: All Incorrect
 </td>
 <td style="text-align:center;">
--0.0261, -0.0366, -0.0415
+-0.0094, -0.0209, -0.0297
 </td>
 <td style="text-align:center;">
--0.0261, -0.0366, -0.0415
+-0.0094, -0.0209, -0.0297
 </td>
 </tr>
 </tbody>
 <tfoot>
 <tr>
 <td style="padding: 0; " colspan="100%">
-<sup></sup> Crude Cox: -0.0233, -0.0361, -0.0442
+<sup></sup> Crude Cox: -0.0067, -0.0141, -0.0203
 </td>
 </tr>
 </tfoot>
@@ -1569,10 +1567,10 @@ T = 1, 2, 3
 1: All Correct
 </td>
 <td style="text-align:center;">
-0.0003, 0.0005, 0.0006
+0.0006, 0.0017, 0.0035
 </td>
 <td style="text-align:center;">
-0.0003, 0.0005, 0.0006
+0.0006, 0.0017, 0.0035
 </td>
 </tr>
 <tr>
@@ -1580,10 +1578,10 @@ T = 1, 2, 3
 2: PS Correct, Cen Incorrect, OR Correct
 </td>
 <td style="text-align:center;">
-0.0003, 0.0005, 0.0006
+0.0005, 0.0014, 0.0021
 </td>
 <td style="text-align:center;">
-0.0003, 0.0005, 0.0006
+0.0005, 0.0014, 0.0021
 </td>
 </tr>
 <tr>
@@ -1591,10 +1589,10 @@ T = 1, 2, 3
 3: PS Incorrect, Cen Correct, OR Correct
 </td>
 <td style="text-align:center;">
-0.0003, 0.0005, 0.0006
+0.0006, 0.0018, 0.0043
 </td>
 <td style="text-align:center;">
-0.0003, 0.0005, 0.0006
+0.0006, 0.0018, 0.0043
 </td>
 </tr>
 <tr>
@@ -1602,10 +1600,10 @@ T = 1, 2, 3
 4: PS Incorrect, Cen Incorrect, OR Correct
 </td>
 <td style="text-align:center;">
-0.0003, 0.0005, 0.0006
+0.0005, 0.0014, 0.0021
 </td>
 <td style="text-align:center;">
-0.0003, 0.0005, 0.0006
+0.0005, 0.0014, 0.0021
 </td>
 </tr>
 <tr>
@@ -1613,10 +1611,10 @@ T = 1, 2, 3
 5: PS Correct, Cen Correct, OR Incorrect
 </td>
 <td style="text-align:center;">
-0.0003, 0.0005, 0.0006
+0.0006, 0.0017, 0.0033
 </td>
 <td style="text-align:center;">
-0.0003, 0.0005, 0.0006
+0.0006, 0.0017, 0.0033
 </td>
 </tr>
 <tr>
@@ -1624,10 +1622,10 @@ T = 1, 2, 3
 6: PS Correct, Cen Incorrect, OR Incorrect
 </td>
 <td style="text-align:center;">
-0.0003, 0.0005, 0.0006
+0.0005, 0.0013, 0.0016
 </td>
 <td style="text-align:center;">
-0.0003, 0.0005, 0.0006
+0.0005, 0.0013, 0.0016
 </td>
 </tr>
 <tr>
@@ -1635,10 +1633,10 @@ T = 1, 2, 3
 7: PS Incorrect, Cen Correct, OR Incorrect
 </td>
 <td style="text-align:center;">
-0.0003, 0.0006, 0.0008
+0.0006, 0.0017, 0.0040
 </td>
 <td style="text-align:center;">
-0.0003, 0.0006, 0.0008
+0.0006, 0.0017, 0.0040
 </td>
 </tr>
 <tr>
@@ -1646,17 +1644,17 @@ T = 1, 2, 3
 8: All Incorrect
 </td>
 <td style="text-align:center;">
-0.0003, 0.0006, 0.0008
+0.0005, 0.0012, 0.0016
 </td>
 <td style="text-align:center;">
-0.0003, 0.0006, 0.0008
+0.0005, 0.0012, 0.0016
 </td>
 </tr>
 </tbody>
 <tfoot>
 <tr>
 <td style="padding: 0; " colspan="100%">
-<sup></sup> Crude Cox: 0.0001, 0.0001, 0.0003
+<sup></sup> Crude Cox: 0.0003, 0.0008, 0.0014
 </td>
 </tr>
 </tfoot>
