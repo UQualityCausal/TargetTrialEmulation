@@ -107,7 +107,7 @@ We introduce additional notations to discuss right-censored outcomes.
 Let $T$ denote the survival time, $C$ the censoring time, and $S_d(t)$ the survival function under treatment $d$ at time $t$.
 We define the ATE as the difference in survival probabilities between treatment groups at time $t$, i.e., $S_1(t)-S_0(t)$.
 
-Assuming loss to follow-up is completely at random, i.e., $C \perp T^{(d)}$, @DR-pseudo proposed a DR estimator using pseduo observations.
+Assuming loss to follow-up is completely at random, i.e., $C \perp T^{(d)}$, @DR-pseudo proposed a DR estimator using pseudo observations.
 The first step is to construct pseudo-observations for the survival function at time $t$ using the Kaplan–Meier (KM) estimator: $$\hat{S}_d^{i}(t) = n \hat{S}_d(t) - (n - 1) \hat{S}^{-i}_{d}(t),$$ where $\hat{S}_d(t)$ is the KM estimate using all observations and $\hat{S}^{-i}_d(t)$ is the leave-one-out KM estimate with subject $i$ removed.
 The pseudo-values $\hat{S}_d^{i}(t)$ are (asymptotically) individual-level contributions such that $E[\hat{S}_d^{i}(t)|Z_i] \approx \hat{S}_d(t|Z_i)$.
 
@@ -137,51 +137,66 @@ We first simulate the data according to the variable relationships depicted in t
 
 ```{r fig.width=3, fig.height=2}
 dag <- dagitty("dag {
+  Z1 -> Treatment
+  Z2 -> Treatment
+  Z3 -> Treatment
   Z1 -> Death
   Z2 -> Death
-  Z1 -> D
-  Z2 -> D
+  Z3 -> Death
+  Z4 -> Death
+  Treatment -> Death
 }")
 
-coordinates(dag) <- list(
-  x = c(Z1 = 0, Z2 = 0, D = 1, Death = 1),
-  y = c(Z1 = 1, Z2 = 0, D = 0, Death = 1)
-)
+coordinates(dag) <- list(x = c(Z1 = 0, Z2 = 0.5, Z3 = 0, Z4 = 1.5, Treatment = 0.5, Death = 1.5),
+                         y = c(Z1 = 1, Z2 = 0.7, Z3 = 0, Z4 = 0, Treatment = 0.35, Death = 0.35))
 
 plot(dag)
 ```
 
 ```{r}
-# ---------------------------
-# Hazard model parameters
-# ---------------------------
+alpha_0 <- -0.2
+alpha_Z1 <- 0.6
+alpha_Z2 <- 1.6
+alpha_Z3 <- 1.6
+alpha_Z1Z2 <- 0.8
+alpha_Z2sq <- 0.5
+
 beta_0 <- -2.6      
 beta_D <- -0.8 
-beta_Z1 <- 0.25 
-beta_Z2 <- 0.7
-beta_Z1Z2 <- 0.9 
-beta_Z2sq <- 0.35
+beta_Z1 <- 0.2 
+beta_Z2 <- 1.9
+beta_Z3 <- 1.9 
+beta_Z4 <- 0.2
+beta_Z2sq <- 0.8
+beta_Z1Z3 <- 0.8
 
-generate_data_noninf <- function(n = 2000) {
-  Z1 <- rtruncnorm(n, a = -2, b = 2, mean = 0, sd = 0.9)
-  Z2 <- rtruncnorm(n, a = -1.5, b = 1.5, mean = 0, sd = 0.75)
-  Z3 <- rtruncnorm(n, a = -1, b = 1, mean = 0, sd = 0.5)
-  Z4 <- rnorm(n, 0, 1)
+generate_data_noninf <- function(n = 500) {
+  Z1 <- rnorm(n, 0, 1)
+  Z2 <- rnorm(n, 0, 1)
+  Z3 <- rnorm(n, 0, 1)
+  Z4 <- rnorm(n, 0, 2) 
+  Z5 <- rnorm(n, 0, 2.5)
+  Z6 <- rnorm(n, 0, 1)
+  Z7 <- rnorm(n, 0, 1)
+  Z8 <- rnorm(n, 0, 1)
+  Z9 <- rnorm(n, 0, 1)
   
-  logit_p <- (-0.1 + 0.15 * Z1 + 1.2 * Z2 + 5 * (Z1 * Z2) + 2 * (Z2^2)) / 8
+  logit_p <- (alpha_0 + alpha_Z1 * Z1 + alpha_Z2 * Z2 + alpha_Z3 * Z3 + alpha_Z1Z2 * (Z1 * Z2) + alpha_Z2sq * (Z2^2)) / 2.8
   p <- plogis(logit_p) # exp(logit_p) / (1 + exp(logit_p))
   D <- rbinom(n, 1, p) # Treatment indicator
   
-  hazard <- exp(beta_0 + beta_D * D + beta_Z1 * Z1 + beta_Z2 * Z2 + beta_Z1Z2 * (Z1 * Z2) + beta_Z2sq * (Z2^2))
+  hazard <- exp(beta_0 + beta_D * D + beta_Z1 * Z1 + beta_Z2 * Z2 + beta_Z3 * Z3 + beta_Z4 * Z4 + beta_Z2sq * (Z2^2) + beta_Z1Z3 * (Z1 * Z3))
   T_event <- rexp(n, rate = hazard) # Event time from an exponential model
+  #summary(T_event)
   
-  T_censor <- rexp(n, rate = exp(-5)) # Censoring time based on random censoring
+  T_censor <- rexp(n, rate = exp(-3)) # Censoring time based on random censoring
+  #summary(T_censor)
   T_admin <- rep(5, n) # Administrative (random) censoring
   
   Time <- pmin(T_event, T_censor, T_admin) # Observed follow-up time
   Event <- as.numeric(T_event <= T_censor & T_event <= T_admin) # Event indicator
   
-  return(data.frame(Z1 = Z1, Z2 = Z2, Z3 = Z3, Z4 = Z4, D = D, Time = Time, Event = Event))
+  return(data.frame(Z1 = Z1, Z2 = Z2, Z3 = Z3, Z4 = Z4, Z5 = Z5, Z6 = Z6, Z7 = Z7, Z8 = Z8, Z9 = Z9, D = D, Time = Time, Event = Event))
 }
 ```
 
@@ -192,6 +207,11 @@ attr(data$Z1, "label") <- "Baseline value of Z1"
 attr(data$Z2, "label") <- "Baseline value of Z2"
 attr(data$Z3, "label") <- "Baseline value of Z3"
 attr(data$Z4, "label") <- "Baseline value of Z4"
+attr(data$Z5, "label") <- "Baseline value of Z5"
+attr(data$Z6, "label") <- "Baseline value of Z6"
+attr(data$Z7, "label") <- "Baseline value of Z7"
+attr(data$Z8, "label") <- "Baseline value of Z8"
+attr(data$Z9, "label") <- "Baseline value of Z9"
 attr(data$D, "label") <- "Treatment indicator (1 = treated, 0 = control)"
 attr(data$Time, "label") <- "Time index for longitudinal records"
 attr(data$Event, "label") <- "Event indicator (1 = event occurred, 0 = otherwise)"
@@ -221,9 +241,11 @@ censored_subjects <- data[data$Event == 0, ]
 (early_dropout <- sum(censored_subjects$Time < 5))
 (admin_censored <- sum(censored_subjects$Time >= 5))
 ```
+
 Among the `r nrow(censored_subjects)` subjects with no events, `r early_dropout` are early dropouts and `r admin_censored` are administratively censored.
 Administrative censoring is random, so no additional modeling is needed.
 Early dropout could be covariate-dependent or occur completely at random, and we assume it is non-informative in this data generation.
+
 ```{r}
 nrow(data[data$Event == 1 & data$Time <= 3, ])
 ```
@@ -232,7 +254,8 @@ With the simulation above, we can calculate the true survival probability.
 
 ```{r}
 get_true_survival <- function(data, t, D) {
-  hazard <- exp(beta_0 + beta_D * D + beta_Z1 * data$Z1 + beta_Z2 * data$Z2 + beta_Z1Z2 * data$Z1 * data$Z2 + beta_Z2sq * data$Z2^2)
+  hazard <- exp(beta_0 + beta_D * D + beta_Z1 * data$Z1 + beta_Z2 * data$Z2 + beta_Z3 * data$Z3 + beta_Z4 * data$Z4 + 
+            beta_Z2sq * (data$Z2^2) + beta_Z1Z3 * (data$Z1 * data$Z3))
   survival_probs <- exp(-hazard * t) # baseline hazard is constant under an expotential survival model
   return(mean(survival_probs)) 
 }
@@ -274,23 +297,23 @@ First, we implement the pseudo-observation-based DR estimator using the *adjuste
 ```{r}
 pseudo_dr_ate_pkg <- function(data, times, ps_correct = TRUE, or_correct = TRUE, use_bootstrap = TRUE) {
   
+  data$D <- factor(data$D, levels = c(0, 1))
+  
   # Propensity score model
   if (ps_correct) {
-    ps_model <- glm(D ~ Z1 * Z2 + I(Z2^2), data = data, family = "binomial")
+    ps_model <- glm(D ~ Z1 + Z2 + Z3 + I(Z2^2) + I(Z1*Z2), data = data, family = "binomial")
   } else {
-    ps_model <- glm(D ~ Z4 + I(Z4^2), data = data, family = "binomial")
+    ps_model <- glm(D ~ I(Z5 * Z6) + I(Z7 * Z8) + Z9 + I(Z9^2), data = data, family = "binomial")
   }
 
   # Covariates used in the outcome model
   if (or_correct) {
-    data$Z1_Z2 <- data$Z1 * data$Z2
+    data$Z1_Z3 <- data$Z1 * data$Z3
     data$Z2sq <- data$Z2 * data$Z2
-    or_covars <- c("Z1", "Z2", "Z1_Z2", "Z2sq")
+    or_covars <- c("Z1", "Z2", "Z3", "Z4", "Z1_Z3", "Z2sq")
   } else {
-    or_covars <- c("Z4", "Z3")
+    or_covars <- c("Z5")
   }
-  
-  data$D <- as.factor(data$D)
 
   # Pseudo-observation-based DR estimator for survival probabilities 
   # This method uses a generalized estimation equation for outcome model
@@ -351,45 +374,40 @@ The pseudo-observation-based DR estimator can be implemented manually
 ```{r}
 pseudo_dr_ate_manual <- function(data, times, ps_correct = TRUE, or_correct = TRUE) {
   
-  # Split data by treatment group
-  data_1 <- data[data$D == 1, ]
-  data_0 <- data[data$D == 0, ]
-  
   # Outcome regression (Cox proportional hazard model)
   if (or_correct) {
-    or_model_1 <- coxph(Surv(Time, Event) ~ Z1 * Z2 + I(Z2^2), data = data_1)
-    or_model_0 <- coxph(Surv(Time, Event) ~ Z1 * Z2 + I(Z2^2), data = data_0)
+    or_model <- coxph(Surv(Time, Event) ~ D + Z1 + Z2 + Z3 + Z4 + I(Z2^2) + I(Z1 * Z3), data = data)
   } else {
-    or_model_1 <- coxph(Surv(Time, Event) ~ Z4 + Z3, data = data_1)
-    or_model_0 <- coxph(Surv(Time, Event) ~ Z4 + Z3, data = data_0)
+    or_model <- coxph(Surv(Time, Event) ~ Z5, data = data)
   }
+  
+  data1 <- data
+  data1$D <- 1
+  
+  data0 <- data
+  data0$D <- 0
   
   # Extract the linear predictors (Beta^T * Z) from fitted Cox models 
-  lp_1 <- predict(or_model_1, newdata = data, type = "lp")
-  lp_0 <- predict(or_model_0, newdata = data, type = "lp")
+  lp_1 <- predict(or_model, newdata = data1, type = "lp")
+  lp_0 <- predict(or_model, newdata = data0, type = "lp")
   
   # Baseline survival functions
-  if (or_correct) {
-    base_surv_1 <- survfit(or_model_1, newdata = data.frame(Z1 = 0, Z2 = 0))
-    base_surv_0 <- survfit(or_model_0, newdata = data.frame(Z1 = 0, Z2 = 0))
-  } else {
-    base_surv_1 <- survfit(or_model_1, newdata = data.frame(Z4 = 0, Z3 = 0))
-    base_surv_0 <- survfit(or_model_0, newdata = data.frame(Z4 = 0, Z3 = 0))
-  }
+  bh <- basehaz(or_model, centered = FALSE)
+  bh$surv <- exp(-bh$hazard)
   
   # Baseline survival probabilities at different times
-  s0_t_1 <- summary(base_surv_1, times = times, extend = TRUE)$surv # 'extend' allows extrapolation when needed
-  s0_t_0 <- summary(base_surv_0, times = times, extend = TRUE)$surv
+  s0_f <- stepfun(bh$time, c(1, bh$surv))
+  s0_t <- s0_f(times)
   
   # Predicted survival probabilities
-  m1 <- sapply(s0_t_1, function(s) s^exp(lp_1))
-  m0 <- sapply(s0_t_0, function(s) s^exp(lp_0))
+  m1 <- sapply(s0_t, function(s0) s0 ^ exp(lp_1))
+  m0 <- sapply(s0_t, function(s0) s0 ^ exp(lp_0))
   
   # Propensity scores
   if (ps_correct) {
-    ps_model <- glm(D ~ Z1 * Z2 + I(Z2^2), data = data, family = "binomial")
+    ps_model <- glm(D ~ Z1 + Z2 + Z3 + I(Z2^2) + I(Z1*Z2), data = data, family = "binomial")
   } else {
-    ps_model <- glm(D ~ Z4 + I(Z4^2), data = data, family = "binomial")
+    ps_model <- glm(D ~ I(Z5 * Z6) + I(Z7 * Z8) + Z9 + I(Z9^2), data = data, family = "binomial")
   }
   e <- predict(ps_model, type = "response")
   
@@ -539,7 +557,6 @@ To illustrate the robustness of the DR estimator to model misspecification, we c
 
 -   Scenario 4: Both models are misspecified.
 
-
 ```{r}
 metrics_1_package <- calculate_metrics(datasets, true_ate_samples, times, method = "package", 
                                        ps_correct = TRUE, or_correct = TRUE)
@@ -587,7 +604,7 @@ rmse_table <- data.frame(Scenario = scenarios, Package = rmse_package, Manual = 
 
 kable(rmse_table,
       col.names = c("Scenario", "T = 1, 2, 3", "T = 1, 2, 3"),
-      caption = "Performance of the DR estimator (RMSE)",
+      caption = "Performance of the estimator (RMSE)",
       align = c('c', 'c', 'c')) %>%
   kable_styling(full_width = FALSE, font_size = 12) %>%
   add_header_above(c(" " = 1, "Package" = 1, "Manual" = 1))
@@ -606,7 +623,7 @@ bias_table <- data.frame(Scenario = scenarios, Package = bias_package, Manual = 
 
 kable(bias_table,
       col.names = c("Scenario", "T = 1, 2, 3", "T = 1, 2, 3"),
-      caption = "Performance of the DR estimator (Bias)",
+      caption = "Performance of the estimator (Bias)",
       align = c('c', 'c', 'c')) %>%
   kable_styling(full_width = FALSE, font_size = 12) %>%
   add_header_above(c(" " = 1, "Package" = 1, "Manual" = 1))
@@ -625,11 +642,12 @@ var_table <- data.frame(Scenario = scenarios, Package = var_package, Manual = va
 
 kable(var_table,
       col.names = c("Scenario", "T = 1, 2, 3", "T = 1, 2, 3"),
-      caption = "Performance of the DR estimator (Variance)",
+      caption = "Performance of the estimator (Variance)",
       align = c('c', 'c', 'c')) %>%
   kable_styling(full_width = FALSE, font_size = 12) %>%
   add_header_above(c(" " = 1, "Package" = 1, "Manual" = 1))
 ```
+
 ## Funding
 
 This work was supported by Utah Clinical & Translational Science Institute (CTSI) Translational Innovation Pilot (TIP) Program Award (NCATS UM1TR004409).
