@@ -89,70 +89,47 @@ We now demonstrate how to implement the AIPWCC estimator under the informative c
 
 ### Data Generation
 
-We first simulate the data according to the variable relationships depicted in the directed acyclic graph (DAG) below
+We first simulate the data according to the variable relationships depicted in the directed acyclic graph (DAG) below.
+
 ```{r fig.width=3, fig.height=2}
-#version 1
 dag <- dagitty("dag {
-  Z4 -> Death
-  Z4 -> Treatment
   Z1 -> Treatment
   Z2 -> Treatment
   Z3 -> Treatment
-  Z1 -> Death
-  Z2 -> Death
-  Z3 -> Death
-  Treatment -> Death
-}")
-coordinates(dag) <- list(
-  x = c(Z1 = 0, Z2 = 0.5, Z3 = 0, Z4 = 0.5, Treatment = 0.5, Death = 1.5),
-  y = c(Z1 = 1, Z2 = 0.55, Z3 = -0.2, Z4 = 0.15, Treatment = 0.35, Death = 0.35)
-)
-plot(dag)
-```
-```{r fig.width=3, fig.height=2}
-#version 2
-dag <- dagitty("dag {
-  Z4 -> Death
   Z4 -> Treatment
-  Z1 -> Treatment
-  Z2 -> Treatment
-  Z3 -> Treatment
   Z1 -> Death
   Z2 -> Death
-  Z3 -> Death
+  Z6 -> Death
+  Z7 -> Death
   Treatment -> Death
 }")
+
 coordinates(dag) <- list(
-  x = c(Z1 = -0.2, Z2 = -0.2, Z3 = -0.2, Z4 = -0.2, Treatment = 0.5, Death = 1.5),
-  y = c(Z1 = 0.9, Z2 = 0.55, Z3 = -0.1, Z4 = 0.2, Treatment = 0.35, Death = 0.35)
+  x = c(Z3 = 0, Z4 = 0, Z1 = 1, Z2 = 1, Treatment = 1.5, Death = 3, Z6 = 4, Z7 = 4),
+  y = c(Z3 = 0.8, Z4 = 0.4, Z1 = 0.7, Z2 = 0.3, Treatment = 0.5, Death = 0.5, Z6 = 0.7, Z7 = 0.3)
 )
+
 plot(dag)
 ```
 
 ```{r}
-alpha_0 <- -0.2
-alpha_Z1 <- 0.8
-alpha_Z2 <- 1.6
-alpha_Z3 <- 1.6
-alpha_Z1sq <- 1.8
-alpha_Z2Z3 <- 1.2
+alpha_0 <- -0.5
+alpha_Z1 <- 2
+alpha_Z2 <- 0.5
+alpha_Z3 <- 0.5
 alpha_Z4 <- 0.5 
 
-beta_0 <- -2.7      
+beta_0 <- -2.55      
 beta_D <- -0.8 
-beta_Z1 <- 0.25 
+beta_Z1 <- 1.25 
 beta_Z2 <- 1.8
-beta_Z3 <- 1.8 
-beta_Z4 <- 1.3
-beta_Z1sq <- 0.8
-beta_Z2Z3 <- 1.4
-beta_DZ4 <- 1     
-beta_DZ2 <- 0.6
+beta_Z6 <- 1.8 
+beta_Z7 <- 1.3
 
 generate_data_inf <- function(n = 500) {
-  Z1 <- rnorm(n, 0, 1)
-  Z2 <- rnorm(n, 0, 0.6)
-  Z3 <- rnorm(n, 0, 0.6)
+  Z1 <- rtruncnorm(n, mean = 0, sd = 1, a = -0.5, b = 0.5)
+  Z2 <- rnorm(n, 0, 1)
+  Z3 <- rnorm(n, 0, 1)
   Z4 <- rnorm(n, 0, 1)
   Z5 <- rnorm(n, 0, 1)
   Z6 <- rnorm(n, 0, 1)
@@ -160,14 +137,15 @@ generate_data_inf <- function(n = 500) {
   Z8 <- rnorm(n, 0, 1)
   Z9 <- rnorm(n, 0, 1)
   
-  logit_p <- (alpha_0 + alpha_Z1 * Z1 + alpha_Z2 * Z2 + alpha_Z3 * Z3 + alpha_Z1sq * (Z1^2) + alpha_Z2Z3 * (Z2 * Z3) + alpha_Z4 * Z4) / 14
+  logit_p <- alpha_0 + alpha_Z1 * Z1 + alpha_Z2 * Z2 + alpha_Z3 * Z3 + alpha_Z4 * Z4
   p <- plogis(logit_p) # exp(logit_p) / (1 + exp(logit_p))
   D <- rbinom(n, 1, p) # Treatment indicator
   
-  hazard <- exp(beta_0 + beta_D * D + beta_Z1 * Z1 + beta_Z2 * Z2 + beta_Z3 * Z3 + beta_Z4 * Z4 + beta_Z1sq * (Z1^2) + beta_Z2Z3 * (Z2 * Z3) + beta_DZ2 * (D * Z2) + beta_DZ4 * (D * Z4))
+  hazard <- exp(beta_0 + beta_D * D + beta_Z1 * Z1 + beta_Z2 * Z2 + beta_Z6 * Z6 + beta_Z7 * Z7)
   T_event <- rexp(n, rate = hazard)
   
-  hazard_cen <- exp(-3.3 + 0.2 * D + 0.4 * Z1 + 0.5 * Z2 + 0.5 * Z3 + 0.4 * Z4 + 0.25 * (Z1^2) + 0.25 * (Z2^2) + 0.25 * (D * Z2) + 0.25 * (D * Z4) + 0.25 * (Z2 * Z3))
+  hazard_cen <- exp(-2 + 0.05 * D + 0.05 * Z1 + 0.05 * Z2 + 0.05 * Z8 + 0.05 * Z9)
+  #hazard_cen <- 0.0001
   T_censor <- rexp(n, rate = hazard_cen)
   T_admin <- rep(5, n)
   
@@ -195,7 +173,7 @@ attr(data$Z9, "label") <- "Baseline value of Z9"
 attr(data$D, "label") <- "Treatment indicator (1 = treated, 0 = control)"
 attr(data$Time, "label") <- "Time index for longitudinal records"
 attr(data$Event, "label") <- "Event indicator (1 = event occurred, 0 = otherwise)"
-attr(data$Censored, "label") <- "Censoring indicator (1 = censored, 0 = otherwise)"
+#attr(data$Censored, "label") <- "Censoring indicator (1 = censored, 0 = otherwise)"???
 
 get_label <- function(x) {
   lbl <- attr(x, "label", exact = TRUE)
@@ -215,26 +193,24 @@ knitr::kable(dict, caption = "Data Dictionary", row.names = FALSE)
 summary(data$Time)
 
 table(data$Event)
+
+table(data$D)
 ```
 
 ```{r}
-censored_subjects <- data[data$Event == 0, ]
+censored_subjects <- data[data$Censored == 1, ]
 (early_dropout <- sum(censored_subjects$Time < 5))
 (admin_censored <- sum(censored_subjects$Time >= 5))
 ```
 Among the `r nrow(censored_subjects)` subjects with no events, `r early_dropout` are early dropouts and `r admin_censored` are administratively censored.
 Administrative censoring is random, so no additional modeling is needed.
 Early dropout could be covariate-dependent or occur completely at random, and we assume it is informative in this data generation.
-```{r}
-nrow(data[data$Event == 1 & data$Time <= 3, ])
-```
 
 With the simulation above, we can calculate the true survival probability.
 
 ```{r}
 get_true_survival <- function(data, t, D) {
-  hazard <- exp(beta_0 + beta_D * D + beta_Z1 * data$Z1 + beta_Z2 * data$Z2 + beta_Z3 * data$Z3 + beta_Z4 * data$Z4 + 
-                beta_Z1sq * (data$Z1^2) + beta_Z2Z3 * (data$Z2 * data$Z3) + beta_DZ2 * (D * data$Z2) + beta_DZ4 * (D * data$Z4))
+  hazard <- exp(beta_0 + beta_D * D + beta_Z1 * data$Z1 + beta_Z2 * data$Z2 + beta_Z6 * data$Z6 + beta_Z7 * data$Z7)
   survival_probs <- exp(-hazard * t) # Baseline hazard is constant under an expotential survival model
   return(mean(survival_probs)) 
 }
@@ -277,24 +253,24 @@ aipwcc_dr_ate_pkg <- function(data, times, ps_correct = TRUE, or_correct = TRUE,
   
   # Propensity score model
   if (ps_correct) {
-    ps_model <- glm(D ~ Z1 + Z2 + Z3 + I(Z1^2) + I(Z2 * Z3) + Z4, data = data, family = "binomial")
-  } else {
     ps_model <- glm(D ~ Z1 + Z2 + Z3 + Z4, data = data, family = "binomial")
+  } else {
+    ps_model <- glm(D ~ Z5, data = data, family = "binomial")
   }
 
   # Censoring model 
-  # Note: Event==0 includes both loss to follow-up and administrative censoring
+  # Note: Event == 0 (Censored == 1) includes both loss to follow-up and administrative censoring
   if (cen_correct) {
-    cen_model <- coxph(Surv(Time, Event == 0) ~ D + Z1 + Z2 + Z3 + Z4 + I(Z1^2) + I(Z2^2) + I(Z2 * Z3) + D:Z2 + D:Z4, data = data, x = TRUE)
+    cen_model <- coxph(Surv(Time, Event == 0) ~ D + Z1 + Z2 + Z8 + Z9, data = data, x = TRUE)
   } else {
-    cen_model <- coxph(Surv(Time, Event == 0) ~ D + Z1 + Z2 + Z3 + Z4, data = data, x = TRUE)
+    cen_model <- coxph(Surv(Time, Event == 0) ~ D + Z5, data = data, x = TRUE)
   }
   
   # Outcome regression (Cox proportional hazard model)
   if (or_correct) {
-    or_model <- coxph(Surv(Time, Event) ~ D + Z1 + Z2 + Z3 + Z4 + I(Z1^2) + I(Z2 * Z3) + D:Z2 + D:Z4, data = data, x = TRUE)
+    or_model <- coxph(Surv(Time, Event) ~ D + Z1 + Z2 + Z6 + Z7, data = data, x = TRUE)
   } else {
-    or_model <- coxph(Surv(Time, Event) ~ D + Z1 + Z2 + Z3 + Z4, data = data, x = TRUE)
+    or_model <- coxph(Surv(Time, Event) ~ D + Z5, data = data, x = TRUE)
   }
   
   # AIPWCC estimator for survival probabilities 
@@ -328,7 +304,7 @@ aipwcc_dr_ate_pkg <- function(data, times, ps_correct = TRUE, or_correct = TRUE,
       bootstrap = TRUE,
       n_boot = 100) 
   }
-
+    
   # Treatment effect is defined as the difference in survival probabilities.
   ate_results <- adjusted_curve_diff(
     adj = adj_surv,
