@@ -211,7 +211,7 @@ With the simulation above, we can calculate the true survival probability.
 ```{r}
 get_true_survival <- function(data, t, D) {
   hazard <- exp(beta_0 + beta_D * D + beta_Z1 * data$Z1 + beta_Z2 * data$Z2 + beta_Z6 * data$Z6 + beta_Z7 * data$Z7)
-  survival_probs <- exp(-hazard * t) # Baseline hazard is constant under an expotential survival model
+  survival_probs <- exp(-hazard * t) # Baseline hazard is constant under an exponential survival model
   return(mean(survival_probs)) 
 }
 ```
