@@ -1,53 +1,55 @@
 ---
-title: "Estimating the Variance of IP-Weighted Risk Ratios Using Influence Functions"
-author: "Chong Zhang, Dan Scharfstein, Yizhe Xu^[Corresponding author: yizhe.xu@hsc.utah.edu]"
-date: '`r Sys.Date()`'
-output:
-  pdf_document:
+title: "Estimating the Variance of IPW-Weighted CIF Using Influence Functions"
+date: today
+format:
+  html:
     toc: true
-    toc_depth: '3'
-  #html_document:
-    #mathjax: "https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"
-vignette: >
-  \VignetteIndexEntry{Estimating the Variance of IP-Weighted Risk Ratios Using Influence Functions}
-  %\VignetteEncoding{UTF-8}
-  %\VignetteEngine{knitr::rmarkdown}
-editor_options: 
-  markdown: 
-    wrap: sentence
+    toc-depth: 3
+    toc-location: left
+    number-sections: true
+    theme: readable
+    highlight-style: tango
+    code-fold: show
+  pdf:
+    toc: true
+    toc-depth: 3
+execute:
+  echo: true
+  message: false
+  warning: false
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```{r}
+#| label: setup
+#| include: false
 set.seed(42)
-library(tinytex)
 ```
 
 # Introduction and Goal
 
-This tutorial provides a complete implementation of variance estimation for an intention-to-treat effect estimated as inverse probability weighted (IPW) risk ratio using influence functions, where the risk is the subdistribution cumulative incidence function (CIF) to account for the competing risk of death.
+The goal is to estimate the intent-to-treat (ITT) effect using observational data. Since treatment assignment is not randomized, we use inverse probability of treatment weighting (IPTW) to account for baseline confounding. To obtain valid inference, we must correctly estimate the variance of the estimated treatment effect while accounting for uncertainty from the estimated propensity score.
 
-## The Problem
+---
 
-When estimating treatment effects using IPW, we face a **two-step estimation problem**:
+# Research Question and Motivation
 
-1. **Step 1:** Estimate propensity scores from a logistic regression model
-2. **Step 2:** Use these estimated propensity scores as weights to compute the CIF
+## Clinical Problem
 
-Because the propensity scores are estimated (not known), their uncertainty must propagate into the variance of the CIF. The influence function approach provides an elegant analytical solution.
+We want to know the ITT effect of treatment A (treated) on the **risk of dementia** compared to treatment B (control) while accounting for:
+- **Confounding:** Treatment assignment is not random; baseline characteristics affect both treatment and outcomes.
+- **Competing risks:** Patients may die before developing dementia.
+- **Estimated propensity scores:** We don't know true treatment probabilities; we estimate them from data.
 
-## Why Influence Functions?
+The primary comparison of interest is the **cumulative incidence of dementia by time $t$** for treated vs. control patients, adjusted for confounding through inverse probability weighting.
 
-- **Computational efficiency:** Avoids bootstrapping, which is slow for large datasets
-- **Analytical insight:** Clearly separates sources of uncertainty
-- **Correct inference:** Properly accounts for the two-step estimation
+## Specific Research Question
 
+At a follow-up time of interest (e.g., $t = 20$ years):
+- What is the average probability of developing dementia by time $t$ if everyone received treatment A?
+- What is the average probability of developing dementia by time $t$ if everyone received treatment B (control)?
+- Risk Ratio: How much does the treatment reduce (or increase) dementia risk compared to control?
 
-Since $h^*(t) = h_{dementia}(t) + h_{death}(t)$, we only need:
-
-- $\psi_{h_{dementia}}$ for the direct effect on CIF
-- $\psi_{h^*}$ for the indirect effect through survival
-
+We estimate these quantities using IPTW with estimated propensity scores, and we need valid confidence intervals that account for uncertainty from both the propensity score estimation and the outcome analysis.
 
 ---
 
@@ -67,6 +69,15 @@ Since $h^*(t) = h_{dementia}(t) + h_{death}(t)$, we only need:
 | $h^{*a}(t)$ | Overall hazard (dementia + death) at time $t$ under treatment $a$ |
 | $F^a(t)$ | Cumulative incidence function at time $t$ under treatment $a$ |
 
+
+The Cumulative incidence function (CIF) for dementia is:
+
+$$F^a(t) = \sum_{u=1}^t h^a(u) \cdot S(u-1)$$
+
+where the overall survival function is:
+
+$$S(u-1) = \exp\left(-\sum_{v=1}^{u-1} h^{*a}(v)\right)$$
+
 ## Simulate Data
 
 We generate data with:
@@ -74,9 +85,11 @@ We generate data with:
 - Baseline covariates affecting treatment assignment as well as time to events
 - Treatment affecting both dementia and death risks
 - Competing risks (dementia vs. death)
-- Administrative censoring
+- Noninformative censoring 
+- Administrative censoring / end of study.
 
-```{r simulate-data}
+```{r}
+#| label: simulate-data
 # Parameters
 n <- 2000           # Sample size
 t_interest <- 20    # Time point of interest for inference
@@ -90,12 +103,14 @@ comorbidity <- rpois(n, lambda = 2)
 X <- cbind(1, age, female, comorbidity)
 colnames(X) <- c("intercept", "age", "female", "comorbidity")
 q <- ncol(X)  # Number of PS parameters
-
+```
+```{r, echo=FALSE}
 cat("Design matrix X dimensions:", dim(X), "\n")
 cat("Number of PS parameters (q):", q, "\n")
 ```
 
-```{r simulate-treatment}
+```{r}
+#| label: simulate-treatment
 # Step 2: Generate treatment assignment from propensity score model
 # True model: logit P(A=1|X) = gamma_0 + gamma_1*age + gamma_2*female + gamma_3*comorbidity
 
@@ -108,18 +123,22 @@ ps_true <- plogis(linear_pred_true)
 
 # Generate treatment assignment
 A <- rbinom(n, 1, ps_true)
+```
 
+```{r, echo=FALSE}
 cat("True gamma:", gamma_true, "\n")
 cat("Treatment prevalence:", mean(A), "\n")
 cat("Propensity score range:", round(range(ps_true), 3), "\n")
 ```
 
-```{r simulate-outcomes}
+```{r}
+#| label: simulate-outcomes
 # Step 3: Generate competing risks outcomes
 # Using Weibull distributions; treatment reduces dementia risk
 # Generate competing risks outcomes
 
   # Baseline hazard parameters (Weibull distribution)
+
   # Dementia: treatment reduces risk
   shape_dementia <- 1.5
   scale_dementia_0 <- 50   # Control group baseline
@@ -130,11 +149,16 @@ cat("Propensity score range:", round(range(ps_true), 3), "\n")
   scale_death_0 <- 55
   scale_death_1 <- 58
   
-censor_time <- 40  # Administrative censoring
+  # Censor: independent of treatment
+  shape_censor <- 1
+  scale_censor <- 60
+
+  end_of_study <- 40  # Administrative censoring 
 
   # Generate latent event times with covariate effects
   U_dementia <- runif(n)
   U_death <- runif(n)
+  U_censor <- runif(n)
   
   # Weibull scale parameter adjusted by covariates and treatment
   # Scale = baseline_scale * exp(covariate_effects)
@@ -155,24 +179,27 @@ censor_time <- 40  # Administrative censoring
   # Weibull survival time: T = scale * (-log(U))^(1/shape)
   T_dementia <- scale_dementia * (-log(U_dementia))^(1/shape_dementia)
   T_death <- scale_death * (-log(U_death))^(1/shape_death)
+  T_censor <- scale_censor * (-log(U_censor))^(1/shape_censor)
 
 
 # Determine observed event (minimum of dementia and death times)
 T_event <- pmin(T_dementia, T_death)
 Delta_latent <- ifelse(T_dementia <= T_death, 1, 2)  # 1 = dementia, 2 = death
 
+ 
 # Apply administrative censoring
-T_obs <- pmin(T_event, censor_time)
-Delta <- ifelse(T_event <= censor_time, Delta_latent, 0)  # 0 = censored
+T_obs <- pmin(T_event, T_censor, end_of_study)
+Delta <- ifelse(T_event <= pmin(end_of_study, T_censor), Delta_latent, 0)  # 0 = censored
 
 # Discretize time for easier computation
 T_obs <- ceiling(T_obs)
 T_obs[T_obs == 0] <- 1  # Minimum time is 1
-
-data.frame(age=round(age), female, comorbidity, A, T_obs, Delta)[1:10,]
-
 max_time <- max(T_obs)
 
+data.frame(age=round(age), female, comorbidity, A, T_obs, Delta)[1:10,]
+```
+
+```{r, echo=FALSE}
 # Summary
 cat("\n=== Data Summary ===\n")
 cat("Sample size:", n, "\n")
@@ -181,13 +208,11 @@ cat("Dementia events:", sum(Delta == 1), "\n")
 cat("Death events:", sum(Delta == 2), "\n")
 cat("Censored:", sum(Delta == 0), "\n")
 cat("Max observed time:", max_time, "\n")
-
-
 ```
 
 ---
 
-# Step 1: Estimating Propensity Scores
+# Step 1: Estimating Propensity Scores and IPW Weights
 
 ## The Propensity Score Model
 
@@ -197,7 +222,8 @@ $$\text{logit } P(A = 1 \mid X) = X\gamma$$
 
 $$p_i = \frac{\exp(X_i\gamma)}{1 + \exp(X_i\gamma)}$$
 
-```{r fit-ps-model}
+```{r}
+#| label: fit-ps-model
 # Fit logistic regression for propensity scores
 ps_model <- glm(A ~ age + female + comorbidity, family = binomial)
 
@@ -214,107 +240,37 @@ comparison <- data.frame(
 print(comparison)
 ```
 
-## Score Function for Propensity Score Model
-
-The MLE $\hat{\gamma}$ solves the score equation $U_2(\gamma) = 0$, where:
-
-$$U_2(\gamma) = \frac{1}{n} \sum_{i=1}^n (A_i - \hat{p}_i) X_i$$
-
-Each observation contributes:
-
-$$U_{2,i}(\gamma) = (A_i - \hat{p}_i) X_i$$
-
-```{r compute-U2}
-# Score function U2: contribution from each observation
-# U2_i = (A_i - p_hat_i) * X_i
-# This is an n x q matrix
-
-U2 <- (A - ps_hat) * X
-
-cat("U2 dimensions:", dim(U2), "\n")
-cat("(Each row is one observation's contribution to the score)\n\n")
-
-# Verify: column sums should be approximately 0 (score equation solved)
-cat("Column sums of U2 (should be ~0):\n")
-print(round(colSums(U2), 10))
-```
-
-## Derivative of Score Function
-
-We need $D_\gamma^{-1} = E[\partial U_2 / \partial \gamma']$.
-
-**Derivation:**
-
-Starting from $U_{2,i}(\gamma) = (A_i - p_i) X_i$:
-
-$$\frac{\partial U_{2,i}}{\partial \gamma'} = -\frac{\partial p_i}{\partial \gamma'} X_i = -p_i(1-p_i) X_i X_i'$$
-
-Taking the average:
-
-$$D_\gamma^{-1} = -\frac{1}{n} \sum_{i=1}^n p_i(1-p_i) X_i X_i' = -\frac{1}{n} X' W X$$
-
-where $W = \text{diag}(p_1(1-p_1), \ldots, p_n(1-p_n))$.
-
-```{r compute-D-gamma}
-# Compute D_gamma_inv = E[dU2/dgamma'] = -(1/n) * X' * W * X
-# where W = diag(p_hat * (1 - p_hat))
-
-W_ps <- ps_hat * (1 - ps_hat)  # n x 1 vector of weights
-
-# D_gamma_inv is q x q
-D_gamma_inv <- -t(X) %*% (W_ps * X) / n
-
-cat("D_gamma_inv dimensions:", dim(D_gamma_inv), "\n")
-cat("\nD_gamma_inv matrix:\n")
-print(round(D_gamma_inv, 6))
-
-# We'll need D_gamma (the inverse) later
-D_gamma <- solve(D_gamma_inv)
-
-cat("\nD_gamma (inverse) diagonal elements:", round(diag(D_gamma), 2), "\n")
-```
-
----
-
-# Step 2: Computing IPW-Weighted Hazards and CIF
-
 ## Inverse Probability Weights
 
-For treatment group $a \in \{0, 1\}$, the IPW weight is:
+For treatment group $a \in \{0, 1\}$, the IPT weight is:
 
 $$w_i = \frac{I(A_i = a)}{P(A = a \mid X_i)}$$
 
 - For treated ($a = 1$): $w_i = A_i / \hat{p}_i$
 - For control ($a = 0$): $w_i = (1 - A_i) / (1 - \hat{p}_i)$
 
-**Key insight:** The treatment indicator in the numerator automatically filters to the correct group.
-
-```{r compute-weights}
+```{r}
+#| label: compute-weights
 # IPW weights for each treatment arm
 weights_1 <- A / ps_hat           # Weights for treated
 weights_0 <- (1 - A) / (1 - ps_hat)  # Weights for control
 
-# Verify: control patients have zero weight in treated group (and vice versa)
-cat("Treated group weights:\n")
-cat("  - For treated patients (A=1): range =", round(range(weights_1[A == 1]), 3), "\n")
-cat("  - For control patients (A=0): all =", unique(weights_1[A == 0]), "\n")
-
-cat("\nControl group weights:\n")
-cat("  - For control patients (A=0): range =", round(range(weights_0[A == 0]), 3), "\n")
-cat("  - For treated patients (A=1): all =", unique(weights_0[A == 1]), "\n")
 ```
 
-## Nonparametric Weighted Hazard Estimation
+---
 
-We estimate the cause-specific hazard at each discrete time $t$:
+# Step 2: Nonparametric Weighted Hazard and CIF Estimation
 
-$$\hat{h}^a(t) = \frac{\sum_i w_i \cdot I(T_i \geq t) \cdot I(T_i = t, \Delta_i = 1)}{\sum_i w_i \cdot I(T_i \geq t)}$$
+
+## Cause-specific hazard at time $t$: 
+
+$$\hat{h}^a(t) = \frac{\sum_i w_i \cdot I(T_i = t, \Delta_i = 1)}{\sum_i w_i \cdot I(T_i \geq t)}$$
 
 This is: (weighted events at time $t$) / (weighted number at risk at time $t$).
 
-**No proportional hazards assumption is required.**
 
-```{r compute-hazards}
+```{r}
+#| label: compute-hazards
 # Initialize storage for hazards
 # NOTE: We compute h_dementia and h_star (overall), NOT h_death separately
 h_dementia_1 <- h_star_1 <- numeric(max_time)
@@ -341,8 +297,11 @@ for (t in 1:max_time) {
     h_star_0[t] <- sum(weights_0 * at_risk * any_event_t) / denom_0  # Overall hazard directly
   }
 }
+```
 
-# Display hazards at selected time points
+
+```{r, echo=FALSE}
+#Display hazards at selected time points
 cat("Dementia hazards at selected times:\n")
 times_show <- c(5, 10, 15, 20, 25)
 hazard_table <- data.frame(
@@ -359,13 +318,14 @@ print(hazard_table)
 
 The CIF for dementia is:
 
-$$F^a(t) = \sum_{u=1}^t \hat{h}^a(u) \cdot S(u-1)$$
+$$F^a(t) = \sum_{u=1}^t h^a(u) \cdot S(u-1)$$
 
 where the overall survival function is:
 
 $$S(u-1) = \exp\left(-\sum_{v=1}^{u-1} h^{*a}(v)\right)$$
 
-```{r compute-cif}
+```{r}
+#| label: compute-cif
 # Overall survival: S(t) = exp(-cumulative hazard)
 # S[t] represents S(t-1) for indexing convenience
 S_1 <- exp(-c(0, cumsum(h_star_1)[-max_time]))
@@ -377,7 +337,9 @@ CIF_0 <- cumsum(h_dementia_0 * S_0)
 
 # Risk Ratio
 RR <- CIF_1 / CIF_0
+```
 
+```{r, echo=FALSE}
 # Display results
 cat("=== CIF Results at time", t_interest, "===\n")
 cat("CIF (Treated):", round(CIF_1[t_interest], 4), "\n")
@@ -385,7 +347,10 @@ cat("CIF (Control):", round(CIF_0[t_interest], 4), "\n")
 cat("Risk Ratio:   ", round(RR[t_interest], 4), "\n")
 ```
 
-```{r plot-cif-naive, fig.width=10, fig.height=5}
+```{r, echo=FALSE}
+#| label: plot-cif-naive
+#| fig-width: 10
+#| fig-height: 5
 # Plot CIF curves (without confidence bands for now)
 par(mfrow = c(1, 2))
 
@@ -407,82 +372,226 @@ abline(h = 1, lty = 2, col = "gray")
 par(mfrow = c(1, 1))
 ```
 
+We now have point estimates for the CIF and risk ratio. However, these estimates are based on **estimated propensity scores**, not known values. To construct valid confidence intervals, we must account for uncertainty from both the propensity score estimation and the outcome analysis. 
+
+There are two main approaches:
+
+1. **Bootstrap:** Resample data, re-estimate propensity scores and CIF, repeat many times. Computationally intensive but conceptually simple.
+
+2. **Influence functions:** Derive an analytical expression for how each observation affects the estimator. Computationally efficient and provides insight into sources of variability.
+
+We will use the influence function approach.
+
 ---
 
-# Background: Influence Functions
+# Background: Influence Functions and M-Estimation
 
-## Key Concept
+This section provides the theoretical foundation for variance estimation using influence functions. 
 
-An estimator $\hat{\theta}$ is **asymptotically linear** if:
+## M-Estimators and Estimating Equations
 
-$$\sqrt{n}(\hat{\theta} - \theta) = \frac{1}{\sqrt{n}} \sum_{i=1}^n \psi_i + o_p(1)$$
+An **M-estimator** $\hat{\theta}$ is defined as the solution to **estimating equation**:
 
-where $\psi_i$ is the **influence function** for observation $i$.
+$$U(\theta) = \frac{1}{n} \sum_{i=1}^n U_i(\theta) = 0$$
 
-**Interpretation:** The influence function measures how much each observation "pushes" the estimator away from the true value.
+The **maximum likelihood estimator (MLE)** is a special case of M-estimation. For i.i.d. observations $X_1, \ldots, X_n$ from a distribution with density $f(x; \theta)$, the MLE maximizes:
 
-## Variance from Influence Functions
+$$\ell_n(\theta) = \sum_{i=1}^n \log f(X_i; \theta)$$
 
-Since $\sqrt{n}(\hat{\theta} - \theta)$ is approximately a sum of i.i.d. terms, by CLT:
+Taking derivatives and setting to zero, the MLE solves:
+
+$$U(\theta) = \frac{1}{n} \sum_{i=1}^n \underbrace{\frac{\partial \log f(X_i; \theta)}{\partial \theta}}_{U_i(\theta)} = 0$$
+
+The individual contribution $U_i(\theta) = \frac{\partial \log f(X_i; \theta)}{\partial \theta}$ is called the **score function** for observation $i$.
+
+**Key property of the score:** At the true parameter value $\theta$:
+
+$$E[U_i(\theta)] = 0$$
+
+
+## Deriving the Asymptotic Distribution via Taylor Expansion
+
+Since $\hat{\theta}$ solves $U(\hat{\theta}) = 0$, we expand $U(\hat{\theta})$ around the true value $\theta$:
+
+$$0 = U(\hat{\theta}) = U(\theta) + \frac{\partial U}{\partial \theta'}(\hat{\theta} - \theta)$$
+
+$$\hat{\theta} - \theta = -\left[\frac{\partial U}{\partial \theta'}\right]^{-1} U(\theta)$$
+
+As $n \to \infty$, the sample derivative converges to its expectation:
+
+$$\frac{\partial U}{\partial \theta'} \xrightarrow{p} E\left[\frac{\partial U}{\partial \theta'}\right]$$
+
+Substituting and using $U(\theta) = \frac{1}{n}\sum_{i=1}^n U_i(\theta)$:
+
+$$\hat{\theta} - \theta \approx -E\left[\frac{\partial U}{\partial \theta'}\right]^{-1} \cdot \frac{1}{n}\sum_{i=1}^n U_i(\theta)$$
+
+$$\hat{\theta} - \theta \approx \frac{1}{n}\sum_{i=1}^n \underbrace{-E\left[\frac{\partial U}{\partial \theta'}\right]^{-1} \cdot U_i(\theta)}_{\psi_i}$$
+
+$$\sqrt{n}(\hat{\theta} - \theta) = \frac{1}{\sqrt{n}}\sum_{i=1}^n \psi_i + o_p(1)$$
+
+## The Influence Function
+
+where the **influence function** is:
+
+$$\boxed{\psi_i = -\left[E\left(\frac{\partial U}{\partial \theta'}\right)\right]^{-1} U_i(\theta)}$$
+
+$E[\psi_i] = 0$ because $E[U_i(\theta)] = 0$ and the matrix inverse is deterministic.
+
+The influence function $\psi_i$ represents observation $i$'s influence to the asymptotic distribution of $\hat{\theta}$. 
+
+## Variance Estimation Using Influence Functions
+
+Since $\sqrt{n}(\hat{\theta} - \theta)$ is asymptotically a sum of i.i.d. mean-zero terms $\psi_i$:
+
+$$\text{Var}(\sqrt{n}(\hat{\theta} - \theta)) = E[\psi_i \psi_i'] = \text{Var}(\psi_i)$$
+
+For a scalar $\psi_i$:
 
 $$\text{Var}(\hat{\theta}) = \frac{1}{n} E[\psi_i^2]$$
 
-We estimate this as:
+In practice, we estimate this by:
 
-$$\widehat{\text{Var}}(\hat{\theta}) = \frac{1}{n^2} \sum_{i=1}^n \hat{\psi}_i^2 = \frac{1}{n} \cdot \text{mean}(\hat{\psi}_i^2)$$
-
-## Influence Function for M-Estimators
-
-For estimators solving $U(\theta) = 0$, the influence function is:
-
-$$\psi_i = -\left[E\left(\frac{\partial U}{\partial \theta'}\right)\right]^{-1} U_i(\theta)$$
-
-This comes from a Taylor expansion of $U(\hat{\theta})$ around the true value.
+$$\widehat{\text{Var}}(\hat{\theta}) = \frac{1}{n} \cdot mean({\hat{\psi_i}^2})$$
 
 ---
 
 # Influence Function for Two-Step Estimation
 
-## The Challenge
+## The Challenge: Estimated Nuisance Parameters
 
-Our problem involves two estimating equations:
+In our problem, we need to solve two estimating equations:
 
-- $U_2(\gamma) = 0$ for propensity score (nuisance parameter)
-- $U_1(\beta, \gamma) = 0$ for hazard (target parameter), which depends on $\gamma$
+1. Solve $U_2(\gamma) = 0$ to get $\hat{\gamma}$ (the coefficients of logistic regression for treatment)
+2. Solve $U_1(\beta, \hat{\gamma}) = 0$ to get $\hat{\beta}$ (the hazard function)
 
-Uncertainty in $\hat{\gamma}$ must propagate to uncertainty in $\hat{\beta}$.
+## Derivation via Stacked Estimating Equations
 
-## The Solution: Two-Part Influence Function
+We can view the two-step procedure as simultaneously solving a **stacked system**:
 
-The influence function for $\hat{\beta}$ is:
+$$\begin{pmatrix} U_1(\beta, \gamma) \\ U_2(\gamma) \end{pmatrix} = \begin{pmatrix} 0 \\ 0 \end{pmatrix}$$
 
-$$\psi^*_i = A_i - B_i$$
+Applying the same Taylor expansion approach as before, but now with the joint parameter $(\beta, \gamma)$:
 
-where:
+$$\begin{pmatrix} \hat{\beta} - \beta \\ \hat{\gamma} - \gamma \end{pmatrix} \approx -\begin{pmatrix} \frac{\partial U_1}{\partial \beta'} & \frac{\partial U_1}{\partial \gamma'} \\ 0 & \frac{\partial U_2}{\partial \gamma'} \end{pmatrix}^{-1} \begin{pmatrix} U_1(\beta, \gamma) \\ U_2(\gamma) \end{pmatrix}$$
 
-- **Part A (direct influence):** $A_i = D_\beta^{-1} \cdot U_{1,i}$
-- **Part B (PS correction):** $B_i = D_\beta^{-1} \cdot G \cdot D_\gamma \cdot U_{2,i}$
+Note that $\frac{\partial U_2}{\partial \beta'} = 0$ because $U_2$ doesn't depend on $\beta$.
 
-Part A is what we'd get if propensity scores were known. Part B corrects for the fact that they're estimated.
+**Inverting the block-triangular matrix:**
 
-## Computing the Components
+Let $D_\beta^{-1} = E[\partial U_1/\partial \beta']$, $G = E[\partial U_1/\partial \gamma']$, and $D_\gamma^{-1} = E[\partial U_2/\partial \gamma']$.
 
-```{r influence-components-description}
+The inverse has the form:
+
+$$\begin{pmatrix} D_\beta^{-1} & G \\ 0 & D_\gamma^{-1} \end{pmatrix}^{-1} = \begin{pmatrix} D_\beta & -D_\beta \cdot G \cdot D_\gamma \\ 0 & D_\gamma \end{pmatrix}$$
+
+## The Two-Part Influence Function
+
+Focusing on $\hat{\beta}$, we get:
+
+$$\hat{\beta} - \beta \approx -D_\beta \cdot U_1 + D_\beta \cdot G \cdot D_\gamma \cdot U_2$$
+
+Writing this in terms of individual contributions:
+
+$$\sqrt{n}(\hat{\beta} - \beta) = \frac{1}{\sqrt{n}} \sum_{i=1}^n \psi^*_i + o_p(1)$$
+
+where the **two-step influence function** is:
+
+$$\boxed{\psi^*_i = \underbrace{-D_\beta \cdot U_{1,i}}_{\text{Part A}} + \underbrace{D_\beta \cdot G \cdot D_\gamma \cdot U_{2,i}}_{\text{Part B}}}$$
+
+Or equivalently: $\psi^*_i = A_i - B_i$ where:
+
+- **Part A (direct influence):** $A_i = -D_\beta \cdot U_{1,i}$ — the influence if $\gamma$ were known
+- **Part B (correction for estimated PS):** $B_i = -D_\beta \cdot G \cdot D_\gamma \cdot U_{2,i}$ — additional variability from estimating $\gamma$
+
+## Intuition
+
+- **Part A** captures the variability in $\hat{\beta}$ due to randomness in the outcome data, holding weights fixed.
+- **Part B** captures how fluctuations in $\hat{\gamma}$ (and hence the weights) propagate to $\hat{\beta}$.
+- The matrix $G = E[\partial U_1/\partial \gamma']$ measures the **sensitivity** of the hazard estimating equation to changes in the propensity score parameters.
+
+## Components Needed for Implementation
+
+```{r, echo=FALSE}
+#| label: influence-components-description
 cat("Components needed for influence function:\n\n")
-cat("For Part A:\n")
-cat("  - U1_i: score contribution for hazard equation\n")
-cat("  - D_beta: derivative of hazard equation w.r.t. h(t)\n\n")
-cat("For Part B:\n")
-cat("  - G: how U1 depends on gamma (through weights)\n")
-cat("  - D_gamma: derivative of PS equation (already computed)\n")
-cat("  - U2_i: score contribution for PS equation (already computed)\n")
+cat("For Part A (direct influence):\n")
+cat("  - U1_i: individual contribution to hazard estimating equation\n")
+cat("  - D_beta: E[dU1/dbeta'] — derivative of U1 w.r.t. hazard\n\n")
+cat("For Part B (PS correction):\n")
+cat("  - G: E[dU1/dgamma'] — how U1 depends on PS parameters (through weights)\n")
+cat("  - D_gamma: (E[dU2/dgamma'])^{-1} — from inverting the PS score derivative\n")
+cat("  - U2_i: individual contribution to PS estimating equation\n")
 ```
 
 ---
 
-# Step-by-Step: Influence Function for Hazards 
+# Step 3: Computing Score Functions
 
-## Estimating Equations
+Now we apply the two-step influence function framework to our example. We first need to compute the score functions and their derivatives.
+
+## Score Function for Propensity Score Model
+
+The MLE $\hat{\gamma}$ solves the score equation $U_2(\gamma) = 0$, where:
+
+$$U_2(\gamma) = \frac{1}{n} \sum_{i=1}^n (A_i - \hat{p}_i) X_i$$
+
+Each observation contributes:
+
+$$U_{2,i}(\gamma) = (A_i - \hat{p}_i) X_i$$
+
+```{r}
+#| label: compute-U2
+# Score function U2: contribution from each observation
+# U2_i = (A_i - p_hat_i) * X_i
+# This is an n x q matrix
+
+U2 <- (A - ps_hat) * X
+
+cat("U2 dimensions:", dim(U2), "\n")
+cat("(Each row is one observation's contribution to the score)\n\n")
+
+# Verify: column sums should be approximately 0 (score equation solved)
+cat("Column sums of U2 (should be ~0):\n")
+print(round(colSums(U2), 10))
+```
+
+## Derivative of Score Function for Propensity Score
+
+We need $D_\gamma^{-1} = E[\partial U_2 / \partial \gamma']$.
+
+**Derivation:**
+
+Starting from $U_{2,i}(\gamma) = (A_i - p_i) X_i$:
+
+$$\frac{\partial U_{2,i}}{\partial \gamma'} = -\frac{\partial p_i}{\partial \gamma'} X_i = -p_i(1-p_i) X_i X_i'$$
+
+Taking the average:
+
+$$D_\gamma^{-1} = -\frac{1}{n} \sum_{i=1}^n p_i(1-p_i) X_i X_i' = -\frac{1}{n} X' W X$$
+
+where $W = \text{diag}(p_1(1-p_1), \ldots, p_n(1-p_n))$.
+
+```{r}
+#| label: compute-D-gamma
+# Compute D_gamma_inv = E[dU2/dgamma'] = -(1/n) * X' * W * X
+# where W = diag(p_hat * (1 - p_hat))
+
+W_ps <- ps_hat * (1 - ps_hat)  # n x 1 vector of weights
+
+# D_gamma_inv is q x q
+D_gamma_inv <- -t(X) %*% (W_ps * X) / n
+
+cat("D_gamma_inv dimensions:", dim(D_gamma_inv), "\n")
+cat("\nD_gamma_inv matrix:\n")
+print(round(D_gamma_inv, 6))
+
+# We'll need D_gamma (the inverse) later
+D_gamma <- solve(D_gamma_inv)
+
+cat("\nD_gamma (inverse) diagonal elements:", round(diag(D_gamma), 2), "\n")
+```
+
+## Estimating Equations for Hazards
 
 **For dementia hazard $h(t)$:**
 $$U_{1,i}^{dem} = w_i \cdot I(T_i \geq t) \cdot [I(T_i = t, \Delta_i = 1) - h(t)]$$
@@ -490,10 +599,12 @@ $$U_{1,i}^{dem} = w_i \cdot I(T_i \geq t) \cdot [I(T_i = t, \Delta_i = 1) - h(t)
 **For overall hazard $h^*(t)$:**
 $$U_{1,i}^{*} = w_i \cdot I(T_i \geq t) \cdot [I(T_i = t, \Delta_i \in \{1,2\}) - h^*(t)]$$
 
+---
 
-## Implementation
+# Step 4: Influence Function for Hazards
 
-```{r compute-hazard-influence-improved}
+```{r}
+#| label: compute-hazard-influence-improved
 # Storage for influence functions: n x max_time matrices
 psi_h_dementia_1 <- psi_h_star_1 <- matrix(0, n, max_time)
 psi_h_dementia_0 <- psi_h_star_0 <- matrix(0, n, max_time)
@@ -583,7 +694,9 @@ for (t in 1:max_time) {
   psi_h_dementia_0[, t] <- A_dementia_0 - B_dementia_0
   psi_h_star_0[, t] <- A_star_0 - B_star_0
 }
+```
 
+```{r, echo=FALSE}
 cat("Influence functions computed for hazards.\n")
 cat("Dimensions of psi_h_dementia_1:", dim(psi_h_dementia_1), "\n")
 cat("Dimensions of psi_h_star_1:", dim(psi_h_star_1), "\n")
@@ -592,7 +705,7 @@ cat("(Each row is one observation, each column is one time point)\n")
 
 ---
 
-# Delta Method: From Hazard to CIF (IMPROVED)
+# Step 5: Delta Method for CIF Variance
 
 ## The CIF as a Function of Hazards
 
@@ -600,9 +713,13 @@ $$F(t) = \sum_{u=1}^t h(u) \cdot S(u-1) = \sum_{u=1}^t h(u) \cdot \exp\left(-\su
 
 ## Delta Method
 
-**Mathematical rule:** If $\hat{\theta}$ has influence function $\psi_\theta$, then $g(\hat{\theta})$ has influence function:
+If $\hat{\theta}$ has influence function $\psi_\theta$, then $g(\hat{\theta})$ has influence function:
 
 $$\psi_g = \frac{\partial g}{\partial \theta} \cdot \psi_\theta$$
+
+For $g(\theta_1, \theta_2)$:
+
+$$\psi_g = \frac{\partial g}{\partial \theta_1}\psi_{\theta_1} + \frac{\partial g}{\partial \theta_2}\psi_{\theta_2}$$
 
 ## Partial Derivatives of CIF
 
@@ -613,8 +730,8 @@ $$\psi_g = \frac{\partial g}{\partial \theta} \cdot \psi_\theta$$
    $$\frac{\partial F(t)}{\partial h^*(v)} = -\sum_{u=v+1}^t h(u) \cdot S(u-1) \quad \text{for } v < t$$
 
 
-
-```{r compute-cif-influence-improved}
+```{r}
+#| label: compute-cif-influence-improved
 # Influence function for CIF at each time point
 psi_CIF_1 <- psi_CIF_0 <- matrix(0, n, max_time)
 
@@ -644,19 +761,19 @@ for (t in 1:max_time) {
   psi_CIF_0[, t] <- psi_t_0
 }
 
-cat("Influence functions computed for CIF.\n")
 cat("Dimensions of psi_CIF_1:", dim(psi_CIF_1), "\n")
 ```
 
 ---
 
-# Variance of CIF and Risk Ratio
+# Step 6: Variance of CIF and Risk Ratio
 
 ## Variance of CIF
 
 $$\text{Var}(\hat{F}(t)) = \frac{1}{n} \cdot \text{mean}(\psi_{F,i}^2)$$
 
-```{r variance-cif}
+```{r}
+#| label: variance-cif
 # Extract influence functions at time of interest
 psi_1_t <- psi_CIF_1[, t_interest]
 psi_0_t <- psi_CIF_0[, t_interest]
@@ -667,7 +784,9 @@ var_CIF_0 <- mean(psi_0_t^2) / n
 
 se_CIF_1 <- sqrt(var_CIF_1)
 se_CIF_0 <- sqrt(var_CIF_0)
+```
 
+```{r, echo=FALSE}
 cat("=== Variance of CIF at time", t_interest, "===\n")
 cat("CIF (Treated):", round(CIF_1[t_interest], 4), 
     " (SE:", round(se_CIF_1, 4), ")\n")
@@ -685,7 +804,8 @@ For $\log(RR)$ (often preferred for confidence intervals):
 
 $$\psi_{\log RR} = \frac{1}{F_1} \psi_{F_1} - \frac{1}{F_0} \psi_{F_0}$$
 
-```{r variance-rr}
+```{r}
+#| label: variance-rr
 F1_t <- CIF_1[t_interest]
 F0_t <- CIF_0[t_interest]
 RR_t <- F1_t / F0_t
@@ -703,7 +823,9 @@ se_logRR <- sqrt(var_logRR)
 # 95% CI for RR (using log transform for better coverage)
 CI_lower <- RR_t * exp(-1.96 * se_logRR)
 CI_upper <- RR_t * exp(1.96 * se_logRR)
+```
 
+```{r, echo=FALSE}
 cat("\n=== Risk Ratio at time", t_interest, "===\n")
 cat("RR:        ", round(RR_t, 4), " (SE:", round(se_RR, 4), ")\n")
 cat("log(RR):   ", round(log(RR_t), 4), " (SE:", round(se_logRR, 4), ")\n")
@@ -714,7 +836,8 @@ cat("95% CI:    (", round(CI_lower, 4), ",", round(CI_upper, 4), ")\n")
 
 # Summary of Results
 
-```{r summary-table}
+```{r}
+#| label: summary-table
 # Create summary table
 results_summary <- data.frame(
   Quantity = c("CIF (Treated)", "CIF (Control)", "Risk Ratio", "log(RR)"),
@@ -735,9 +858,8 @@ print(results_summary, row.names = FALSE)
 
 We compare our influence function standard errors to bootstrap standard errors.
 
-```{r bootstrap-validation}
-# Bootstrap validation
-B <- 200
+```{r, message=FALSE}
+B <- 5000
 RR_boot <- CIF_1_boot <- CIF_0_boot <- numeric(B)
 
 cat("Running", B, "bootstrap replications...\n")
@@ -807,7 +929,7 @@ print(comparison_se, row.names = FALSE)
 
 # Final Plot with Confidence Bands
 
-```{r final-plot, fig.width=12, fig.height=5}
+```{r, echo=FALSE}
 # Compute SE at each time point
 se_CIF_1_all <- sqrt(colMeans(psi_CIF_1^2) / n)
 se_CIF_0_all <- sqrt(colMeans(psi_CIF_0^2) / n)
@@ -865,11 +987,5 @@ This tutorial demonstrated:
 3. **Variance estimation:** Uses $\text{Var}(\hat{\theta}) = \frac{1}{n} \text{mean}(\psi_i^2)$
 4. **Delta method:** Transforms hazard variance to CIF and RR variance
 5. **Validation:** Bootstrap confirms accuracy of influence function approach
-6. **Improvement:** Computing $\psi_{h^*}$ directly is simpler and more efficient
 
 **Key advantage:** The influence function approach is computationally efficient for large datasets, avoiding the need for time-consuming bootstrap.
-
-# Funding
-
-This work was supported by Utah Clinical & Translational Science Institute (CTSI) Translational Innovation Pilot (TIP) Program Award (NCATS UM1TR004409).
-
