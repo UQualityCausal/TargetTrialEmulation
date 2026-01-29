@@ -529,11 +529,9 @@ calculate_metrics <- function(datasets, true_ate_samples, times, method = "packa
       "package" = pseudo_dr_ate_pkg(datasets[[i]], times, ps_correct = ps_correct, or_correct = or_correct,
                                     use_bootstrap = FALSE),
       "manual" = pseudo_dr_ate_manual(datasets[[i]], times, ps_correct = ps_correct, or_correct = or_correct),
-      "crude" = crude_cox_estimator(datasets[[i]], times),
-      stop("Unknown: ", method))
+      "crude" = crude_cox_estimator(datasets[[i]], times))
     
-    est_results$ATE
-  }, future.seed = TRUE)
+    est_results$ATE}, future.seed = TRUE)
   
   ate_all <- do.call(rbind, ate)
   

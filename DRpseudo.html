@@ -11,7 +11,7 @@
 
 <meta name="author" content="Peirong Hao, Ravinder Singh, Kevin Ying, Adam Bress, Tom Greene, Yizhe Xu" />
 
-<meta name="date" content="2026-01-16" />
+<meta name="date" content="2026-01-28" />
 
 <title>Doubly Robust Estimation of Causal Effects in Survival Analysis</title>
 
@@ -601,7 +601,7 @@ display: none;
 in Survival Analysis</h1>
 <h4 class="author">Peirong Hao, Ravinder Singh, Kevin Ying, Adam Bress,
 Tom Greene, Yizhe Xu<a href="#fn1" class="footnote-ref" id="fnref1"><sup>1</sup></a></h4>
-<h4 class="date">2026-01-16</h4>
+<h4 class="date">2026-01-28</h4>
 
 </div>
 
@@ -1298,11 +1298,9 @@ calculate_metrics &lt;- function(datasets, true_ate_samples, times, method = &qu
       &quot;package&quot; = pseudo_dr_ate_pkg(datasets[[i]], times, ps_correct = ps_correct, or_correct = or_correct,
                                     use_bootstrap = FALSE),
       &quot;manual&quot; = pseudo_dr_ate_manual(datasets[[i]], times, ps_correct = ps_correct, or_correct = or_correct),
-      &quot;crude&quot; = crude_cox_estimator(datasets[[i]], times),
-      stop(&quot;Unknown: &quot;, method))
+      &quot;crude&quot; = crude_cox_estimator(datasets[[i]], times))
     
-    est_results$ATE
-  }, future.seed = TRUE)
+    est_results$ATE}, future.seed = TRUE)
   
   ate_all &lt;- do.call(rbind, ate)
   

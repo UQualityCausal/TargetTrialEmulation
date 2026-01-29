@@ -26,12 +26,15 @@ working_dir <- getwd()
 knitr::opts_knit$set(root.dir = working_dir)
 library(dplyr)
 library(TrialEmulation)
+library(zoo)
+library(slider)
+library(lubridate)
 ```
 
 We have explained how to implement TTE through manual coding for an [active-comparator study design](https://uqualitycausal.github.io/TTECausalR/TTEdemoSig.html). In this tutorial, we focus on a placebo-controlled design, where individuals in the control group may meet the eligibility criteria multiple times [@Hernn2016]. This makes it unclear how to define their time zero.
 
 ## A Placebo-control Design 
-We modify the previous example to compare the effectiveness of ARB versus no anti-hypertensive medications on reducing the risk of cardiovascular disease (CVD) among subjects with hypertension with no history of chronic disease and no use of ARB medications during the previous 2 years. **Table 1** shows the protocol of the target trial that I wish to run and my emulating plan with observational data side by side.
+We have simulated a data as an example to compare the effectiveness of ARB versus no anti-hypertensive medications on reducing the risk of cardiovascular disease (CVD) among subjects with hypertension with no history of chronic disease and no use of ARB medications during the previous 2 years. **Table 1** shows the protocol of the target trial that I wish to run and my emulating plan with observational data side by side.
 
 ![](documents/sidebysideTTEseq.png){width=95%}
 
@@ -64,10 +67,9 @@ Recall the three key steps before implementing TTE:
 ![](documents/sequencetrials.png){width=95%}
 
 ## Example data
-We modified the observational dataset from the [TTE for active comparator design ](https://uqualitycausal.github.io/TTECausalR/TTEdemoSig.html) session by changing the reference treatment group to placebo control.  
+We import the data we simulated.   
 ```{r}
-obsdata2 <- readRDS("obsdata2.rds")
-attr(obsdata2$A, "label") <- "Treatment indicator of ARB use over time (placebo=0)"
+obsdata1 <- readRDS("obsdata1trt.rds")
 
 get_label <- function(x) {
   lbl <- attr(x, "label", exact = TRUE)
@@ -75,8 +77,8 @@ get_label <- function(x) {
 }
 
 dict <- data.frame(
-  Variable = names(obsdata2),
-  Meaning  = vapply(obsdata2, get_label, character(1)),
+  Variable = names(obsdata1),
+  Meaning  = vapply(obsdata1, get_label, character(1)),
   check.names = FALSE
 )
 
@@ -97,19 +99,42 @@ In contrast to emulating a single trial, we need to construct a pooled dataset b
 
 Before start using the _TrialEmulation_ R package, it is crucial to understand the process being carried out in the _data_preparation_ function. We explain the steps using a toy example where we only consider three enrollment times: at the beginning of the overall study, month 1, and month 2.
 
+- Patients without hypertension and with CVD are already excluded from our observational data in another pre-processing step
+- We apply the rest of eligibility criteria (the first two) in Table 1 to our data and create a "eligible" indicator
+```{r}
+obsdata2 <- obsdata1 %>%
+  group_by(id) %>%
+  mutate(eligible = as.integer(age >= 50 & cumsum(Y) == 0 & ( slide_dbl(
+    A, 
+    sum, 
+    .before = 24,   # Look back 24 rows
+    .after = -1,    # Exclude the current row
+    .complete = T
+  )==0) )) %>% 
+  # Age over 50, no history of CVD, and no ACEI or ARB treatment in last 24 months.
+  mutate(eligible = ifelse(is.na(eligible), 0, eligible)) %>% #if unknown, then not eligible
+  ungroup()
+```
+
+
 - Create data for the 1st emulated trial
 ```{r}
+#find the first date when some individual become eligible. This is the start date that we can start enroll subjects
+start.date=obsdata2%>%filter(eligible==1)%>%select(time)%>%unique()%>%summarise(start.date=min(time))
+#for convenience purpose, convert time to months from this date
+obsdata2 <- obsdata2 %>%
+  mutate(month = interval( start.date$start.date, time) %/% months(1))  # month zero is the original study baseline for the 1st trial
+
 # Select eligible individuals
 iligible1 <- obsdata2 %>%
-  filter(eligible == 1 & time == 0) %>%    # time zero is the original study baseline for the 1st trial
+  filter(eligible == 1 & month == 0) %>%    # time zero is the original study baseline for the 1st trial
   select(id, A, X1, X2, X3, X4, age) %>%
   rename(assigned_treatment=A, X1_0=X1, X2_0=X2, X3_0=X3, X4_0=X4, age_0=age) # baseline covariates in the 1st trial are the same as the baseline covariates of the study 
 
 trial.1 <- obsdata2 %>%
-  filter(id %in% iligible1$id & time >= 0) %>%   # time zero is the original study baseline for the 1st trial
+  filter(id %in% iligible1$id & month >= 0) %>%   # month zero is the original study baseline for the 1st trial
   mutate(trial = 0,   # create an emulated trial indicator
-         follow_up = time) %>%  # no adjustment of follow-up time is needed since the 1st trial share the same baseline as the entire study
-  select(-first_eligible_time, -eligible, -ever_eligible) %>%
+         follow_up = month) %>%  # no adjustment of follow-up time is needed since the 1st trial share the same baseline as the entire study
   left_join(iligible1)
 ```
 
@@ -117,15 +142,14 @@ trial.1 <- obsdata2 %>%
 ```{r}
 # Select eligible individuals 
 iligible2 <- obsdata2 %>%
-  filter(eligible == 1 & time == 1) %>%   # time zero is time 1 for the 2nd trial
+  filter(eligible == 1 & month == 1) %>%   # time zero is month 1 for the 2nd trial
   select(id, A, X1, X2, X3, X4, age) %>%
-  rename(assigned_treatment=A, X1_0=X1, X2_0=X2, X3_0=X3, X4_0=X4, age_0=age) # baseline covariates in the 2nd trial are the covariates at time 1 
+  rename(assigned_treatment=A, X1_0=X1, X2_0=X2, X3_0=X3, X4_0=X4, age_0=age) # baseline covariates in the 2nd trial are the covariates at month 1 
 
 trial.2 <- obsdata2 %>%
-  filter(id %in% iligible2$id & time >= 1) %>% # time zero is time 1 for the 2nd trial
+  filter(id %in% iligible2$id & month >= 1) %>% # time zero is month 1 for the 2nd trial
   mutate(trial = 1,       # create an emulated trial indicator
-         follow_up = time - 1) %>%     # adjust the follow-up time by decreasing by 1
-  select(-first_eligible_time, -eligible, -ever_eligible) %>%
+         follow_up = month - 1) %>%     # adjust the follow-up time by decreasing by 1
   left_join(iligible2)
 ```
 
@@ -133,15 +157,14 @@ trial.2 <- obsdata2 %>%
 ```{r}
 # Select eligible individuals 
 iligible3 <- obsdata2 %>%
-  filter(eligible == 1 & time == 2) %>%    # time zero is time 2 for the 3rd trial
+  filter(eligible == 1 & month == 2) %>%    # time zero is month 2 for the 3rd trial
   select(id, A, X1, X2, X3, X4, age) %>%
-  rename(assigned_treatment=A, X1_0=X1, X2_0=X2, X3_0=X3, X4_0=X4, age_0=age) # baseline covariates in the 3rd trial are the covariates at time 2 
+  rename(assigned_treatment=A, X1_0=X1, X2_0=X2, X3_0=X3, X4_0=X4, age_0=age) # baseline covariates in the 3rd trial are the covariates at month 2 
 
 trial.3 <- obsdata2 %>%
-  filter(id %in% iligible3$id & time >= 2) %>% 
+  filter(id %in% iligible3$id & month >= 2) %>% 
   mutate(trial = 2,       # create an emulated trial indicator
-         follow_up = time - 2) %>%     # adjust the follow-up time by decreasing by 2
-  select(-first_eligible_time, -eligible, -ever_eligible) %>%
+         follow_up = month - 2) %>%     # adjust the follow-up time by decreasing by 2
   left_join(iligible3)
 ```
 
@@ -162,7 +185,7 @@ We now use the [data_preparation function](https://cran.r-project.org/web/packag
 prep_ITT_data <- data_preparation(
   data = obsdata2,
   id = "id", 
-  period = "time", 
+  period = "month", 
   treatment = "A",
   outcome = "Y", 
   eligible = "eligible",  # indicator of eligibility for the target trial at that visit/period

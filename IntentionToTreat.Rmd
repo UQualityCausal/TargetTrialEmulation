@@ -157,11 +157,6 @@ Thus, we directly load the pre-processed data.
 
 ```{r}
 obsdata5 <- readRDS("obsdata5.rds")
-attr(obsdata5$X1_0, "label") <- "Baseline value of X1"
-attr(obsdata5$X2_0, "label") <- "Baseline value of X2"
-attr(obsdata5$X3, "label") <- "Fixed value of X3"
-attr(obsdata5$X4, "label") <- "Fixed value of X4"
-attr(obsdata5$age_0, "label") <- "Baseline value of age"
 
 get_label <- function(x) {
   lbl <- attr(x, "label", exact = TRUE)
@@ -224,6 +219,7 @@ p <- predict(ps_model, type = "response")
 # Calculate inverse probability of treatment weights (IPTW)
 obsdata6 <- obsdata6 %>%
   mutate(
+    p = p,
     trt_weight = if_else(
       assigned_treatment == 1, 
       1/p, # 1/P(treatment) for treated subjects
@@ -233,25 +229,24 @@ obsdata6 <- obsdata6 %>%
 
 -   **Step 2**: Examine overlap of treatment by visualizing the distributions of propensity score between two treatment groups
 
-```{r}
-# Visualize weight overlap
-trt_weight_plot <- obsdata6 %>%
+```{r fig.width=5, fig.height=3}
+# Visualize overlap
+ps_plot <- obsdata6 %>%
   mutate(treatment_group = factor(assigned_treatment, 
                                   levels = c(0, 1), 
                                   labels = c("Control", "Treated"))) %>%
-  ggplot(aes(x = trt_weight, fill = treatment_group, group = treatment_group)) +
+  ggplot(aes(x = p, fill = treatment_group, group = treatment_group)) +
   theme_classic() +
   geom_density(data = . %>% filter(treatment_group == "Treated"),
                aes(y = after_stat(density)), alpha = 0.6) +
   geom_density(data = . %>% filter(treatment_group == "Control"), 
                aes(y = -after_stat(density)), alpha = 0.6) +
-  xlab("Treatment Weight") +
+  xlab("Propensity Score") +
   ylab("Density") +
   labs(fill = "Treatment Group",
-       title = "Distribution of Treatment Weights") +
+       title = "Distribution of Propensity Scores") +
   theme(plot.title = element_text(size = 10, face = "bold"))
-
-print(trt_weight_plot) # ?? this overlap looks terrible now, I think it is due to we used Jian's earlier version of the data where age has to be >50, please work with Jian to resolve this issue. I am ok with either 18 or 50, but we need to be consistent across the tutorials to reduce confusion
+print(ps_plot)
 ```
 
 -   **Step 3**: IP weightng approach is unstable when there exists extreme weights, so we truncate the weights above 99th percentile to improve stability
@@ -265,6 +260,7 @@ trt_weight_cutoff <- quantile(obsdata6$trt_weight, 0.99)
 obsdata6 <- obsdata6 %>%
   mutate(trt_weight = ifelse(trt_weight > trt_weight_cutoff, 
                              trt_weight_cutoff, trt_weight))
+saveRDS(obsdata6, "obsdata6.rds")
 ```
 
 -   **Step 4**: Evaluate covariate balance using the absolute standardized mean difference (ASMD) metric and a threshold of 0.1 is used to determine an acceptable balance
@@ -473,16 +469,29 @@ inc_comp <- marginal_res %>%
 
 ```{r}
 # Marginal Cumulative Incidences at different Time Points
-key_times <- c(4, 7)
-marginal_res %>% 
-  filter(follow_up %in% key_times) %>%
-  arrange(treatment, follow_up)%>%
+key_times <- c(182, 365) # 6 months and 1 year
+#find the closest time points in the data stratified by treatment 
+results <- marginal_res %>%
+  tidyr::crossing(assess_time = key_times) %>%
+  filter(follow_up >= assess_time) %>%
+  group_by(treatment, assess_time) %>%
+  slice_min(follow_up, n = 1, with_ties = FALSE) %>%
+  ungroup() %>%
+  select(treatment, assess_time, mean_cum_inc)%>%
+  arrange(treatment, assess_time)%>%
   pivot_wider(names_from = treatment, values_from = mean_cum_inc)
+results
+ 
 
 # Risk Differences and Ratios at different Time Points
-inc_comp %>% 
-  filter(follow_up %in% key_times) %>%
-  select(follow_up, Treated, Untreated, incidence_diff, incidence_ratio)
+results1 <- inc_comp %>%
+  crossing(assess_time = key_times) %>%
+  filter(follow_up >= assess_time) %>%
+  group_by(assess_time) %>%
+  slice_min(follow_up, n = 1, with_ties = FALSE) %>%select(assess_time,Treated, Untreated, incidence_diff, incidence_ratio )%>%
+  ungroup()
+
+results1
 ```
 
 ## Funding
