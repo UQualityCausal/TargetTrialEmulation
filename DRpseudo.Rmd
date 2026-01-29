@@ -8,7 +8,7 @@ output:
     mathjax: "https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"
 bibliography: references_DR.bib  
 #csl: harvard-cite-them-right.csl
-link-citations: yes
+link-citations: true
 objective: Estimate treatment effects on time-to-event outcomes under noninformative censoring using doubly robust methods 
 vignette: >
   \VignetteIndexEntry{Doubly Robust Estimation of Causal Effects on Time-to-event Outcomes}
