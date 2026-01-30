@@ -25,6 +25,8 @@ options(warn = -1)
 working_dir <- getwd()
 knitr::opts_knit$set(root.dir = working_dir)
 library(dplyr)
+library(zoo)
+library(slider)
 ```
 
 # Introduction
@@ -95,7 +97,7 @@ Suppose we are interested in comparing the effectiveness of ARB versus ACEI anti
 Before we begin, we import a simulated observational dataset representing patients with hypertension who are followed over time to compare the risk of incident cardiovascular disease (CVD) under ACEI versus ARB treatment. The dataset includes baseline covariates, time-varying covariates, treatment, and outcome indicators, allowing us to demonstrate the implementation of TTE and causal inference methods in a realistic longitudinal setting. For details on data-generating mechanism and parameter settings, please refer to the [data simulation function](https://github.com/UQualityCausal/TargetTrialEmulation/blob/main/generateObsData.R).
 ```{r}
 # Load data
-obsdata <- readRDS("obsdata.rds")
+obsdata <- readRDS("obsdata2trt.rds")
 
 # Function to extract variable label
 get_label <- function(x) {
@@ -120,56 +122,63 @@ knitr::kable(dict, caption = "Data Dictionary", row.names = FALSE)
 
 ![](documents/sidebysideTTE.png){width=95%}
 
-**Component 1: Eligibility criteria** 
+**Component 1: Time 0: the time point a subject satisfies the eligibility criteria and initial treatment** 
 
 - Patients without hypertension and with CVD are already excluded from our observational data in another pre-processing step
 - We apply the rest of eligibility criteria (the first two) in Table 1 to our data and create a "eligible" indicator
 ```{r}
 obsdata1 <- obsdata %>%
   group_by(id) %>%
-  mutate(eligible = as.integer(age >= 50 & cumsum(Y) == 0 & (lag(A)+lag(A,2)) == 0)) %>% 
-  # lag(A) and lag(A, 2) shows the treatment at one and two years ago, respectively.
+  mutate(eligible = as.integer(age >= 50 & cumsum(Y) == 0 & ( slide_dbl(
+    is.na(A), 
+    sum, 
+    .before = 24,   # Look back 24 rows
+    .after = -1,    # Exclude the current row
+    .complete = T
+  )>=24) )) %>% 
+  # Age over 50, no history of CVD, and no ACEI or ARB treatment in last 24 months.
+  mutate(eligible = ifelse(is.na(eligible), 0, eligible)) %>% #if unknown, then not eligible
   ungroup()
 ```
 
 ?? Simplify this to active comparator set up. 
 Let us see when Subject 2 becomes eligible: 
-- Subject 2 is not eligible from time 0 to 6 due to age below 50, and not eligible from time 7 to 9 due to the use of ARBs in previous 2 years. Subject 2 becomes eligible at time 10.
+- Subject 21 is not eligible from time 1999-06-01 to 2001-11-01 due to age below 50. Subject 21 becomes eligible at time 2001-12-01 when he turns 50 and he did not take ACEI or ARB treatment in the last 24 months.
 ```{r}
-obsdata1 %>% filter(id==2)
+obsdata1 %>% filter(id==21)
 ```
 
-Next, we identify individuals who ever meet the eligibility criteria and determine the first time each eligible subject becomes eligible. This first eligibility time defines time zero ($T_0$), marking the start of follow-up for each participant in the target trial emulation.
+Next, we identify time 0 ($T_0$) at which a subject becomes eligible and initials a treatment.
 ```{r}
-eligible_info <- obsdata1 %>%
+time0 <- obsdata1 %>%filter(eligible==1 & !is.na(A)) %>%
   group_by(id) %>%
   summarise(
-    ever_eligible = any(eligible == 1, na.rm = TRUE),
-    first_eligible_time = if (any(eligible == 1, na.rm = TRUE)) min(time[eligible == 1]) else NA_real_) %>%
+    t0=min(time)) %>%
   ungroup()
 ```
 
-Check the number of subjects are ever eligible.
+Check the number of subjects enrolled in analysis.
 ```{r}
-table(eligible_info$ever_eligible)
+nrow(time0)
 ```
 
-Let’s verify a few examples. Subject 2 first becomes eligible at time 10, whereas Subjects 1 and 3 never meet the eligibility criteria during follow-up.
+Let’s verify one example. Subject 21 first becomes eligible at time 2000-07-0,and he initials treatment at time 2003-05-01. So ($T_0$) is 2003-05-01 for him.
 ```{r}
-eligible_info %>% filter(id %in% 1:3)
+time0 %>% filter(id == 21)
+
+obsdata1 %>% filter(id ==21)
 ```
 
 Filter out ineligible subjects
 ```{r}
 obsdata2 <- obsdata1 %>%
-  left_join(eligible_info, by = "id") # merge the eligibility information to our observational data
+  left_join(time0, by = "id") # merge the eligibility information to our observational data
 attr(obsdata2$eligible, "label") <- "Eligibility indicator at each time in records"
-attr(obsdata2$ever_eligible, "label") <- "Whether a subject ever becomes eligible"
-attr(obsdata2$first_eligible_time, "label") <- "When is the first time a subject becomes eligible"
+attr(obsdata2$t0, "label") <- "Start of follow-up"
 
 obsdata3 <- obsdata2 %>%
-  filter(time >= first_eligible_time) %>% # include only eligible subjects
-  select(-ever_eligible)
+  filter(time >= t0)   # include only eligible subjects who initials treatment
+  
 ```
 
 
@@ -195,11 +204,11 @@ obsdata3 <- obsdata2 %>%
 - The start of follow-up or time zero ($T_0$) is when individuals first become eligible and initiate ARB or ACEI
 - In our long-format data, the follow-up at each month is the number of months being followed up to the current month
 - In an one-row-per-patient data (?? I think we need a version of this), the end of follow-up is the time of CVD event, death, loss-to-follow-up, or the end of the study, whichever occurs first
-- ?? It is a good practice to prespecify a **index window**, say 01/01/2017 - 01/01/2020, and a study period say 01/01/2017 - 01/01/2024, so that individuals are followed up for a sufficient amount of time, i.e., 4 years
+- ?? It is a good practice to prespecify a **index window**, say 01/01/2001 - 01/01/2004, and a study period say 01/01/2017 - 01/01/2024, so that individuals are followed up for a sufficient amount of time, i.e., 4 years
 ```{r}
-obsdata4 <- obsdata3 %>%
-  mutate(follow_up = time - first_eligible_time) %>% # 
-  select(-first_eligible_time, -eligible) 
+obsdata4 <- obsdata3 %>% filter(t0>= as.Date("2001-01-01") & time < as.Date("2004-01-01")) %>%
+  mutate(follow_up = as.integer(time - t0)) %>% # 
+  select(-t0, -eligible) 
 ```
 
 
@@ -215,7 +224,9 @@ baseline <- obsdata4 %>%
 obsdata5 <- obsdata4 %>%
   left_join(baseline, by = "id") %>%
   arrange(id, follow_up)
-
+attr(obsdata5$X1_0, "label") <- "Baseline value of X1"
+attr(obsdata5$X2_0, "label") <- "Baseline value of X2"
+attr(obsdata5$age_0, "label") <- "Baseline value of age"
 obsdata5 %>% slice_head(n=10)
 
 # Save the data 
