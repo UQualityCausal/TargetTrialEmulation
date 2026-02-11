@@ -141,11 +141,11 @@ obsdata1 <- obsdata %>%
   ungroup()
 ```
 
-?? Simplify this to active comparator set up. 
-Let us see when Subject 2 becomes eligible: 
-- Subject 21 is not eligible from time 1999-06-01 to 2001-11-01 due to age below 50. Subject 21 becomes eligible at time 2001-12-01 when he turns 50 and he did not take ACEI or ARB treatment in the last 24 months.
+
+Let us see when Subject 15 becomes eligible: 
+- Subject 15 is not eligible from time 1997-11-01 to 2000-09-01 due to age below 50. Subject 21 becomes eligible at time 2000-10-01 when he turns 50 and he did not take ACEI or ARB treatment in the last 24 months.
 ```{r}
-obsdata1 %>% filter(id==21)
+obsdata1 %>% filter(id==15)
 ```
 
 Next, we identify time 0 ($T_0$) at which a subject becomes eligible and initials a treatment.
@@ -162,11 +162,11 @@ Check the number of subjects enrolled in analysis.
 nrow(time0)
 ```
 
-Let’s verify one example. Subject 21 first becomes eligible at time 2000-07-0,and he initials treatment at time 2003-05-01. So ($T_0$) is 2003-05-01 for him.
+Let’s verify one example. Subject 15 first becomes eligible at time 2000-07-0,and he initials treatment at time 2002-10-01. So ($T_0$) is 2002-10-01 for him.
 ```{r}
-time0 %>% filter(id == 21)
+time0 %>% filter(id == 15)
 
-obsdata1 %>% filter(id ==21)
+obsdata1 %>% filter(id ==15)
 ```
 
 Filter out ineligible subjects
@@ -177,7 +177,9 @@ attr(obsdata2$eligible, "label") <- "Eligibility indicator at each time in recor
 attr(obsdata2$t0, "label") <- "Start of follow-up"
 
 obsdata3 <- obsdata2 %>%
-  filter(time >= t0)   # include only eligible subjects who initials treatment
+  filter(time >= (t0-31))   # include only eligible subjects who initials treatment and previous month to get the baseline
+#check every subject has exactly one month of data before time 0
+obsdata3 %>%filter(time<t0)%>% group_by(id) %>% summarise(n=n()) %>% filter(n!=1) #expect 0 rows
   
 ```
 
@@ -203,10 +205,9 @@ obsdata3 <- obsdata2 %>%
 
 - The start of follow-up or time zero ($T_0$) is when individuals first become eligible and initiate ARB or ACEI
 - In our long-format data, the follow-up at each month is the number of months being followed up to the current month
-- In an one-row-per-patient data (?? I think we need a version of this), the end of follow-up is the time of CVD event, death, loss-to-follow-up, or the end of the study, whichever occurs first
-- ?? It is a good practice to prespecify a **index window**, say 01/01/2001 - 01/01/2004, and a study period say 01/01/2017 - 01/01/2024, so that individuals are followed up for a sufficient amount of time, i.e., 4 years
+- We acrual subjects in period 01/01/2001 - 01/01/2004,and stop collect data at 01/01/2008, so the maximum follow-up time is 84 months.
 ```{r}
-obsdata4 <- obsdata3 %>% filter(t0>= as.Date("2001-01-01") & time < as.Date("2004-01-01")) %>%
+obsdata4 <- obsdata3 %>% filter(t0>= as.Date("2001-01-01") & t0< as.Date("2004-01-01") & time < as.Date("2008-01-01")) %>%
   mutate(follow_up = as.integer(time - t0)) %>% # 
   select(-t0, -eligible) 
 ```
@@ -214,15 +215,34 @@ obsdata4 <- obsdata3 %>% filter(t0>= as.Date("2001-01-01") & time < as.Date("200
 
 Finally, we save the data for downstream statistical analysis 
 ```{r}
-# Extract baseline data 
+# Extract baseline data: last follow-up < 0 for each id
 baseline <- obsdata4 %>%
+  filter(follow_up < 0) %>%
+  group_by(id) %>%
+  slice_max(order_by = follow_up, n = 1, with_ties = FALSE) %>%  # closest to 0 from below
+  ungroup() %>%
+  select(id, X1, X2, X3, X4, age) %>%
+  rename(
+    X1_0  = X1,
+    X2_0  = X2,
+    X3_0  = X3,
+    X4_0  = X4,
+    age_0 = age
+  ) #the baseline values are the values of the month before treatment initiation. 
+
+assigned.trt <- obsdata4 %>%
   filter(follow_up==0) %>%
-  select(id, A, X1, X2, X3, X4, age) %>%
-  rename(assigned_treatment = A, X1_0 = X1, X2_0 = X2, X3_0 = X3, X4_0 = X4, age_0 = age) 
+  select(id, A) %>%
+  rename(assigned_treatment = A) #the assigned treatment is the treatment at initiation. 
+
+baseline <- baseline %>%
+  left_join(assigned.trt, by = "id") %>%
+  select(id, assigned_treatment, everything())
 
 # Merge baseline data to longitudinal data
 obsdata5 <- obsdata4 %>%
   left_join(baseline, by = "id") %>%
+  filter(follow_up>=0)%>% 
   arrange(id, follow_up)
 attr(obsdata5$X1_0, "label") <- "Baseline value of X1"
 attr(obsdata5$X2_0, "label") <- "Baseline value of X2"

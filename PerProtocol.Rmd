@@ -4,7 +4,7 @@ author: "Kevin Ying, Peirong Hao, Adam Bress, Tom Greene, Yizhe Xu^[Correspondin
 date: "`r Sys.Date()`"
 output: rmarkdown::html_vignette
 bibliography: reference_ITT.bib  
-link-citations: true
+link-citations: yes
 objective: Estimate per-protocol effects on time-to-event outcomes using emulated trial data 
 vignette: >
   %\VignetteIndexEntry{Target Trial Emulation}
@@ -34,7 +34,6 @@ library(survival)
 library(survminer)
 library(lubridate)
 library(survey)
-source("generate observed data version 0.R")
 working_dir <- getwd()
 ```
 
@@ -60,13 +59,21 @@ base.trt.w <- base.weights %>% select(id, trt_weight)
 # Load the emulated observational data in long format
 obsdata5 <- readRDS("obsdata5.rds")
 
+#the time varying variables should use the values in the last period to predict the adherence and censoring probabilities in current period
+obsdata5 <- obsdata5 %>%
+  group_by(id) %>%
+  arrange(id,follow_up) %>%
+  mutate(X1.lag = lag(X1),
+         X2.lag = lag(X2),
+         age.lag = lag(age)) %>%
+  ungroup() 
+obsdata5 <-obsdata5 %>%
+  mutate(X1.lag = ifelse(follow_up == 0, X1_0, X1.lag),
+         X2.lag = ifelse(follow_up == 0, X2_0, X2.lag),
+         age.lag = ifelse(follow_up == 0, age_0, age.lag)) 
+
 # Add the propensity score to the long data
 obsdata6 <- obsdata5 %>% left_join(base.trt.w, by = "id")
-attr(obsdata6$X1_0, "label") <- "Baseline value of X1"
-attr(obsdata6$X2_0, "label") <- "Baseline value of X2"
-attr(obsdata6$X3_0, "label") <- "Baseline value of X3"
-attr(obsdata6$X4_0, "label") <- "Baseline value of X4"
-attr(obsdata6$age_0, "label") <- "Baseline value of age"
 attr(obsdata6$trt_weight, "label") <- "Untruncated inverse probability treatment weight"
 
 get_label <- function(x) {
@@ -102,7 +109,7 @@ assigned.trt.dat <- obsdata6 %>%
 # Add the initial treatment information to every row of the long data 
 obsdata7 <- obsdata6 %>% left_join(assigned.trt.dat, by = "id")
 obsdata8 <- obsdata7 %>% 
-  mutate(adherence = ifelse(A == assigned.trt, 1, 0),
+  mutate(adherence = ifelse((A == assigned.trt)& !is.na(A), 1, 0),
                             art_censored = 1-adherence) 
 ```
 
@@ -131,7 +138,7 @@ To minimize extreme weights and unstable treatment effect estimates, we use stab
 
 ```{r}
 # Fit four separate pooled logistic models using a flexible function of time (i.e., time_on_regime)
-# ?? Is it necessary to remove baseline data
+
 obsdata10 <- obsdata9 %>% filter(follow_up > 0) # probability of being adhered or on study at baseline is always 1
 
 # Data sets used for making predictions in each treatment group
@@ -139,7 +146,7 @@ obsdata_acei <- obsdata10 %>% filter(assigned.trt == 0) %>% ungroup()
 obsdata_arb <- obsdata10 %>% filter(assigned.trt == 1)  %>% ungroup()
 
 # Numerator of the adherence model for the ACEI group 
-adh.model.n0 <- glm(adherence ~  X3 + X4 + X1_0 + X2_0 + age_0 + follow_up + I(follow_up^2),
+adh.model.n0 <- glm(adherence ~  X3 + X4 + X1_0 + X2_0 + age_0 ,
                     data = obsdata_acei,
                     family = binomial(link = "logit"))
 
@@ -149,8 +156,7 @@ adh.prob.n0 <- predict(adh.model.n0, type = "response", newdata = obsdata_acei)
 
 
 # Denominator of the adherence model for the ACEI group 
-adh.model.d0 <- glm(adherence ~ X1 + X2 + X3 + X4 + age + X1_0 + X2_0 + age_0 + # include the baseline values of X1, X2, and age
-                     follow_up + I(follow_up^2), 
+adh.model.d0 <- glm(adherence ~ X1.lag + X2.lag + X3 + X4 +  X1_0 + X2_0 + age_0 ,
                     data = obsdata_acei,   
                     family = binomial(link = "logit"))
 
@@ -160,7 +166,7 @@ adh.prob.d0 <- predict(adh.model.d0, type = "response", newdata = obsdata_acei)
 
 
 # Numerator of the adherence model for the ARB group 
-adh.model.n1 <- glm(adherence ~  X3 + X4 + X1_0 + X2_0 + age_0 + follow_up + I(follow_up^2),
+adh.model.n1 <- glm(adherence ~  X3 + X4 + X1_0 + X2_0 + age_0 ,
                     data = obsdata_arb,
                     family = binomial(link = "logit"))
 
@@ -170,7 +176,7 @@ adh.prob.n1 <- predict(adh.model.n1, type = "response", newdata = obsdata_arb)
 
 
 # Denominator of the adherence model for the ARB group 
-adh.model.d1 <- glm(adherence ~ X1 + X2 + X3 + X4 + age + X1_0 + X2_0 + age_0 + follow_up + I(follow_up^2),
+adh.model.d1 <- glm(adherence ~ X1.lag + X2.lag + X3 + X4 + X1_0 + X2_0 + age_0 ,
                     data = obsdata_arb,
                     family = binomial(link = "logit"))
 
@@ -186,10 +192,10 @@ adh.prob.d1 <- predict(adh.model.d1, type = "response", newdata = obsdata_arb)
   - Conditional on treatment in the past and covariate history up to $t$, loss to follow-up at time $t$ is independent of the CVD outcome $Y$
 - Although we use the same model specifications as those in the adherence models, they do not have to the same and should be specified differently especially when prior information on the relationship between treatment, covariates, and loss to follow-up is available
 - We also fit these models for each treatment group separately to estimate the probability of not lost to follow-up at each month for each individual.
-- $C=0$ indicates being lost to follow-up ??Please verify 
+- $C=0$ indicates being lost to follow-up 
 ```{r}
 # Numerator of the loss to follow-up model for the ACEI group 
-cens.model.n0 <- glm(C ~ X3 + X4 + X1_0 + X2_0 + age_0 + follow_up + I(follow_up^2),
+cens.model.n0 <- glm(C ~ X3 + X4 + X1_0 + X2_0 + age_0 ,
                      data = obsdata_acei,
                      family = binomial(link = "logit")) 
 
@@ -198,19 +204,19 @@ cens.prob.n0 <- predict(cens.model.n0, type = "response", newdata = obsdata_acei
 
 
 # Denominator of the loss to follow-up model for the ACEI group
-cens.model.d0 <- glm(C ~ X1 + X2 + X3 + X4 + age + X1_0 + X2_0 + age_0 + follow_up + I(follow_up^2), 
+cens.model.d0 <- glm(C ~ X1.lag + X2.lag + X3 + X4 +  X1_0 + X2_0 + age_0 , 
                      data = obsdata_acei,
                      family = binomial(link = "logit"))
 
 # Probabilities of NOT being lost to follow-up for ACEI initiators
 cens.prob.d0 <- predict(cens.model.d0, type = "response", newdata = obsdata_acei) 
 
-cens.model.n1 <- glm(C ~ X3 + X4 + X1_0 + X2_0 + age_0 + follow_up + I(follow_up^2),
+cens.model.n1 <- glm(C ~ X3 + X4 + X1_0 + X2_0 + age_0 ,
                      data = obsdata_arb,
                      family = binomial(link = "logit"))
 cens.prob.n1 <- predict(cens.model.n1, type = "response", newdata = obsdata_arb)
 
-cens.model.d1 <- glm(C ~ X1 + X2 + X3 + X4 + age + X1_0 + X2_0 + age_0 + follow_up + I(follow_up^2),
+cens.model.d1 <- glm(C ~ X1.lag + X2.lag + X3 + X4 +  X1_0 + X2_0 + age_0 ,
                      data = obsdata_arb,
                      family = binomial(link = "logit"))
 cens.prob.d1 <- predict(cens.model.d1, type = "response", newdata = obsdata_arb) 
@@ -267,7 +273,7 @@ obsdata_arb2 <- obsdata9 %>%
   
 ```{r}
 obsdata11 <- bind_rows(obsdata_acei2, obsdata_arb2) %>% 
-  left_join(obsdata9 %>% select(id, trt_weight)) %>%
+  #left_join(obsdata9 %>% select(id, trt_weight)) %>%
   mutate(weight_final = weight * trt_weight) %>% # combine time-varying weights with baseline 
   select(id, follow_up, X1, X2, X3, X4, age, X1_0, X2_0, X3_0, X4_0, age_0, assigned.trt, Y, C, follow_up,
          weight, trt_weight, weight_final, adherence)
@@ -281,7 +287,6 @@ summary(obsdata11$weight_final)
 ```
 
 - Truncate the final weight at the 95th percentile to avoid extreme weights and unstable treatment effect estimates
-  - ?? these final weights are still too large after truncation, fix data generation
 ```{r}
 cutoff <- quantile(obsdata11$weight_final, 0.95)
 obsdata12 <- obsdata11 %>% 
@@ -290,55 +295,6 @@ obsdata12 <- obsdata11 %>%
 summary(obsdata12$weight_final_trun)
 ```
 
-
-## Create the same final weight using TrialEmulation R package
-
-- We now use the [data_preparation function](https://cran.r-project.org/web/packages/TrialEmulation/TrialEmulation.pdf) to estimate the weights
-  - Additional tutorial on using [TrialEmulation R package](https://arxiv.org/abs/2402.12083)
-  
-```{r}
-# ?? Add annotation to each row and argument of below to explain the indication
-# ?? I think this function can only be used for emulating a sequence of trials, how to turn off period?
-obsdata13 <- obsdata9 %>% mutate(eligible = 1)
-PP_data <- data_preparation(
-  data = obsdata13,
-  id = "id", 
-  period = "time", 
-  treatment = "A",
-  outcome = "Y", 
-  eligible = "eligible",
-  estimand_type = "PP",
-  outcome_cov = ~ X1 + X2 + X3 + X4 + age_s,
-  model_var = "assigned_treatment",
-  switch_d_cov = ~ X1 + X2 + X3 + X4 + age_s + follow_up + I(follow_up^2),
-  switch_n_cov = ~ X3 + X4 + follow_up + I(follow_up^2),
-  use_censor_weights = TRUE, 
-  cense = "C",
-  cense_d_cov = ~ X1 + X2 + X3 + X4 + age_s,
-  cense_n_cov = ~ X3 + X4,
-  pool_cense = "numerator",
-  data_dir = working_dir, 
-  save_weight_models = TRUE,
-  chunk_size = 500, 
-  separate_files = TRUE,
-  quiet = TRUE)
-
-# Extract the fitted adherence models 
-adh.model.n0 <- PP_data$switch_models$switch_n0
-adh.model.d0 <- PP_data$switch_models$switch_d0
-adh.model.n1 <- PP_data$switch_models$switch_n1
-adh.model.d1 <- PP_data$switch_models$switch_d1
-
-# Extract the fitted loss to follow-up models
-cens.model.n <- PP_data$censor_models$cens_pool_n # we asked to fit a single model for the numerator 
-cens.model.d0 <- PP_data$censor_models$cens_d0
-cens.model.d1 <- PP_data$censor_models$cens_d1
-```
-
-- ?? Add code below to check the final weights generated using data_preparation function is the same as what we generated mannually 
-```{r}
-
-```
 
 
 ## Fit a weighted pooled logistic model to estimate the average treatment effect
@@ -349,11 +305,11 @@ cens.model.d1 <- PP_data$censor_models$cens_d1
 
 ```{r}
 # Drop the rows where individuals are censored either due to nonadherence or lost to follow-up
-outcome.data <- obsdata12 %>% filter(adherence==1 & C==1)
+outcome.data <- obsdata12 %>% filter(adherence==1 & C==0)
 
 # Fit a pooled logistic model
 outcome.data.w <- svydesign(ids = ~1, weights = ~weight_final_trun, data = outcome.data)
-plr.model <- svyglm(Y ~ assigned.trt + X1_0 + X2_0 + X3_0 + X4_0 + age_0 + follow_up + I(follow_up^2),
+plr.model <- svyglm(Y ~ assigned.trt,
                     design = outcome.data.w,
                     family = binomial(link = "logit"))
 summary(plr.model)
@@ -368,12 +324,11 @@ est <- est %>%
   select(variable, Estimate, lower, upper)
 est
 ```
-??What is the truth and how does the estimated results compare?
 
 
 - Unadjusted or unweighted results
 ```{r}
-plr.model.unadj <- glm(Y ~ assigned.trt + X1_0 + X2_0 + X3_0 + X4_0 + age_0 + follow_up + I(follow_up^2),
+plr.model.unadj <- glm(Y ~ assigned.trt ,
                        data = outcome.data,
                        family = binomial(link = "logit"))
 
@@ -392,8 +347,13 @@ est.unadj
 
 - Compare the adjusted and unadjusted results to truth 
 ```{r}
-# ?? add a table to present all three results with CIs with everything rounded to 2 decimal places
-
+results=rbind(
+              data.frame(variable="assigned.trt",Estimate=-1.2,lower=NA,upper=NA,Method="Truth"),
+              est.unadj%>%mutate(Method="Unadjusted analysis"),
+              est%>%mutate(Method="Per-protocol analysis with IP weights")
+              )
+rownames(results)=NULL
+results
 ```
 
 
