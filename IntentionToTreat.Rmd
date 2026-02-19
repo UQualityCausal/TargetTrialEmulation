@@ -308,7 +308,9 @@ The hazard ratio (HR) is the estimand.
 ```{r fig.width=5, fig.height=3}
 # Schoenfeld Residuals plot: A flat line indicates that the proportional hazards assumption holds.
 plot(cox.zph(weighted_cox_model))
+```
 
+```{r fig.width=5, fig.height=3}
 # Log-log plot: Parallel lines indicate proportional hazards assumption is met.???check plot
 obsdata6.nonzero <- obsdata6 %>% filter(follow_up > 0)
 surv_fit <- survfit(Surv(follow_up, outcome) ~ assigned_treatment, data = obsdata6.nonzero)
@@ -452,9 +454,9 @@ calc_condit_cum_inc <- function(outcome_model, data) {
     arrange(id, follow_up) %>%
     group_by(id) %>%
     mutate(
-      survival_prob = cumprod(1 - prob_outcome), # P(alive up to current time)
-      survival_prob_lag = lag(survival_prob, default = 1), # P(alive up to last time)
-      death_prob = survival_prob_lag * prob_outcome, # P(dead at current time)
+      surv_prob = cumprod(1 - prob_outcome), # P(alive up to current time)
+      surv_prob_lag = lag(surv_prob, default = 1), # P(alive up to last time)
+      death_prob = surv_prob_lag * prob_outcome, # P(dead at current time)
       cum_inc = cumsum(death_prob) 
     ) %>% ungroup()
   
