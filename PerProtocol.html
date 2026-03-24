@@ -403,22 +403,26 @@ data.</p>
 <span id="cb2-18"><a href="#cb2-18" tabindex="-1"></a>    <span class="at">X2.lag =</span> <span class="fu">ifelse</span>(follow_up <span class="sc">==</span> <span class="dv">0</span>, X2_0, X2.lag),</span>
 <span id="cb2-19"><a href="#cb2-19" tabindex="-1"></a>    <span class="at">age.lag =</span> <span class="fu">ifelse</span>(follow_up <span class="sc">==</span> <span class="dv">0</span>, age_0, age.lag))</span>
 <span id="cb2-20"><a href="#cb2-20" tabindex="-1"></a></span>
-<span id="cb2-21"><a href="#cb2-21" tabindex="-1"></a><span class="co"># Add the propensity score to the long data</span></span>
-<span id="cb2-22"><a href="#cb2-22" tabindex="-1"></a>obsdata6 <span class="ot">&lt;-</span> obsdata5 <span class="sc">%&gt;%</span> <span class="fu">left_join</span>(base.trt.w, <span class="at">by =</span> <span class="st">&quot;id&quot;</span>)</span>
-<span id="cb2-23"><a href="#cb2-23" tabindex="-1"></a><span class="fu">attr</span>(obsdata6<span class="sc">$</span>trt_weight, <span class="st">&quot;label&quot;</span>) <span class="ot">&lt;-</span> <span class="st">&quot;Untruncated inverse probability treatment weight&quot;</span></span>
+<span id="cb2-21"><a href="#cb2-21" tabindex="-1"></a><span class="fu">attr</span>(obsdata5<span class="sc">$</span>X1.lag, <span class="st">&quot;label&quot;</span>) <span class="ot">&lt;-</span> <span class="st">&quot;Previous X1&quot;</span></span>
+<span id="cb2-22"><a href="#cb2-22" tabindex="-1"></a><span class="fu">attr</span>(obsdata5<span class="sc">$</span>X2.lag, <span class="st">&quot;label&quot;</span>) <span class="ot">&lt;-</span> <span class="st">&quot;Previous X2&quot;</span></span>
+<span id="cb2-23"><a href="#cb2-23" tabindex="-1"></a><span class="fu">attr</span>(obsdata5<span class="sc">$</span>age.lag, <span class="st">&quot;label&quot;</span>) <span class="ot">&lt;-</span> <span class="st">&quot;Previous age&quot;</span></span>
 <span id="cb2-24"><a href="#cb2-24" tabindex="-1"></a></span>
-<span id="cb2-25"><a href="#cb2-25" tabindex="-1"></a>get_label <span class="ot">&lt;-</span> <span class="cf">function</span>(x) {</span>
-<span id="cb2-26"><a href="#cb2-26" tabindex="-1"></a>  lbl <span class="ot">&lt;-</span> <span class="fu">attr</span>(x, <span class="st">&quot;label&quot;</span>, <span class="at">exact =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb2-27"><a href="#cb2-27" tabindex="-1"></a>  <span class="cf">if</span> (<span class="fu">is.null</span>(lbl)) <span class="st">&quot;&quot;</span> <span class="cf">else</span> <span class="fu">as.character</span>(lbl)</span>
-<span id="cb2-28"><a href="#cb2-28" tabindex="-1"></a>}</span>
-<span id="cb2-29"><a href="#cb2-29" tabindex="-1"></a></span>
-<span id="cb2-30"><a href="#cb2-30" tabindex="-1"></a>dict <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
-<span id="cb2-31"><a href="#cb2-31" tabindex="-1"></a>  <span class="at">Variable =</span> <span class="fu">names</span>(obsdata6),</span>
-<span id="cb2-32"><a href="#cb2-32" tabindex="-1"></a>  <span class="at">Meaning  =</span> <span class="fu">vapply</span>(obsdata6, get_label, <span class="fu">character</span>(<span class="dv">1</span>)),</span>
-<span id="cb2-33"><a href="#cb2-33" tabindex="-1"></a>  <span class="at">check.names =</span> <span class="cn">FALSE</span></span>
-<span id="cb2-34"><a href="#cb2-34" tabindex="-1"></a>)</span>
-<span id="cb2-35"><a href="#cb2-35" tabindex="-1"></a></span>
-<span id="cb2-36"><a href="#cb2-36" tabindex="-1"></a>knitr<span class="sc">::</span><span class="fu">kable</span>(dict, <span class="at">caption =</span> <span class="st">&quot;Data Dictionary&quot;</span>, <span class="at">row.names =</span> <span class="cn">FALSE</span>)</span></code></pre></div>
+<span id="cb2-25"><a href="#cb2-25" tabindex="-1"></a><span class="co"># Add the propensity score to the long data</span></span>
+<span id="cb2-26"><a href="#cb2-26" tabindex="-1"></a>obsdata6 <span class="ot">&lt;-</span> obsdata5 <span class="sc">%&gt;%</span> <span class="fu">left_join</span>(base.trt.w, <span class="at">by =</span> <span class="st">&quot;id&quot;</span>)</span>
+<span id="cb2-27"><a href="#cb2-27" tabindex="-1"></a><span class="fu">attr</span>(obsdata6<span class="sc">$</span>trt_weight, <span class="st">&quot;label&quot;</span>) <span class="ot">&lt;-</span> <span class="st">&quot;Untruncated inverse probability treatment weight&quot;</span></span>
+<span id="cb2-28"><a href="#cb2-28" tabindex="-1"></a></span>
+<span id="cb2-29"><a href="#cb2-29" tabindex="-1"></a>get_label <span class="ot">&lt;-</span> <span class="cf">function</span>(x) {</span>
+<span id="cb2-30"><a href="#cb2-30" tabindex="-1"></a>  lbl <span class="ot">&lt;-</span> <span class="fu">attr</span>(x, <span class="st">&quot;label&quot;</span>, <span class="at">exact =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb2-31"><a href="#cb2-31" tabindex="-1"></a>  <span class="cf">if</span> (<span class="fu">is.null</span>(lbl)) <span class="st">&quot;&quot;</span> <span class="cf">else</span> <span class="fu">as.character</span>(lbl)</span>
+<span id="cb2-32"><a href="#cb2-32" tabindex="-1"></a>}</span>
+<span id="cb2-33"><a href="#cb2-33" tabindex="-1"></a></span>
+<span id="cb2-34"><a href="#cb2-34" tabindex="-1"></a>dict <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb2-35"><a href="#cb2-35" tabindex="-1"></a>  <span class="at">Variable =</span> <span class="fu">names</span>(obsdata6),</span>
+<span id="cb2-36"><a href="#cb2-36" tabindex="-1"></a>  <span class="at">Meaning  =</span> <span class="fu">vapply</span>(obsdata6, get_label, <span class="fu">character</span>(<span class="dv">1</span>)),</span>
+<span id="cb2-37"><a href="#cb2-37" tabindex="-1"></a>  <span class="at">check.names =</span> <span class="cn">FALSE</span></span>
+<span id="cb2-38"><a href="#cb2-38" tabindex="-1"></a>)</span>
+<span id="cb2-39"><a href="#cb2-39" tabindex="-1"></a></span>
+<span id="cb2-40"><a href="#cb2-40" tabindex="-1"></a>knitr<span class="sc">::</span><span class="fu">kable</span>(dict, <span class="at">caption =</span> <span class="st">&quot;Data Dictionary&quot;</span>, <span class="at">row.names =</span> <span class="cn">FALSE</span>)</span></code></pre></div>
 <table>
 <caption>Data Dictionary</caption>
 <colgroup>
@@ -497,15 +501,15 @@ neither)</td>
 </tr>
 <tr class="even">
 <td align="left">X1.lag</td>
-<td align="left"></td>
+<td align="left">Previous X1</td>
 </tr>
 <tr class="odd">
 <td align="left">X2.lag</td>
-<td align="left"></td>
+<td align="left">Previous X2</td>
 </tr>
 <tr class="even">
 <td align="left">age.lag</td>
-<td align="left"></td>
+<td align="left">Previous age</td>
 </tr>
 <tr class="odd">
 <td align="left">trt_weight</td>
