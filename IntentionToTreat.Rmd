@@ -260,10 +260,11 @@ obsdata6 <- obsdata6 %>%
 
 summary(obsdata6$trt_weight)
 
-trt_weight_cutoff <- quantile(obsdata6$trt_weight, 0.98)
+trt_weight_cutoff <- quantile(obsdata6$trt_weight, 0.99)
 obsdata6 <- obsdata6 %>%
   mutate(trt_weight = ifelse(trt_weight > trt_weight_cutoff, trt_weight_cutoff, trt_weight))
 
+summary(obsdata6$trt_weight)
 saveRDS(obsdata6, "obsdata6.rds")
 ```
 
