@@ -12,7 +12,7 @@
 
 <meta name="author" content="Kevin Ying, Peirong Hao, Adam Bress, Tom Greene, Yizhe Xu" />
 
-<meta name="date" content="2026-01-25" />
+<meta name="date" content="2026-03-24" />
 
 <title>A new-user, active comparator design, per-protocol analysis</title>
 
@@ -342,42 +342,35 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 per-protocol analysis</h1>
 <h4 class="author">Kevin Ying, Peirong Hao, Adam Bress, Tom Greene,
 Yizhe Xu<a href="#fn1" class="footnote-ref" id="fnref1"><sup>1</sup></a></h4>
-<h4 class="date">2026-01-25</h4>
+<h4 class="date">2026-03-24</h4>
 
 
 
-<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a>knitr<span class="sc">::</span>opts_chunk<span class="sc">$</span><span class="fu">set</span>(</span>
-<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a>  <span class="at">collapse =</span> <span class="cn">TRUE</span>,</span>
-<span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a>  <span class="at">comment =</span> <span class="st">&quot;#&gt;&quot;</span></span>
-<span id="cb1-4"><a href="#cb1-4" tabindex="-1"></a>)</span>
-<span id="cb1-5"><a href="#cb1-5" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">1234</span>)</span>
-<span id="cb1-6"><a href="#cb1-6" tabindex="-1"></a><span class="fu">options</span>(<span class="at">warn =</span> <span class="sc">-</span><span class="dv">1</span>)</span></code></pre></div>
-<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a><span class="co"># Load packages</span></span>
-<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a><span class="fu">library</span>(TrialEmulation)</span>
-<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a><span class="fu">library</span>(dplyr)</span>
-<span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a><span class="fu">library</span>(tidyr)</span>
-<span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a><span class="fu">library</span>(ggplot2)</span>
-<span id="cb2-6"><a href="#cb2-6" tabindex="-1"></a><span class="fu">library</span>(survival)</span>
-<span id="cb2-7"><a href="#cb2-7" tabindex="-1"></a><span class="fu">library</span>(survminer)</span>
-<span id="cb2-8"><a href="#cb2-8" tabindex="-1"></a><span class="fu">library</span>(lubridate)</span>
-<span id="cb2-9"><a href="#cb2-9" tabindex="-1"></a><span class="fu">library</span>(survey)</span>
-<span id="cb2-10"><a href="#cb2-10" tabindex="-1"></a><span class="fu">source</span>(<span class="st">&quot;generate observed data version 0.R&quot;</span>)</span>
-<span id="cb2-11"><a href="#cb2-11" tabindex="-1"></a>working_dir <span class="ot">&lt;-</span> <span class="fu">getwd</span>()</span></code></pre></div>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="co"># Load packages</span></span>
+<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a><span class="fu">library</span>(TrialEmulation)</span>
+<span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a><span class="fu">library</span>(dplyr)</span>
+<span id="cb1-4"><a href="#cb1-4" tabindex="-1"></a><span class="fu">library</span>(tidyr)</span>
+<span id="cb1-5"><a href="#cb1-5" tabindex="-1"></a><span class="fu">library</span>(ggplot2)</span>
+<span id="cb1-6"><a href="#cb1-6" tabindex="-1"></a><span class="fu">library</span>(survival)</span>
+<span id="cb1-7"><a href="#cb1-7" tabindex="-1"></a><span class="fu">library</span>(survminer)</span>
+<span id="cb1-8"><a href="#cb1-8" tabindex="-1"></a><span class="fu">library</span>(lubridate)</span>
+<span id="cb1-9"><a href="#cb1-9" tabindex="-1"></a><span class="fu">library</span>(survey)</span>
+<span id="cb1-10"><a href="#cb1-10" tabindex="-1"></a>working_dir <span class="ot">&lt;-</span> <span class="fu">getwd</span>()</span></code></pre></div>
 <div id="introduction" class="section level2">
 <h2>Introduction</h2>
 <p>The <strong>per-protocol (PP)</strong> analysis estimates the effects
 of initiating <em>and</em> continuously adhering to the initial
-treatment. Unlike the intention-to-treat (ITT) analysis focusing on the
-effects of assigning patients to one treatment group versus another,
-patients are artificially censored in the PP analysis when they deviate
-from protocol, that is, switching to the other treatment or
+treatment. Unlike the intention-to-treat (ITT) analysis, which focuses
+on the effect of assigning patients to one treatment group versus
+another, the PP analysis artificially censors patients when they deviate
+from the protocol, including switching to the other treatment or
 discontinuing the initial treatment.</p>
 <p>PP analysis estimates treatment effects under full adherence, which
 rules out the behavioral impact of not taking the treatment as
 prescribed. PP analysis can be particularly relevant when determining
 the maximum achievable benefit of a treatment under optimal adherence
 conditions. However, it estimates the treatment effects under a nearly
-hypothetical situation (100% adherence) that often does not occur in
+hypothetical situation (100% adherence) that often does not occur in the
 real world.</p>
 </div>
 <div id="implementation-of-per-protocol-analysis" class="section level2">
@@ -390,39 +383,47 @@ cardiovascular disease (CVD).</p>
 and prepared the dataset in the <a href="https://uqualitycausal.github.io/TTECausalR/TTEdemoSig.html">single-trial
 emulation session</a>. Thus, we directly load the pre-processed
 data.</p>
-<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a><span class="co"># Extract the estimated propensity score from the ITT analysis</span></span>
-<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a>base.weights <span class="ot">&lt;-</span> <span class="fu">readRDS</span>(<span class="st">&quot;obsdata6.rds&quot;</span>)</span>
-<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a>base.trt.w <span class="ot">&lt;-</span> base.weights <span class="sc">%&gt;%</span> <span class="fu">select</span>(id, trt_weight)</span>
-<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a></span>
-<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a><span class="co"># Load the emulated observational data in long format</span></span>
-<span id="cb3-6"><a href="#cb3-6" tabindex="-1"></a>obsdata5 <span class="ot">&lt;-</span> <span class="fu">readRDS</span>(<span class="st">&quot;obsdata5.rds&quot;</span>)</span>
-<span id="cb3-7"><a href="#cb3-7" tabindex="-1"></a></span>
-<span id="cb3-8"><a href="#cb3-8" tabindex="-1"></a><span class="co"># Add the propensity score to the long data</span></span>
-<span id="cb3-9"><a href="#cb3-9" tabindex="-1"></a>obsdata6 <span class="ot">&lt;-</span> obsdata5 <span class="sc">%&gt;%</span> <span class="fu">left_join</span>(base.trt.w, <span class="at">by =</span> <span class="st">&quot;id&quot;</span>)</span>
-<span id="cb3-10"><a href="#cb3-10" tabindex="-1"></a><span class="fu">attr</span>(obsdata6<span class="sc">$</span>X1_0, <span class="st">&quot;label&quot;</span>) <span class="ot">&lt;-</span> <span class="st">&quot;Baseline value of X1&quot;</span></span>
-<span id="cb3-11"><a href="#cb3-11" tabindex="-1"></a><span class="fu">attr</span>(obsdata6<span class="sc">$</span>X2_0, <span class="st">&quot;label&quot;</span>) <span class="ot">&lt;-</span> <span class="st">&quot;Baseline value of X2&quot;</span></span>
-<span id="cb3-12"><a href="#cb3-12" tabindex="-1"></a><span class="fu">attr</span>(obsdata6<span class="sc">$</span>X3_0, <span class="st">&quot;label&quot;</span>) <span class="ot">&lt;-</span> <span class="st">&quot;Baseline value of X3&quot;</span></span>
-<span id="cb3-13"><a href="#cb3-13" tabindex="-1"></a><span class="fu">attr</span>(obsdata6<span class="sc">$</span>X4_0, <span class="st">&quot;label&quot;</span>) <span class="ot">&lt;-</span> <span class="st">&quot;Baseline value of X4&quot;</span></span>
-<span id="cb3-14"><a href="#cb3-14" tabindex="-1"></a><span class="fu">attr</span>(obsdata6<span class="sc">$</span>age_0, <span class="st">&quot;label&quot;</span>) <span class="ot">&lt;-</span> <span class="st">&quot;Baseline value of age&quot;</span></span>
-<span id="cb3-15"><a href="#cb3-15" tabindex="-1"></a><span class="fu">attr</span>(obsdata6<span class="sc">$</span>trt_weight, <span class="st">&quot;label&quot;</span>) <span class="ot">&lt;-</span> <span class="st">&quot;Untruncated inverse probability treatment weight&quot;</span></span>
-<span id="cb3-16"><a href="#cb3-16" tabindex="-1"></a></span>
-<span id="cb3-17"><a href="#cb3-17" tabindex="-1"></a>get_label <span class="ot">&lt;-</span> <span class="cf">function</span>(x) {</span>
-<span id="cb3-18"><a href="#cb3-18" tabindex="-1"></a>  lbl <span class="ot">&lt;-</span> <span class="fu">attr</span>(x, <span class="st">&quot;label&quot;</span>, <span class="at">exact =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb3-19"><a href="#cb3-19" tabindex="-1"></a>  <span class="cf">if</span> (<span class="fu">is.null</span>(lbl)) <span class="st">&quot;&quot;</span> <span class="cf">else</span> <span class="fu">as.character</span>(lbl)</span>
-<span id="cb3-20"><a href="#cb3-20" tabindex="-1"></a>}</span>
-<span id="cb3-21"><a href="#cb3-21" tabindex="-1"></a></span>
-<span id="cb3-22"><a href="#cb3-22" tabindex="-1"></a>dict <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
-<span id="cb3-23"><a href="#cb3-23" tabindex="-1"></a>  <span class="at">Variable =</span> <span class="fu">names</span>(obsdata6),</span>
-<span id="cb3-24"><a href="#cb3-24" tabindex="-1"></a>  <span class="at">Meaning  =</span> <span class="fu">vapply</span>(obsdata6, get_label, <span class="fu">character</span>(<span class="dv">1</span>)),</span>
-<span id="cb3-25"><a href="#cb3-25" tabindex="-1"></a>  <span class="at">check.names =</span> <span class="cn">FALSE</span></span>
-<span id="cb3-26"><a href="#cb3-26" tabindex="-1"></a>)</span>
-<span id="cb3-27"><a href="#cb3-27" tabindex="-1"></a></span>
-<span id="cb3-28"><a href="#cb3-28" tabindex="-1"></a>knitr<span class="sc">::</span><span class="fu">kable</span>(dict, <span class="at">caption =</span> <span class="st">&quot;Data Dictionary&quot;</span>, <span class="at">row.names =</span> <span class="cn">FALSE</span>)</span></code></pre></div>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a><span class="co"># Extract the estimated propensity score from the ITT analysis</span></span>
+<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a>base.weights <span class="ot">&lt;-</span> <span class="fu">readRDS</span>(<span class="st">&quot;obsdata6.rds&quot;</span>)</span>
+<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a>base.trt.w <span class="ot">&lt;-</span> base.weights <span class="sc">%&gt;%</span> <span class="fu">select</span>(id, trt_weight)</span>
+<span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a><span class="co"># Load the emulated observational data in long format</span></span>
+<span id="cb2-6"><a href="#cb2-6" tabindex="-1"></a>obsdata5 <span class="ot">&lt;-</span> <span class="fu">readRDS</span>(<span class="st">&quot;obsdata5.rds&quot;</span>)</span>
+<span id="cb2-7"><a href="#cb2-7" tabindex="-1"></a></span>
+<span id="cb2-8"><a href="#cb2-8" tabindex="-1"></a><span class="co"># The time varying variables should use the values in the last period to predict the adherence and censoring probabilities in current period</span></span>
+<span id="cb2-9"><a href="#cb2-9" tabindex="-1"></a>obsdata5 <span class="ot">&lt;-</span> obsdata5 <span class="sc">%&gt;%</span></span>
+<span id="cb2-10"><a href="#cb2-10" tabindex="-1"></a>  <span class="fu">group_by</span>(id) <span class="sc">%&gt;%</span></span>
+<span id="cb2-11"><a href="#cb2-11" tabindex="-1"></a>  <span class="fu">arrange</span>(id, follow_up) <span class="sc">%&gt;%</span></span>
+<span id="cb2-12"><a href="#cb2-12" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">X1.lag =</span> <span class="fu">lag</span>(X1),</span>
+<span id="cb2-13"><a href="#cb2-13" tabindex="-1"></a>    <span class="at">X2.lag =</span> <span class="fu">lag</span>(X2),</span>
+<span id="cb2-14"><a href="#cb2-14" tabindex="-1"></a>    <span class="at">age.lag =</span> <span class="fu">lag</span>(age)) <span class="sc">%&gt;%</span></span>
+<span id="cb2-15"><a href="#cb2-15" tabindex="-1"></a>  <span class="fu">ungroup</span>()</span>
+<span id="cb2-16"><a href="#cb2-16" tabindex="-1"></a>obsdata5 <span class="ot">&lt;-</span> obsdata5 <span class="sc">%&gt;%</span></span>
+<span id="cb2-17"><a href="#cb2-17" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">X1.lag =</span> <span class="fu">ifelse</span>(follow_up <span class="sc">==</span> <span class="dv">0</span>, X1_0, X1.lag),</span>
+<span id="cb2-18"><a href="#cb2-18" tabindex="-1"></a>    <span class="at">X2.lag =</span> <span class="fu">ifelse</span>(follow_up <span class="sc">==</span> <span class="dv">0</span>, X2_0, X2.lag),</span>
+<span id="cb2-19"><a href="#cb2-19" tabindex="-1"></a>    <span class="at">age.lag =</span> <span class="fu">ifelse</span>(follow_up <span class="sc">==</span> <span class="dv">0</span>, age_0, age.lag))</span>
+<span id="cb2-20"><a href="#cb2-20" tabindex="-1"></a></span>
+<span id="cb2-21"><a href="#cb2-21" tabindex="-1"></a><span class="co"># Add the propensity score to the long data</span></span>
+<span id="cb2-22"><a href="#cb2-22" tabindex="-1"></a>obsdata6 <span class="ot">&lt;-</span> obsdata5 <span class="sc">%&gt;%</span> <span class="fu">left_join</span>(base.trt.w, <span class="at">by =</span> <span class="st">&quot;id&quot;</span>)</span>
+<span id="cb2-23"><a href="#cb2-23" tabindex="-1"></a><span class="fu">attr</span>(obsdata6<span class="sc">$</span>trt_weight, <span class="st">&quot;label&quot;</span>) <span class="ot">&lt;-</span> <span class="st">&quot;Untruncated inverse probability treatment weight&quot;</span></span>
+<span id="cb2-24"><a href="#cb2-24" tabindex="-1"></a></span>
+<span id="cb2-25"><a href="#cb2-25" tabindex="-1"></a>get_label <span class="ot">&lt;-</span> <span class="cf">function</span>(x) {</span>
+<span id="cb2-26"><a href="#cb2-26" tabindex="-1"></a>  lbl <span class="ot">&lt;-</span> <span class="fu">attr</span>(x, <span class="st">&quot;label&quot;</span>, <span class="at">exact =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb2-27"><a href="#cb2-27" tabindex="-1"></a>  <span class="cf">if</span> (<span class="fu">is.null</span>(lbl)) <span class="st">&quot;&quot;</span> <span class="cf">else</span> <span class="fu">as.character</span>(lbl)</span>
+<span id="cb2-28"><a href="#cb2-28" tabindex="-1"></a>}</span>
+<span id="cb2-29"><a href="#cb2-29" tabindex="-1"></a></span>
+<span id="cb2-30"><a href="#cb2-30" tabindex="-1"></a>dict <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb2-31"><a href="#cb2-31" tabindex="-1"></a>  <span class="at">Variable =</span> <span class="fu">names</span>(obsdata6),</span>
+<span id="cb2-32"><a href="#cb2-32" tabindex="-1"></a>  <span class="at">Meaning  =</span> <span class="fu">vapply</span>(obsdata6, get_label, <span class="fu">character</span>(<span class="dv">1</span>)),</span>
+<span id="cb2-33"><a href="#cb2-33" tabindex="-1"></a>  <span class="at">check.names =</span> <span class="cn">FALSE</span></span>
+<span id="cb2-34"><a href="#cb2-34" tabindex="-1"></a>)</span>
+<span id="cb2-35"><a href="#cb2-35" tabindex="-1"></a></span>
+<span id="cb2-36"><a href="#cb2-36" tabindex="-1"></a>knitr<span class="sc">::</span><span class="fu">kable</span>(dict, <span class="at">caption =</span> <span class="st">&quot;Data Dictionary&quot;</span>, <span class="at">row.names =</span> <span class="cn">FALSE</span>)</span></code></pre></div>
 <table>
 <caption>Data Dictionary</caption>
 <colgroup>
-<col width="24%" />
-<col width="75%" />
+<col width="22%" />
+<col width="77%" />
 </colgroup>
 <thead>
 <tr class="header">
@@ -437,7 +438,7 @@ data.</p>
 </tr>
 <tr class="even">
 <td align="left">time</td>
-<td align="left">Time index for longitudinal records</td>
+<td align="left">Time index for longitudinal records (months)</td>
 </tr>
 <tr class="odd">
 <td align="left">X1</td>
@@ -450,7 +451,7 @@ time</td>
 </tr>
 <tr class="odd">
 <td align="left">X3</td>
-<td align="left">Biological sex (F/M)</td>
+<td align="left">Biological sex (M=1, F=0)</td>
 </tr>
 <tr class="even">
 <td align="left">X4</td>
@@ -462,7 +463,8 @@ time</td>
 </tr>
 <tr class="even">
 <td align="left">A</td>
-<td align="left">Treatment indicator of ARB use over time (ACEI=0)</td>
+<td align="left">Treatment indicator over time (ARB = 1, ACEI = 0; NA =
+neither)</td>
 </tr>
 <tr class="odd">
 <td align="left">Y</td>
@@ -470,39 +472,40 @@ time</td>
 </tr>
 <tr class="even">
 <td align="left">C</td>
-<td align="left">Indicator of early dropout</td>
+<td align="left">Indicator of early dropout / censoring</td>
 </tr>
 <tr class="odd">
-<td align="left">age_s</td>
-<td align="left">Standardized age over time (years)</td>
-</tr>
-<tr class="even">
 <td align="left">follow_up</td>
-<td align="left">Time index for longitudinal records</td>
-</tr>
-<tr class="odd">
-<td align="left">assigned_treatment</td>
-<td align="left">Treatment indicator of ARB use over time (ACEI=0)</td>
+<td align="left">Follow-up time</td>
 </tr>
 <tr class="even">
+<td align="left">assigned_treatment</td>
+<td align="left">Treatment indicator over time (ARB = 1, ACEI = 0; NA =
+neither)</td>
+</tr>
+<tr class="odd">
 <td align="left">X1_0</td>
 <td align="left">Baseline value of X1</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td align="left">X2_0</td>
 <td align="left">Baseline value of X2</td>
 </tr>
-<tr class="even">
-<td align="left">X3_0</td>
-<td align="left">Baseline value of X3</td>
-</tr>
 <tr class="odd">
-<td align="left">X4_0</td>
-<td align="left">Baseline value of X4</td>
-</tr>
-<tr class="even">
 <td align="left">age_0</td>
 <td align="left">Baseline value of age</td>
+</tr>
+<tr class="even">
+<td align="left">X1.lag</td>
+<td align="left"></td>
+</tr>
+<tr class="odd">
+<td align="left">X2.lag</td>
+<td align="left"></td>
+</tr>
+<tr class="even">
+<td align="left">age.lag</td>
+<td align="left"></td>
 </tr>
 <tr class="odd">
 <td align="left">trt_weight</td>
@@ -514,16 +517,16 @@ time</td>
 <div id="create-an-indicator-for-treatment-adherence" class="section level2">
 <h2>Create an indicator for treatment adherence</h2>
 <ul>
-<li>We first create a variable to indicate whether an individual is
-adhered to the initial treatment (ARB or ACEI) at month <span class="math inline">\(t\)</span></li>
+<li>We first create a variable to indicate whether an individual adheres
+to the initial treatment (ARB or ACEI) at month <span class="math inline">\(t\)</span></li>
 </ul>
-<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a><span class="co"># Extract initial or assigned treatment</span></span>
-<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a>assigned.trt.dat <span class="ot">&lt;-</span> obsdata6 <span class="sc">%&gt;%</span> </span>
-<span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a>  <span class="fu">filter</span>(follow_up <span class="sc">==</span> <span class="dv">0</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb4-4"><a href="#cb4-4" tabindex="-1"></a>  <span class="fu">rename</span>(<span class="at">assigned.trt =</span> assigned_treatment) <span class="sc">%&gt;%</span></span>
-<span id="cb4-5"><a href="#cb4-5" tabindex="-1"></a>  <span class="fu">select</span>(id, assigned.trt)</span></code></pre></div>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a><span class="co"># Extract initial or assigned treatment</span></span>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a>assigned.trt.dat <span class="ot">&lt;-</span> obsdata6 <span class="sc">%&gt;%</span></span>
+<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a>  <span class="fu">filter</span>(follow_up <span class="sc">==</span> <span class="dv">0</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a>  <span class="fu">rename</span>(<span class="at">assigned.trt =</span> assigned_treatment) <span class="sc">%&gt;%</span></span>
+<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a>  <span class="fu">select</span>(id, assigned.trt)</span></code></pre></div>
 <ul>
-<li>We then create a indicator of being artificially censored. In our
+<li>We then create an indicator of being artificially censored. In our
 example, subjects are artificially censored as soon as they deviate from
 the assigned treatment</li>
 <li>The definition of <em>artificial censoring</em> varies depending on
@@ -532,13 +535,13 @@ medication use is considered, so treatment discontinuation induced by
 treatment-related adverse events is <strong>NOT</strong> considered as
 deviating from the protocol. In addition, censoring patients immediately
 could be a strict way of defining per-protocol, some studies relax it by
-considering discontinue of a treatment for 3 months or more.</li>
+considering discontinuation of a treatment for 3 months or more.</li>
 </ul>
-<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a><span class="co"># Add the initial treatment information to every row of the long data </span></span>
-<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a>obsdata7 <span class="ot">&lt;-</span> obsdata6 <span class="sc">%&gt;%</span> <span class="fu">left_join</span>(assigned.trt.dat, <span class="at">by =</span> <span class="st">&quot;id&quot;</span>)</span>
-<span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a>obsdata8 <span class="ot">&lt;-</span> obsdata7 <span class="sc">%&gt;%</span> </span>
-<span id="cb5-4"><a href="#cb5-4" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">adherence =</span> <span class="fu">ifelse</span>(A <span class="sc">==</span> assigned.trt, <span class="dv">1</span>, <span class="dv">0</span>),</span>
-<span id="cb5-5"><a href="#cb5-5" tabindex="-1"></a>                            <span class="at">art_censored =</span> <span class="dv">1</span><span class="sc">-</span>adherence) </span></code></pre></div>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a><span class="co"># Add the initial treatment information to every row of the long data</span></span>
+<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a>obsdata7 <span class="ot">&lt;-</span> obsdata6 <span class="sc">%&gt;%</span> <span class="fu">left_join</span>(assigned.trt.dat, <span class="at">by =</span> <span class="st">&quot;id&quot;</span>)</span>
+<span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a>obsdata8 <span class="ot">&lt;-</span> obsdata7 <span class="sc">%&gt;%</span></span>
+<span id="cb4-4"><a href="#cb4-4" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">adherence =</span> <span class="fu">ifelse</span>((A <span class="sc">==</span> assigned.trt) <span class="sc">&amp;</span> <span class="sc">!</span><span class="fu">is.na</span>(A), <span class="dv">1</span>, <span class="dv">0</span>),</span>
+<span id="cb4-5"><a href="#cb4-5" tabindex="-1"></a>    <span class="at">art_censored =</span> <span class="dv">1</span> <span class="sc">-</span> adherence)</span></code></pre></div>
 <ul>
 <li>We consider the artificial censoring is <strong>monotonic</strong>,
 meaning that a patient can never come back to the study once
@@ -548,20 +551,20 @@ eventually removed</li>
 <li>However, to estimate adherence weights, we need the data from the
 month of treatment deviation, so we will keep it temporarily.</li>
 </ul>
-<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a><span class="co"># Drop the rows after individuals being artificially censored</span></span>
-<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a>obsdata9 <span class="ot">&lt;-</span> obsdata8 <span class="sc">%&gt;%</span> </span>
-<span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a>  <span class="fu">group_by</span>(id) <span class="sc">%&gt;%</span> </span>
-<span id="cb6-4"><a href="#cb6-4" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">cum_art_censored =</span> <span class="fu">cumsum</span>(art_censored)) <span class="sc">%&gt;%</span> <span class="co"># create an indicator of the censored rows</span></span>
-<span id="cb6-5"><a href="#cb6-5" tabindex="-1"></a>   <span class="fu">mutate</span>(<span class="at">cum_cum_art_censored =</span> <span class="fu">cumsum</span>(cum_art_censored)) <span class="sc">%&gt;%</span> <span class="co"># create an indicator to distinguish the first censored month and the months afterward</span></span>
-<span id="cb6-6"><a href="#cb6-6" tabindex="-1"></a>  <span class="fu">filter</span>(cum_cum_art_censored <span class="sc">%in%</span> <span class="fu">c</span>(<span class="dv">0</span>,<span class="dv">1</span>)) <span class="sc">%&gt;%</span> <span class="co"># keep only data from the adhered months and the first deviation month</span></span>
-<span id="cb6-7"><a href="#cb6-7" tabindex="-1"></a>  <span class="fu">select</span>(<span class="sc">-</span>cum_art_censored,<span class="sc">-</span>cum_cum_art_censored)</span></code></pre></div>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a><span class="co"># Drop the rows after individuals being artificially censored</span></span>
+<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a>obsdata9 <span class="ot">&lt;-</span> obsdata8 <span class="sc">%&gt;%</span></span>
+<span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a>  <span class="fu">group_by</span>(id) <span class="sc">%&gt;%</span></span>
+<span id="cb5-4"><a href="#cb5-4" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">cum_art_censored =</span> <span class="fu">cumsum</span>(art_censored)) <span class="sc">%&gt;%</span> <span class="co"># Create an indicator of the censored rows</span></span>
+<span id="cb5-5"><a href="#cb5-5" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">cum_cum_art_censored =</span> <span class="fu">cumsum</span>(cum_art_censored)) <span class="sc">%&gt;%</span> <span class="co"># Create an indicator to distinguish the first censored month and the months afterward</span></span>
+<span id="cb5-6"><a href="#cb5-6" tabindex="-1"></a>  <span class="fu">filter</span>(cum_cum_art_censored <span class="sc">%in%</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">1</span>)) <span class="sc">%&gt;%</span> <span class="co"># Keep only data from the adhered months and the first deviation month</span></span>
+<span id="cb5-7"><a href="#cb5-7" tabindex="-1"></a>  <span class="fu">select</span>(<span class="sc">-</span>cum_art_censored, <span class="sc">-</span>cum_cum_art_censored)</span></code></pre></div>
 </div>
 <div id="create-adherence-weights" class="section level2">
 <h2>Create adherence weights</h2>
 <p>To minimize extreme weights and unstable treatment effect estimates,
 we use stabilized adherence weights. Similar to the baseline treatment
 weights we explained in the <a href="https://uqualitycausal.github.io/TTECausalR/IntentionToTreat.html">Intention-to-treat
-Analysis tutorial</a>, stablized weights are also inverse weighting
+Analysis tutorial</a>, stabilized weights are also inverse weighting
 estimates constructed with a numerator and a denominator.</p>
 <ul>
 <li>In addition to the identifiability assumptions we made in the causal
@@ -581,59 +584,52 @@ probability of being adhered at month t conditional on both baseline and
 <span class="math inline">\(X_3\)</span> and <span class="math inline">\(X_4\)</span> are time-independent covariates</li>
 <li>We apply pooled logistic models to estimate the numerator and
 denominator separately and we fit the models for each treatment arm
-separately, resulting four models in total</li>
-<li>The rationale behind fitting separate model for each treatment group
-is that adherence patterns may differ. For instance, it is well-known
-patients develop more side effects from ACEIs than ARBs, so the rates
-and reasons for treatment discontinuation or switching can be very
-different.</li>
+separately, resulting in four models in total</li>
+<li>The rationale behind fitting separate models for each treatment
+group is that adherence patterns may differ. For instance, it is
+well-known patients develop more side effects from ACEIs than ARBs, so
+the rates and reasons for treatment discontinuation or switching can be
+very different.</li>
 </ul>
-<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="co"># Fit four separate pooled logistic models using a flexible function of time (i.e., time_on_regime)</span></span>
-<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a><span class="co"># ?? Is it necessary to remove baseline data</span></span>
-<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a>obsdata10 <span class="ot">&lt;-</span> obsdata9 <span class="sc">%&gt;%</span> <span class="fu">filter</span>(follow_up <span class="sc">&gt;</span> <span class="dv">0</span>) <span class="co"># probability of being adhered or on study at baseline is always 1</span></span>
-<span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a></span>
-<span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a><span class="co"># Data sets used for making predictions in each treatment group</span></span>
-<span id="cb7-6"><a href="#cb7-6" tabindex="-1"></a>obsdata_acei <span class="ot">&lt;-</span> obsdata10 <span class="sc">%&gt;%</span> <span class="fu">filter</span>(assigned.trt <span class="sc">==</span> <span class="dv">0</span>) <span class="sc">%&gt;%</span> <span class="fu">ungroup</span>()</span>
-<span id="cb7-7"><a href="#cb7-7" tabindex="-1"></a>obsdata_arb <span class="ot">&lt;-</span> obsdata10 <span class="sc">%&gt;%</span> <span class="fu">filter</span>(assigned.trt <span class="sc">==</span> <span class="dv">1</span>)  <span class="sc">%&gt;%</span> <span class="fu">ungroup</span>()</span>
-<span id="cb7-8"><a href="#cb7-8" tabindex="-1"></a></span>
-<span id="cb7-9"><a href="#cb7-9" tabindex="-1"></a><span class="co"># Numerator of the adherence model for the ACEI group </span></span>
-<span id="cb7-10"><a href="#cb7-10" tabindex="-1"></a>adh.model.n0 <span class="ot">&lt;-</span> <span class="fu">glm</span>(adherence <span class="sc">~</span>  X3 <span class="sc">+</span> X4 <span class="sc">+</span> X1_0 <span class="sc">+</span> X2_0 <span class="sc">+</span> age_0 <span class="sc">+</span> follow_up <span class="sc">+</span> <span class="fu">I</span>(follow_up<span class="sc">^</span><span class="dv">2</span>),</span>
-<span id="cb7-11"><a href="#cb7-11" tabindex="-1"></a>                    <span class="at">data =</span> obsdata_acei,</span>
-<span id="cb7-12"><a href="#cb7-12" tabindex="-1"></a>                    <span class="at">family =</span> <span class="fu">binomial</span>(<span class="at">link =</span> <span class="st">&quot;logit&quot;</span>))</span>
-<span id="cb7-13"><a href="#cb7-13" tabindex="-1"></a></span>
-<span id="cb7-14"><a href="#cb7-14" tabindex="-1"></a><span class="co"># Probabilities of being adhered to treatment ACEI for ACEI initiators</span></span>
-<span id="cb7-15"><a href="#cb7-15" tabindex="-1"></a>adh.prob.n0 <span class="ot">&lt;-</span> <span class="fu">predict</span>(adh.model.n0, <span class="at">type =</span> <span class="st">&quot;response&quot;</span>, <span class="at">newdata =</span> obsdata_acei)</span>
-<span id="cb7-16"><a href="#cb7-16" tabindex="-1"></a></span>
-<span id="cb7-17"><a href="#cb7-17" tabindex="-1"></a></span>
-<span id="cb7-18"><a href="#cb7-18" tabindex="-1"></a></span>
-<span id="cb7-19"><a href="#cb7-19" tabindex="-1"></a><span class="co"># Denominator of the adherence model for the ACEI group </span></span>
-<span id="cb7-20"><a href="#cb7-20" tabindex="-1"></a>adh.model.d0 <span class="ot">&lt;-</span> <span class="fu">glm</span>(adherence <span class="sc">~</span> X1 <span class="sc">+</span> X2 <span class="sc">+</span> X3 <span class="sc">+</span> X4 <span class="sc">+</span> age <span class="sc">+</span> X1_0 <span class="sc">+</span> X2_0 <span class="sc">+</span> age_0 <span class="sc">+</span> <span class="co"># include the baseline values of X1, X2, and age</span></span>
-<span id="cb7-21"><a href="#cb7-21" tabindex="-1"></a>                     follow_up <span class="sc">+</span> <span class="fu">I</span>(follow_up<span class="sc">^</span><span class="dv">2</span>), </span>
-<span id="cb7-22"><a href="#cb7-22" tabindex="-1"></a>                    <span class="at">data =</span> obsdata_acei,   </span>
-<span id="cb7-23"><a href="#cb7-23" tabindex="-1"></a>                    <span class="at">family =</span> <span class="fu">binomial</span>(<span class="at">link =</span> <span class="st">&quot;logit&quot;</span>))</span>
-<span id="cb7-24"><a href="#cb7-24" tabindex="-1"></a></span>
-<span id="cb7-25"><a href="#cb7-25" tabindex="-1"></a><span class="co"># Probabilities of being adhered to treatment ACEI for ACEI initiators</span></span>
-<span id="cb7-26"><a href="#cb7-26" tabindex="-1"></a>adh.prob.d0 <span class="ot">&lt;-</span> <span class="fu">predict</span>(adh.model.d0, <span class="at">type =</span> <span class="st">&quot;response&quot;</span>, <span class="at">newdata =</span> obsdata_acei)</span>
-<span id="cb7-27"><a href="#cb7-27" tabindex="-1"></a></span>
-<span id="cb7-28"><a href="#cb7-28" tabindex="-1"></a></span>
-<span id="cb7-29"><a href="#cb7-29" tabindex="-1"></a></span>
-<span id="cb7-30"><a href="#cb7-30" tabindex="-1"></a><span class="co"># Numerator of the adherence model for the ARB group </span></span>
-<span id="cb7-31"><a href="#cb7-31" tabindex="-1"></a>adh.model.n1 <span class="ot">&lt;-</span> <span class="fu">glm</span>(adherence <span class="sc">~</span>  X3 <span class="sc">+</span> X4 <span class="sc">+</span> X1_0 <span class="sc">+</span> X2_0 <span class="sc">+</span> age_0 <span class="sc">+</span> follow_up <span class="sc">+</span> <span class="fu">I</span>(follow_up<span class="sc">^</span><span class="dv">2</span>),</span>
-<span id="cb7-32"><a href="#cb7-32" tabindex="-1"></a>                    <span class="at">data =</span> obsdata_arb,</span>
-<span id="cb7-33"><a href="#cb7-33" tabindex="-1"></a>                    <span class="at">family =</span> <span class="fu">binomial</span>(<span class="at">link =</span> <span class="st">&quot;logit&quot;</span>))</span>
-<span id="cb7-34"><a href="#cb7-34" tabindex="-1"></a></span>
-<span id="cb7-35"><a href="#cb7-35" tabindex="-1"></a><span class="co"># Probabilities of being adhered to treatment ARB for ARB initiators</span></span>
-<span id="cb7-36"><a href="#cb7-36" tabindex="-1"></a>adh.prob.n1 <span class="ot">&lt;-</span> <span class="fu">predict</span>(adh.model.n1, <span class="at">type =</span> <span class="st">&quot;response&quot;</span>, <span class="at">newdata =</span> obsdata_arb)</span>
-<span id="cb7-37"><a href="#cb7-37" tabindex="-1"></a></span>
-<span id="cb7-38"><a href="#cb7-38" tabindex="-1"></a></span>
-<span id="cb7-39"><a href="#cb7-39" tabindex="-1"></a></span>
-<span id="cb7-40"><a href="#cb7-40" tabindex="-1"></a><span class="co"># Denominator of the adherence model for the ARB group </span></span>
-<span id="cb7-41"><a href="#cb7-41" tabindex="-1"></a>adh.model.d1 <span class="ot">&lt;-</span> <span class="fu">glm</span>(adherence <span class="sc">~</span> X1 <span class="sc">+</span> X2 <span class="sc">+</span> X3 <span class="sc">+</span> X4 <span class="sc">+</span> age <span class="sc">+</span> X1_0 <span class="sc">+</span> X2_0 <span class="sc">+</span> age_0 <span class="sc">+</span> follow_up <span class="sc">+</span> <span class="fu">I</span>(follow_up<span class="sc">^</span><span class="dv">2</span>),</span>
-<span id="cb7-42"><a href="#cb7-42" tabindex="-1"></a>                    <span class="at">data =</span> obsdata_arb,</span>
-<span id="cb7-43"><a href="#cb7-43" tabindex="-1"></a>                    <span class="at">family =</span> <span class="fu">binomial</span>(<span class="at">link =</span> <span class="st">&quot;logit&quot;</span>))</span>
-<span id="cb7-44"><a href="#cb7-44" tabindex="-1"></a></span>
-<span id="cb7-45"><a href="#cb7-45" tabindex="-1"></a><span class="co"># Probabilities of being adhered to treatment ARB for ARB initiators</span></span>
-<span id="cb7-46"><a href="#cb7-46" tabindex="-1"></a>adh.prob.d1 <span class="ot">&lt;-</span> <span class="fu">predict</span>(adh.model.d1, <span class="at">type =</span> <span class="st">&quot;response&quot;</span>, <span class="at">newdata =</span> obsdata_arb)</span></code></pre></div>
+<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a><span class="co"># Fit four separate pooled logistic models using a flexible function of time (i.e., time_on_regime)</span></span>
+<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a></span>
+<span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a>obsdata10 <span class="ot">&lt;-</span> obsdata9 <span class="sc">%&gt;%</span> <span class="fu">filter</span>(follow_up <span class="sc">&gt;</span> <span class="dv">0</span>) <span class="co"># Probability of being adhered or on study at baseline is always 1</span></span>
+<span id="cb6-4"><a href="#cb6-4" tabindex="-1"></a></span>
+<span id="cb6-5"><a href="#cb6-5" tabindex="-1"></a><span class="co"># Data sets used for making predictions in each treatment group</span></span>
+<span id="cb6-6"><a href="#cb6-6" tabindex="-1"></a>obsdata_acei <span class="ot">&lt;-</span> obsdata10 <span class="sc">%&gt;%</span> <span class="fu">filter</span>(assigned.trt <span class="sc">==</span> <span class="dv">0</span>) <span class="sc">%&gt;%</span> <span class="fu">ungroup</span>()</span>
+<span id="cb6-7"><a href="#cb6-7" tabindex="-1"></a>obsdata_arb <span class="ot">&lt;-</span> obsdata10 <span class="sc">%&gt;%</span> <span class="fu">filter</span>(assigned.trt <span class="sc">==</span> <span class="dv">1</span>)  <span class="sc">%&gt;%</span> <span class="fu">ungroup</span>()</span>
+<span id="cb6-8"><a href="#cb6-8" tabindex="-1"></a></span>
+<span id="cb6-9"><a href="#cb6-9" tabindex="-1"></a><span class="co"># Numerator of the adherence model for the ACEI group</span></span>
+<span id="cb6-10"><a href="#cb6-10" tabindex="-1"></a>adh.model.n0 <span class="ot">&lt;-</span> <span class="fu">glm</span>(adherence <span class="sc">~</span>  X3 <span class="sc">+</span> X4 <span class="sc">+</span> X1_0 <span class="sc">+</span> X2_0 <span class="sc">+</span> age_0 <span class="sc">+</span> follow_up <span class="sc">+</span> <span class="fu">I</span>(follow_up<span class="sc">^</span><span class="dv">2</span>), </span>
+<span id="cb6-11"><a href="#cb6-11" tabindex="-1"></a>  <span class="at">data =</span> obsdata_acei,</span>
+<span id="cb6-12"><a href="#cb6-12" tabindex="-1"></a>  <span class="at">family =</span> <span class="fu">binomial</span>(<span class="at">link =</span> <span class="st">&quot;logit&quot;</span>))</span>
+<span id="cb6-13"><a href="#cb6-13" tabindex="-1"></a></span>
+<span id="cb6-14"><a href="#cb6-14" tabindex="-1"></a><span class="co"># Probabilities of being adhered to treatment ACEI for ACEI initiators</span></span>
+<span id="cb6-15"><a href="#cb6-15" tabindex="-1"></a>adh.prob.n0 <span class="ot">&lt;-</span> <span class="fu">predict</span>(adh.model.n0, <span class="at">type =</span> <span class="st">&quot;response&quot;</span>, <span class="at">newdata =</span> obsdata_acei)</span>
+<span id="cb6-16"><a href="#cb6-16" tabindex="-1"></a></span>
+<span id="cb6-17"><a href="#cb6-17" tabindex="-1"></a><span class="co"># Denominator of the adherence model for the ACEI group</span></span>
+<span id="cb6-18"><a href="#cb6-18" tabindex="-1"></a>adh.model.d0 <span class="ot">&lt;-</span> <span class="fu">glm</span>(adherence <span class="sc">~</span> X1.lag <span class="sc">+</span> X2.lag <span class="sc">+</span> X3 <span class="sc">+</span> X4 <span class="sc">+</span>  X1_0 <span class="sc">+</span> X2_0 <span class="sc">+</span> age_0 <span class="sc">+</span> follow_up <span class="sc">+</span> <span class="fu">I</span>(follow_up<span class="sc">^</span><span class="dv">2</span>),</span>
+<span id="cb6-19"><a href="#cb6-19" tabindex="-1"></a>  <span class="at">data =</span> obsdata_acei,</span>
+<span id="cb6-20"><a href="#cb6-20" tabindex="-1"></a>  <span class="at">family =</span> <span class="fu">binomial</span>(<span class="at">link =</span> <span class="st">&quot;logit&quot;</span>))</span>
+<span id="cb6-21"><a href="#cb6-21" tabindex="-1"></a></span>
+<span id="cb6-22"><a href="#cb6-22" tabindex="-1"></a><span class="co"># Probabilities of being adhered to treatment ACEI for ACEI initiators</span></span>
+<span id="cb6-23"><a href="#cb6-23" tabindex="-1"></a>adh.prob.d0 <span class="ot">&lt;-</span> <span class="fu">predict</span>(adh.model.d0, <span class="at">type =</span> <span class="st">&quot;response&quot;</span>, <span class="at">newdata =</span> obsdata_acei)</span>
+<span id="cb6-24"><a href="#cb6-24" tabindex="-1"></a></span>
+<span id="cb6-25"><a href="#cb6-25" tabindex="-1"></a><span class="co"># Numerator of the adherence model for the ARB group</span></span>
+<span id="cb6-26"><a href="#cb6-26" tabindex="-1"></a>adh.model.n1 <span class="ot">&lt;-</span> <span class="fu">glm</span>(adherence <span class="sc">~</span>  X3 <span class="sc">+</span> X4 <span class="sc">+</span> X1_0 <span class="sc">+</span> X2_0 <span class="sc">+</span> age_0 <span class="sc">+</span> follow_up <span class="sc">+</span> <span class="fu">I</span>(follow_up<span class="sc">^</span><span class="dv">2</span>),</span>
+<span id="cb6-27"><a href="#cb6-27" tabindex="-1"></a>  <span class="at">data =</span> obsdata_arb,</span>
+<span id="cb6-28"><a href="#cb6-28" tabindex="-1"></a>  <span class="at">family =</span> <span class="fu">binomial</span>(<span class="at">link =</span> <span class="st">&quot;logit&quot;</span>))</span>
+<span id="cb6-29"><a href="#cb6-29" tabindex="-1"></a></span>
+<span id="cb6-30"><a href="#cb6-30" tabindex="-1"></a><span class="co"># Probabilities of being adhered to treatment ARB for ARB initiators</span></span>
+<span id="cb6-31"><a href="#cb6-31" tabindex="-1"></a>adh.prob.n1 <span class="ot">&lt;-</span> <span class="fu">predict</span>(adh.model.n1, <span class="at">type =</span> <span class="st">&quot;response&quot;</span>, <span class="at">newdata =</span> obsdata_arb)</span>
+<span id="cb6-32"><a href="#cb6-32" tabindex="-1"></a></span>
+<span id="cb6-33"><a href="#cb6-33" tabindex="-1"></a><span class="co"># Denominator of the adherence model for the ARB group</span></span>
+<span id="cb6-34"><a href="#cb6-34" tabindex="-1"></a>adh.model.d1 <span class="ot">&lt;-</span> <span class="fu">glm</span>(adherence <span class="sc">~</span> X1.lag <span class="sc">+</span> X2.lag <span class="sc">+</span> X3 <span class="sc">+</span> X4 <span class="sc">+</span> X1_0 <span class="sc">+</span> X2_0 <span class="sc">+</span> age_0 <span class="sc">+</span> follow_up <span class="sc">+</span> <span class="fu">I</span>(follow_up<span class="sc">^</span><span class="dv">2</span>),</span>
+<span id="cb6-35"><a href="#cb6-35" tabindex="-1"></a>  <span class="at">data =</span> obsdata_arb,</span>
+<span id="cb6-36"><a href="#cb6-36" tabindex="-1"></a>  <span class="at">family =</span> <span class="fu">binomial</span>(<span class="at">link =</span> <span class="st">&quot;logit&quot;</span>))</span>
+<span id="cb6-37"><a href="#cb6-37" tabindex="-1"></a></span>
+<span id="cb6-38"><a href="#cb6-38" tabindex="-1"></a><span class="co"># Probabilities of being adhered to treatment ARB for ARB initiators</span></span>
+<span id="cb6-39"><a href="#cb6-39" tabindex="-1"></a>adh.prob.d1 <span class="ot">&lt;-</span> <span class="fu">predict</span>(adh.model.d1, <span class="at">type =</span> <span class="st">&quot;response&quot;</span>, <span class="at">newdata =</span> obsdata_arb)</span></code></pre></div>
 <ul>
 <li>We pause the construction of adherence weights for now and shift to
 fitting similar models to create a second type of censoring weight that
@@ -652,51 +648,53 @@ loss to follow-up:
 <span class="math inline">\(t\)</span>, loss to follow-up at time <span class="math inline">\(t\)</span> is independent of the CVD outcome <span class="math inline">\(Y\)</span></li>
 </ul></li>
 <li>Although we use the same model specifications as those in the
-adherence models, they do not have to the same and should be specified
-differently especially when prior information on the relationship
-between treatment, covariates, and loss to follow-up is available</li>
+adherence models, they do not have to be the same and should be
+specified differently especially when prior information on the
+relationship between treatment, covariates, and loss to follow-up is
+available</li>
 <li>We also fit these models for each treatment group separately to
 estimate the probability of not lost to follow-up at each month for each
 individual.</li>
 <li><span class="math inline">\(C=0\)</span> indicates being lost to
-follow-up ??Please verify</li>
+follow-up</li>
 </ul>
-<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a><span class="co"># Numerator of the loss to follow-up model for the ACEI group </span></span>
-<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a>cens.model.n0 <span class="ot">&lt;-</span> <span class="fu">glm</span>(C <span class="sc">~</span> X3 <span class="sc">+</span> X4 <span class="sc">+</span> X1_0 <span class="sc">+</span> X2_0 <span class="sc">+</span> age_0 <span class="sc">+</span> follow_up <span class="sc">+</span> <span class="fu">I</span>(follow_up<span class="sc">^</span><span class="dv">2</span>),</span>
-<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a>                     <span class="at">data =</span> obsdata_acei,</span>
-<span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a>                     <span class="at">family =</span> <span class="fu">binomial</span>(<span class="at">link =</span> <span class="st">&quot;logit&quot;</span>)) </span>
-<span id="cb8-5"><a href="#cb8-5" tabindex="-1"></a></span>
-<span id="cb8-6"><a href="#cb8-6" tabindex="-1"></a><span class="co"># Probabilities of NOT being lost to follow-up for ACEI initiators</span></span>
-<span id="cb8-7"><a href="#cb8-7" tabindex="-1"></a>cens.prob.n0 <span class="ot">&lt;-</span> <span class="fu">predict</span>(cens.model.n0, <span class="at">type =</span> <span class="st">&quot;response&quot;</span>, <span class="at">newdata =</span> obsdata_acei)</span>
-<span id="cb8-8"><a href="#cb8-8" tabindex="-1"></a></span>
-<span id="cb8-9"><a href="#cb8-9" tabindex="-1"></a></span>
-<span id="cb8-10"><a href="#cb8-10" tabindex="-1"></a><span class="co"># Denominator of the loss to follow-up model for the ACEI group</span></span>
-<span id="cb8-11"><a href="#cb8-11" tabindex="-1"></a>cens.model.d0 <span class="ot">&lt;-</span> <span class="fu">glm</span>(C <span class="sc">~</span> X1 <span class="sc">+</span> X2 <span class="sc">+</span> X3 <span class="sc">+</span> X4 <span class="sc">+</span> age <span class="sc">+</span> X1_0 <span class="sc">+</span> X2_0 <span class="sc">+</span> age_0 <span class="sc">+</span> follow_up <span class="sc">+</span> <span class="fu">I</span>(follow_up<span class="sc">^</span><span class="dv">2</span>), </span>
-<span id="cb8-12"><a href="#cb8-12" tabindex="-1"></a>                     <span class="at">data =</span> obsdata_acei,</span>
-<span id="cb8-13"><a href="#cb8-13" tabindex="-1"></a>                     <span class="at">family =</span> <span class="fu">binomial</span>(<span class="at">link =</span> <span class="st">&quot;logit&quot;</span>))</span>
-<span id="cb8-14"><a href="#cb8-14" tabindex="-1"></a></span>
-<span id="cb8-15"><a href="#cb8-15" tabindex="-1"></a><span class="co"># Probabilities of NOT being lost to follow-up for ACEI initiators</span></span>
-<span id="cb8-16"><a href="#cb8-16" tabindex="-1"></a>cens.prob.d0 <span class="ot">&lt;-</span> <span class="fu">predict</span>(cens.model.d0, <span class="at">type =</span> <span class="st">&quot;response&quot;</span>, <span class="at">newdata =</span> obsdata_acei) </span>
-<span id="cb8-17"><a href="#cb8-17" tabindex="-1"></a></span>
-<span id="cb8-18"><a href="#cb8-18" tabindex="-1"></a>cens.model.n1 <span class="ot">&lt;-</span> <span class="fu">glm</span>(C <span class="sc">~</span> X3 <span class="sc">+</span> X4 <span class="sc">+</span> X1_0 <span class="sc">+</span> X2_0 <span class="sc">+</span> age_0 <span class="sc">+</span> follow_up <span class="sc">+</span> <span class="fu">I</span>(follow_up<span class="sc">^</span><span class="dv">2</span>),</span>
-<span id="cb8-19"><a href="#cb8-19" tabindex="-1"></a>                     <span class="at">data =</span> obsdata_arb,</span>
-<span id="cb8-20"><a href="#cb8-20" tabindex="-1"></a>                     <span class="at">family =</span> <span class="fu">binomial</span>(<span class="at">link =</span> <span class="st">&quot;logit&quot;</span>))</span>
-<span id="cb8-21"><a href="#cb8-21" tabindex="-1"></a>cens.prob.n1 <span class="ot">&lt;-</span> <span class="fu">predict</span>(cens.model.n1, <span class="at">type =</span> <span class="st">&quot;response&quot;</span>, <span class="at">newdata =</span> obsdata_arb)</span>
-<span id="cb8-22"><a href="#cb8-22" tabindex="-1"></a></span>
-<span id="cb8-23"><a href="#cb8-23" tabindex="-1"></a>cens.model.d1 <span class="ot">&lt;-</span> <span class="fu">glm</span>(C <span class="sc">~</span> X1 <span class="sc">+</span> X2 <span class="sc">+</span> X3 <span class="sc">+</span> X4 <span class="sc">+</span> age <span class="sc">+</span> X1_0 <span class="sc">+</span> X2_0 <span class="sc">+</span> age_0 <span class="sc">+</span> follow_up <span class="sc">+</span> <span class="fu">I</span>(follow_up<span class="sc">^</span><span class="dv">2</span>),</span>
-<span id="cb8-24"><a href="#cb8-24" tabindex="-1"></a>                     <span class="at">data =</span> obsdata_arb,</span>
-<span id="cb8-25"><a href="#cb8-25" tabindex="-1"></a>                     <span class="at">family =</span> <span class="fu">binomial</span>(<span class="at">link =</span> <span class="st">&quot;logit&quot;</span>))</span>
-<span id="cb8-26"><a href="#cb8-26" tabindex="-1"></a>cens.prob.d1 <span class="ot">&lt;-</span> <span class="fu">predict</span>(cens.model.d1, <span class="at">type =</span> <span class="st">&quot;response&quot;</span>, <span class="at">newdata =</span> obsdata_arb) </span></code></pre></div>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="co"># Numerator of the loss to follow-up model for the ACEI group</span></span>
+<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a>cens.model.n0 <span class="ot">&lt;-</span> <span class="fu">glm</span>(C <span class="sc">~</span> X3 <span class="sc">+</span> X4 <span class="sc">+</span> X1_0 <span class="sc">+</span> X2_0 <span class="sc">+</span> age_0 <span class="sc">+</span> follow_up <span class="sc">+</span> <span class="fu">I</span>(follow_up<span class="sc">^</span><span class="dv">2</span>),</span>
+<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a>  <span class="at">data =</span> obsdata_acei,</span>
+<span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a>  <span class="at">family =</span> <span class="fu">binomial</span>(<span class="at">link =</span> <span class="st">&quot;logit&quot;</span>))</span>
+<span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a></span>
+<span id="cb7-6"><a href="#cb7-6" tabindex="-1"></a><span class="co"># Probabilities of NOT being lost to follow-up for ACEI initiators</span></span>
+<span id="cb7-7"><a href="#cb7-7" tabindex="-1"></a>cens.prob.n0 <span class="ot">&lt;-</span> <span class="dv">1</span> <span class="sc">-</span> <span class="fu">predict</span>(cens.model.n0, <span class="at">type =</span> <span class="st">&quot;response&quot;</span>, <span class="at">newdata =</span> obsdata_acei)</span>
+<span id="cb7-8"><a href="#cb7-8" tabindex="-1"></a></span>
+<span id="cb7-9"><a href="#cb7-9" tabindex="-1"></a><span class="co"># Denominator of the loss to follow-up model for the ACEI group</span></span>
+<span id="cb7-10"><a href="#cb7-10" tabindex="-1"></a>cens.model.d0 <span class="ot">&lt;-</span> <span class="fu">glm</span>(C <span class="sc">~</span> X1.lag <span class="sc">+</span> X2.lag <span class="sc">+</span> X3 <span class="sc">+</span> X4 <span class="sc">+</span>  X1_0 <span class="sc">+</span> X2_0 <span class="sc">+</span> age_0 <span class="sc">+</span> follow_up <span class="sc">+</span> <span class="fu">I</span>(follow_up<span class="sc">^</span><span class="dv">2</span>),</span>
+<span id="cb7-11"><a href="#cb7-11" tabindex="-1"></a>  <span class="at">data =</span> obsdata_acei,</span>
+<span id="cb7-12"><a href="#cb7-12" tabindex="-1"></a>  <span class="at">family =</span> <span class="fu">binomial</span>(<span class="at">link =</span> <span class="st">&quot;logit&quot;</span>))</span>
+<span id="cb7-13"><a href="#cb7-13" tabindex="-1"></a></span>
+<span id="cb7-14"><a href="#cb7-14" tabindex="-1"></a><span class="co"># Probabilities of NOT being lost to follow-up for ACEI initiators</span></span>
+<span id="cb7-15"><a href="#cb7-15" tabindex="-1"></a>cens.prob.d0 <span class="ot">&lt;-</span> <span class="dv">1</span> <span class="sc">-</span> <span class="fu">predict</span>(cens.model.d0, <span class="at">type =</span> <span class="st">&quot;response&quot;</span>, <span class="at">newdata =</span> obsdata_acei)</span>
+<span id="cb7-16"><a href="#cb7-16" tabindex="-1"></a></span>
+<span id="cb7-17"><a href="#cb7-17" tabindex="-1"></a>cens.model.n1 <span class="ot">&lt;-</span> <span class="fu">glm</span>(C <span class="sc">~</span> X3 <span class="sc">+</span> X4 <span class="sc">+</span> X1_0 <span class="sc">+</span> X2_0 <span class="sc">+</span> age_0 <span class="sc">+</span> follow_up <span class="sc">+</span> <span class="fu">I</span>(follow_up<span class="sc">^</span><span class="dv">2</span>),</span>
+<span id="cb7-18"><a href="#cb7-18" tabindex="-1"></a>  <span class="at">data =</span> obsdata_arb,</span>
+<span id="cb7-19"><a href="#cb7-19" tabindex="-1"></a>  <span class="at">family =</span> <span class="fu">binomial</span>(<span class="at">link =</span> <span class="st">&quot;logit&quot;</span>))</span>
+<span id="cb7-20"><a href="#cb7-20" tabindex="-1"></a></span>
+<span id="cb7-21"><a href="#cb7-21" tabindex="-1"></a>cens.prob.n1 <span class="ot">&lt;-</span> <span class="dv">1</span> <span class="sc">-</span> <span class="fu">predict</span>(cens.model.n1, <span class="at">type =</span> <span class="st">&quot;response&quot;</span>, <span class="at">newdata =</span> obsdata_arb)</span>
+<span id="cb7-22"><a href="#cb7-22" tabindex="-1"></a></span>
+<span id="cb7-23"><a href="#cb7-23" tabindex="-1"></a>cens.model.d1 <span class="ot">&lt;-</span> <span class="fu">glm</span>(C <span class="sc">~</span> X1.lag <span class="sc">+</span> X2.lag <span class="sc">+</span> X3 <span class="sc">+</span> X4 <span class="sc">+</span>  X1_0 <span class="sc">+</span> X2_0 <span class="sc">+</span> age_0 <span class="sc">+</span> follow_up <span class="sc">+</span> <span class="fu">I</span>(follow_up<span class="sc">^</span><span class="dv">2</span>),</span>
+<span id="cb7-24"><a href="#cb7-24" tabindex="-1"></a>  <span class="at">data =</span> obsdata_arb,</span>
+<span id="cb7-25"><a href="#cb7-25" tabindex="-1"></a>  <span class="at">family =</span> <span class="fu">binomial</span>(<span class="at">link =</span> <span class="st">&quot;logit&quot;</span>))</span>
+<span id="cb7-26"><a href="#cb7-26" tabindex="-1"></a></span>
+<span id="cb7-27"><a href="#cb7-27" tabindex="-1"></a>cens.prob.d1 <span class="ot">&lt;-</span> <span class="dv">1</span> <span class="sc">-</span> <span class="fu">predict</span>(cens.model.d1, <span class="at">type =</span> <span class="st">&quot;response&quot;</span>, <span class="at">newdata =</span> obsdata_arb)</span></code></pre></div>
 </div>
 <div id="convert-the-estimated-probabilities-into-weights-and-combine-them" class="section level2">
 <h2>Convert the estimated probabilities into weights and combine
 them</h2>
 <ul>
-<li>We construct the stablized weights with the probabilities estimated
+<li>We construct the stabilized weights with the probabilities estimated
 from the numerator models being the numerator and the probabilities
 estimated from the denominator models being the denominator</li>
-<li>We combine the adherence and loss to follow-up weights by multiply
-them together</li>
+<li>We combine the adherence and loss to follow-up weights by
+multiplying them together</li>
 <li>Note that we assume no one is dropped out or deviated from assigned
 treatment at month <span class="math inline">\(0\)</span> (i.e., index
 date or baseline), so the probability of being adhered and in study at
@@ -705,39 +703,37 @@ month 0 is 1</li>
 the probability of being adhered and not lost to follow-up at <span class="math inline">\(t\)</span> is conditioned on being adhered and not
 lost to follow-up at all times prior to <span class="math inline">\(t\)</span></li>
 </ul>
-<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a><span class="co"># For the ACEI group</span></span>
-<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a>obsdata_acei1 <span class="ot">&lt;-</span> obsdata_acei <span class="sc">%&gt;%</span> </span>
-<span id="cb9-3"><a href="#cb9-3" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">adh_weight_acei =</span> adh.prob.n0 <span class="sc">/</span> adh.prob.d0,   <span class="co"># adherence weights</span></span>
-<span id="cb9-4"><a href="#cb9-4" tabindex="-1"></a>         <span class="at">cens_weight_acei =</span> cens.prob.n0 <span class="sc">/</span> cens.prob.d0, <span class="co"># loss to follow-up weights</span></span>
-<span id="cb9-5"><a href="#cb9-5" tabindex="-1"></a>         <span class="at">weight_acei =</span> adh_weight_acei <span class="sc">*</span> cens_weight_acei) <span class="sc">%&gt;%</span>   <span class="co"># combined time-varying weights</span></span>
-<span id="cb9-6"><a href="#cb9-6" tabindex="-1"></a>  <span class="fu">group_by</span>(id) <span class="sc">%&gt;%</span> </span>
-<span id="cb9-7"><a href="#cb9-7" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">weight =</span> <span class="fu">cumprod</span>(weight_acei)) <span class="sc">%&gt;%</span> <span class="co"># cumulative products of the weights from each month</span></span>
-<span id="cb9-8"><a href="#cb9-8" tabindex="-1"></a>  <span class="fu">select</span>(id, follow_up, weight) <span class="sc">%&gt;%</span></span>
-<span id="cb9-9"><a href="#cb9-9" tabindex="-1"></a>  <span class="fu">ungroup</span>() </span>
-<span id="cb9-10"><a href="#cb9-10" tabindex="-1"></a>  </span>
-<span id="cb9-11"><a href="#cb9-11" tabindex="-1"></a></span>
-<span id="cb9-12"><a href="#cb9-12" tabindex="-1"></a><span class="co"># Add the weights to the long observational data</span></span>
-<span id="cb9-13"><a href="#cb9-13" tabindex="-1"></a>obsdata_acei2 <span class="ot">&lt;-</span> obsdata9 <span class="sc">%&gt;%</span> </span>
-<span id="cb9-14"><a href="#cb9-14" tabindex="-1"></a>  <span class="fu">filter</span>(assigned.trt <span class="sc">==</span> <span class="dv">0</span>) <span class="sc">%&gt;%</span> </span>
-<span id="cb9-15"><a href="#cb9-15" tabindex="-1"></a>  <span class="fu">left_join</span>(obsdata_acei1, <span class="at">by =</span> <span class="fu">c</span>(<span class="st">&quot;id&quot;</span>, <span class="st">&quot;follow_up&quot;</span>)) <span class="sc">%&gt;%</span> </span>
-<span id="cb9-16"><a href="#cb9-16" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">weight =</span> <span class="fu">ifelse</span>(follow_up <span class="sc">==</span> <span class="dv">0</span>, <span class="dv">1</span>, weight)) <span class="co"># the probability of being adhered and in study at month 0 is 1</span></span>
-<span id="cb9-17"><a href="#cb9-17" tabindex="-1"></a></span>
-<span id="cb9-18"><a href="#cb9-18" tabindex="-1"></a></span>
-<span id="cb9-19"><a href="#cb9-19" tabindex="-1"></a><span class="co"># For the ARB group</span></span>
-<span id="cb9-20"><a href="#cb9-20" tabindex="-1"></a>obsdata_arb1 <span class="ot">&lt;-</span> obsdata_arb <span class="sc">%&gt;%</span> </span>
-<span id="cb9-21"><a href="#cb9-21" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">adh_weight_arb =</span> adh.prob.n1 <span class="sc">/</span> adh.prob.d1, <span class="co"># adherence weights</span></span>
-<span id="cb9-22"><a href="#cb9-22" tabindex="-1"></a>         <span class="at">cens_weight_arb =</span> cens.prob.n1 <span class="sc">/</span> cens.prob.d1, <span class="co"># loss to follow-up weights</span></span>
-<span id="cb9-23"><a href="#cb9-23" tabindex="-1"></a>         <span class="at">weight_arb =</span> adh_weight_arb <span class="sc">*</span> cens_weight_arb) <span class="sc">%&gt;%</span> <span class="co"># cumulative products of the weights from each month</span></span>
-<span id="cb9-24"><a href="#cb9-24" tabindex="-1"></a>  <span class="fu">group_by</span>(id) <span class="sc">%&gt;%</span> </span>
-<span id="cb9-25"><a href="#cb9-25" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">weight =</span> <span class="fu">cumprod</span>(weight_arb)) <span class="sc">%&gt;%</span> <span class="co"># cumulative products of the weights from each month</span></span>
-<span id="cb9-26"><a href="#cb9-26" tabindex="-1"></a>  <span class="fu">select</span>(id, follow_up, weight) <span class="sc">%&gt;%</span></span>
-<span id="cb9-27"><a href="#cb9-27" tabindex="-1"></a>  <span class="fu">ungroup</span>() </span>
-<span id="cb9-28"><a href="#cb9-28" tabindex="-1"></a></span>
-<span id="cb9-29"><a href="#cb9-29" tabindex="-1"></a><span class="co"># Add the weights to the long observational data</span></span>
-<span id="cb9-30"><a href="#cb9-30" tabindex="-1"></a>obsdata_arb2 <span class="ot">&lt;-</span> obsdata9 <span class="sc">%&gt;%</span> </span>
-<span id="cb9-31"><a href="#cb9-31" tabindex="-1"></a>  <span class="fu">filter</span>(assigned.trt <span class="sc">==</span> <span class="dv">1</span>) <span class="sc">%&gt;%</span> </span>
-<span id="cb9-32"><a href="#cb9-32" tabindex="-1"></a>  <span class="fu">left_join</span>(obsdata_arb1, <span class="at">by =</span> <span class="fu">c</span>(<span class="st">&quot;id&quot;</span>, <span class="st">&quot;follow_up&quot;</span>)) <span class="sc">%&gt;%</span> </span>
-<span id="cb9-33"><a href="#cb9-33" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">weight =</span> <span class="fu">ifelse</span>(follow_up <span class="sc">==</span> <span class="dv">0</span>, <span class="dv">1</span>, weight)) <span class="co"># the probability of being adhered and in study at month 0 is 1</span></span></code></pre></div>
+<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a><span class="co"># For the ACEI group</span></span>
+<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a>obsdata_acei1 <span class="ot">&lt;-</span> obsdata_acei <span class="sc">%&gt;%</span></span>
+<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">adh_weight_acei =</span> adh.prob.n0 <span class="sc">/</span> adh.prob.d0, <span class="co"># Adherence weights</span></span>
+<span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a>    <span class="at">cens_weight_acei =</span> cens.prob.n0 <span class="sc">/</span> cens.prob.d0, <span class="co"># Loss to follow-up weights</span></span>
+<span id="cb8-5"><a href="#cb8-5" tabindex="-1"></a>    <span class="at">weight_acei =</span> adh_weight_acei <span class="sc">*</span> cens_weight_acei) <span class="sc">%&gt;%</span> <span class="co"># Combined time-varying weights</span></span>
+<span id="cb8-6"><a href="#cb8-6" tabindex="-1"></a>  <span class="fu">group_by</span>(id) <span class="sc">%&gt;%</span></span>
+<span id="cb8-7"><a href="#cb8-7" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">weight =</span> <span class="fu">cumprod</span>(weight_acei)) <span class="sc">%&gt;%</span> <span class="co"># Cumulative products of the weights from each month</span></span>
+<span id="cb8-8"><a href="#cb8-8" tabindex="-1"></a>  <span class="fu">select</span>(id, follow_up, weight) <span class="sc">%&gt;%</span></span>
+<span id="cb8-9"><a href="#cb8-9" tabindex="-1"></a>  <span class="fu">ungroup</span>()</span>
+<span id="cb8-10"><a href="#cb8-10" tabindex="-1"></a></span>
+<span id="cb8-11"><a href="#cb8-11" tabindex="-1"></a><span class="co"># Add the weights to the long observational data</span></span>
+<span id="cb8-12"><a href="#cb8-12" tabindex="-1"></a>obsdata_acei2 <span class="ot">&lt;-</span> obsdata9 <span class="sc">%&gt;%</span></span>
+<span id="cb8-13"><a href="#cb8-13" tabindex="-1"></a>  <span class="fu">filter</span>(assigned.trt <span class="sc">==</span> <span class="dv">0</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb8-14"><a href="#cb8-14" tabindex="-1"></a>  <span class="fu">left_join</span>(obsdata_acei1, <span class="at">by =</span> <span class="fu">c</span>(<span class="st">&quot;id&quot;</span>, <span class="st">&quot;follow_up&quot;</span>)) <span class="sc">%&gt;%</span></span>
+<span id="cb8-15"><a href="#cb8-15" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">weight =</span> <span class="fu">ifelse</span>(follow_up <span class="sc">==</span> <span class="dv">0</span>, <span class="dv">1</span>, weight)) <span class="co"># The probability of being adhered and in study at month 0 is 1</span></span>
+<span id="cb8-16"><a href="#cb8-16" tabindex="-1"></a></span>
+<span id="cb8-17"><a href="#cb8-17" tabindex="-1"></a><span class="co"># For the ARB group</span></span>
+<span id="cb8-18"><a href="#cb8-18" tabindex="-1"></a>obsdata_arb1 <span class="ot">&lt;-</span> obsdata_arb <span class="sc">%&gt;%</span></span>
+<span id="cb8-19"><a href="#cb8-19" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">adh_weight_arb =</span> adh.prob.n1 <span class="sc">/</span> adh.prob.d1, <span class="co"># Adherence weights</span></span>
+<span id="cb8-20"><a href="#cb8-20" tabindex="-1"></a>    <span class="at">cens_weight_arb =</span> cens.prob.n1 <span class="sc">/</span> cens.prob.d1, <span class="co"># Loss to follow-up weights</span></span>
+<span id="cb8-21"><a href="#cb8-21" tabindex="-1"></a>    <span class="at">weight_arb =</span> adh_weight_arb <span class="sc">*</span> cens_weight_arb) <span class="sc">%&gt;%</span> <span class="co"># Cumulative products of the weights from each month</span></span>
+<span id="cb8-22"><a href="#cb8-22" tabindex="-1"></a>  <span class="fu">group_by</span>(id) <span class="sc">%&gt;%</span></span>
+<span id="cb8-23"><a href="#cb8-23" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">weight =</span> <span class="fu">cumprod</span>(weight_arb)) <span class="sc">%&gt;%</span> <span class="co"># Cumulative products of the weights from each month</span></span>
+<span id="cb8-24"><a href="#cb8-24" tabindex="-1"></a>  <span class="fu">select</span>(id, follow_up, weight) <span class="sc">%&gt;%</span></span>
+<span id="cb8-25"><a href="#cb8-25" tabindex="-1"></a>  <span class="fu">ungroup</span>()</span>
+<span id="cb8-26"><a href="#cb8-26" tabindex="-1"></a></span>
+<span id="cb8-27"><a href="#cb8-27" tabindex="-1"></a><span class="co"># Add the weights to the long observational data</span></span>
+<span id="cb8-28"><a href="#cb8-28" tabindex="-1"></a>obsdata_arb2 <span class="ot">&lt;-</span> obsdata9 <span class="sc">%&gt;%</span></span>
+<span id="cb8-29"><a href="#cb8-29" tabindex="-1"></a>  <span class="fu">filter</span>(assigned.trt <span class="sc">==</span> <span class="dv">1</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb8-30"><a href="#cb8-30" tabindex="-1"></a>  <span class="fu">left_join</span>(obsdata_arb1, <span class="at">by =</span> <span class="fu">c</span>(<span class="st">&quot;id&quot;</span>, <span class="st">&quot;follow_up&quot;</span>)) <span class="sc">%&gt;%</span></span>
+<span id="cb8-31"><a href="#cb8-31" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">weight =</span> <span class="fu">ifelse</span>(follow_up <span class="sc">==</span> <span class="dv">0</span>, <span class="dv">1</span>, weight)) <span class="co"># The probability of being adhered and in study at month 0 is 1</span></span></code></pre></div>
 <ul>
 <li>Put the time-varying weights (i.e., adherence and loss to follow-up
 weights) of two treatment groups into one data set then combine them
@@ -753,90 +749,37 @@ time-varying adherence weights, and time-varying loss to follow-up
 weights</li>
 </ul></li>
 </ul>
-<div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" tabindex="-1"></a>obsdata11 <span class="ot">&lt;-</span> <span class="fu">bind_rows</span>(obsdata_acei2, obsdata_arb2) <span class="sc">%&gt;%</span> </span>
-<span id="cb10-2"><a href="#cb10-2" tabindex="-1"></a>  <span class="fu">left_join</span>(obsdata9 <span class="sc">%&gt;%</span> <span class="fu">select</span>(id, trt_weight)) <span class="sc">%&gt;%</span></span>
-<span id="cb10-3"><a href="#cb10-3" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">weight_final =</span> weight <span class="sc">*</span> trt_weight) <span class="sc">%&gt;%</span> <span class="co"># combine time-varying weights with baseline </span></span>
-<span id="cb10-4"><a href="#cb10-4" tabindex="-1"></a>  <span class="fu">select</span>(id, follow_up, X1, X2, X3, X4, age, X1_0, X2_0, X3_0, X4_0, age_0, assigned.trt, Y, C, follow_up,</span>
-<span id="cb10-5"><a href="#cb10-5" tabindex="-1"></a>         weight, trt_weight, weight_final, adherence)</span>
-<span id="cb10-6"><a href="#cb10-6" tabindex="-1"></a><span class="co">#&gt; Joining with `by = join_by(id, trt_weight)`</span></span>
-<span id="cb10-7"><a href="#cb10-7" tabindex="-1"></a></span>
-<span id="cb10-8"><a href="#cb10-8" tabindex="-1"></a><span class="co"># Visualize the distribution of final weight</span></span>
-<span id="cb10-9"><a href="#cb10-9" tabindex="-1"></a>obsdata11 <span class="sc">%&gt;%</span> </span>
-<span id="cb10-10"><a href="#cb10-10" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> weight_final)) <span class="sc">+</span> </span>
-<span id="cb10-11"><a href="#cb10-11" tabindex="-1"></a>  <span class="fu">geom_histogram</span>()</span>
-<span id="cb10-12"><a href="#cb10-12" tabindex="-1"></a><span class="co">#&gt; `stat_bin()` using `bins = 30`. Pick better value `binwidth`.</span></span></code></pre></div>
-<p><img role="img" src="data:image/png;base64,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" /><!-- --></p>
-<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" tabindex="-1"></a></span>
-<span id="cb11-2"><a href="#cb11-2" tabindex="-1"></a><span class="fu">summary</span>(obsdata11<span class="sc">$</span>weight_final)</span>
-<span id="cb11-3"><a href="#cb11-3" tabindex="-1"></a><span class="co">#&gt;     Min.  1st Qu.   Median     Mean  3rd Qu.     Max. </span></span>
-<span id="cb11-4"><a href="#cb11-4" tabindex="-1"></a><span class="co">#&gt;    0.075    1.103    2.466   63.207   10.833 3196.226</span></span></code></pre></div>
+<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a>obsdata11 <span class="ot">&lt;-</span> <span class="fu">bind_rows</span>(obsdata_acei2, obsdata_arb2) <span class="sc">%&gt;%</span></span>
+<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">weight_final =</span> weight <span class="sc">*</span> trt_weight) <span class="sc">%&gt;%</span> <span class="co"># Combine time-varying weights with baseline</span></span>
+<span id="cb9-3"><a href="#cb9-3" tabindex="-1"></a>  <span class="fu">select</span>(id, follow_up, X1, X2, X3, X4, age, X1_0, X2_0, X3, X4, age_0, assigned.trt, Y, C,</span>
+<span id="cb9-4"><a href="#cb9-4" tabindex="-1"></a>    weight, trt_weight, weight_final, adherence)</span>
+<span id="cb9-5"><a href="#cb9-5" tabindex="-1"></a></span>
+<span id="cb9-6"><a href="#cb9-6" tabindex="-1"></a><span class="co"># Visualize the distribution of final weight</span></span>
+<span id="cb9-7"><a href="#cb9-7" tabindex="-1"></a>obsdata11 <span class="sc">%&gt;%</span></span>
+<span id="cb9-8"><a href="#cb9-8" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> weight_final)) <span class="sc">+</span></span>
+<span id="cb9-9"><a href="#cb9-9" tabindex="-1"></a>  <span class="fu">geom_histogram</span>()</span>
+<span id="cb9-10"><a href="#cb9-10" tabindex="-1"></a><span class="co">#&gt; `stat_bin()` using `bins = 30`. Pick better value with `binwidth`.</span></span></code></pre></div>
+<p><img role="img" src="data:image/png;base64,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" /><!-- --></p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" tabindex="-1"></a></span>
+<span id="cb10-2"><a href="#cb10-2" tabindex="-1"></a><span class="fu">summary</span>(obsdata11<span class="sc">$</span>weight_final)</span>
+<span id="cb10-3"><a href="#cb10-3" tabindex="-1"></a><span class="co">#&gt;    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. </span></span>
+<span id="cb10-4"><a href="#cb10-4" tabindex="-1"></a><span class="co">#&gt;  0.6568  1.4049  1.7417  1.9802  2.2136 12.0129</span></span>
+<span id="cb10-5"><a href="#cb10-5" tabindex="-1"></a></span>
+<span id="cb10-6"><a href="#cb10-6" tabindex="-1"></a><span class="co"># A quick diagnostic for stabilized weights: mean close to 1 is generally desirable.</span></span>
+<span id="cb10-7"><a href="#cb10-7" tabindex="-1"></a><span class="fu">mean</span>(obsdata11<span class="sc">$</span>weight, <span class="at">na.rm =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb10-8"><a href="#cb10-8" tabindex="-1"></a><span class="co">#&gt; [1] 1.021648</span></span></code></pre></div>
 <ul>
 <li>Truncate the final weight at the 95th percentile to avoid extreme
-weights and unstable treatment effect estimates
-<ul>
-<li>?? these final weights are still too large after truncation, fix
-data generation</li>
-</ul></li>
+weights and unstable treatment effect estimates</li>
 </ul>
-<div class="sourceCode" id="cb12"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" tabindex="-1"></a>cutoff <span class="ot">&lt;-</span> <span class="fu">quantile</span>(obsdata11<span class="sc">$</span>weight_final, <span class="fl">0.95</span>)</span>
-<span id="cb12-2"><a href="#cb12-2" tabindex="-1"></a>obsdata12 <span class="ot">&lt;-</span> obsdata11 <span class="sc">%&gt;%</span> </span>
-<span id="cb12-3"><a href="#cb12-3" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">weight_final_trun =</span> <span class="fu">if_else</span>(weight_final <span class="sc">&gt;</span> cutoff, cutoff, weight_final))</span>
-<span id="cb12-4"><a href="#cb12-4" tabindex="-1"></a></span>
-<span id="cb12-5"><a href="#cb12-5" tabindex="-1"></a><span class="fu">summary</span>(obsdata12<span class="sc">$</span>weight_final_trun)</span>
-<span id="cb12-6"><a href="#cb12-6" tabindex="-1"></a><span class="co">#&gt;      Min.   1st Qu.    Median      Mean   3rd Qu.      Max. </span></span>
-<span id="cb12-7"><a href="#cb12-7" tabindex="-1"></a><span class="co">#&gt;   0.07512   1.10276   2.46634  27.97632  10.83329 284.25132</span></span></code></pre></div>
-</div>
-<div id="create-the-same-final-weight-using-trialemulation-r-package" class="section level2">
-<h2>Create the same final weight using TrialEmulation R package</h2>
-<ul>
-<li>We now use the <a href="https://cran.r-project.org/web/packages/TrialEmulation/TrialEmulation.pdf">data_preparation
-function</a> to estimate the weights
-<ul>
-<li>Additional tutorial on using <a href="https://arxiv.org/abs/2402.12083">TrialEmulation R
-package</a></li>
-</ul></li>
-</ul>
-<div class="sourceCode" id="cb13"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" tabindex="-1"></a><span class="co"># ?? Add annotation to each row and argument of below to explain the indication</span></span>
-<span id="cb13-2"><a href="#cb13-2" tabindex="-1"></a><span class="co"># ?? I think this function can only be used for emulating a sequence of trials, how to turn off period?</span></span>
-<span id="cb13-3"><a href="#cb13-3" tabindex="-1"></a>obsdata13 <span class="ot">&lt;-</span> obsdata9 <span class="sc">%&gt;%</span> <span class="fu">mutate</span>(<span class="at">eligible =</span> <span class="dv">1</span>)</span>
-<span id="cb13-4"><a href="#cb13-4" tabindex="-1"></a>PP_data <span class="ot">&lt;-</span> <span class="fu">data_preparation</span>(</span>
-<span id="cb13-5"><a href="#cb13-5" tabindex="-1"></a>  <span class="at">data =</span> obsdata13,</span>
-<span id="cb13-6"><a href="#cb13-6" tabindex="-1"></a>  <span class="at">id =</span> <span class="st">&quot;id&quot;</span>, </span>
-<span id="cb13-7"><a href="#cb13-7" tabindex="-1"></a>  <span class="at">period =</span> <span class="st">&quot;time&quot;</span>, </span>
-<span id="cb13-8"><a href="#cb13-8" tabindex="-1"></a>  <span class="at">treatment =</span> <span class="st">&quot;A&quot;</span>,</span>
-<span id="cb13-9"><a href="#cb13-9" tabindex="-1"></a>  <span class="at">outcome =</span> <span class="st">&quot;Y&quot;</span>, </span>
-<span id="cb13-10"><a href="#cb13-10" tabindex="-1"></a>  <span class="at">eligible =</span> <span class="st">&quot;eligible&quot;</span>,</span>
-<span id="cb13-11"><a href="#cb13-11" tabindex="-1"></a>  <span class="at">estimand_type =</span> <span class="st">&quot;PP&quot;</span>,</span>
-<span id="cb13-12"><a href="#cb13-12" tabindex="-1"></a>  <span class="at">outcome_cov =</span> <span class="sc">~</span> X1 <span class="sc">+</span> X2 <span class="sc">+</span> X3 <span class="sc">+</span> X4 <span class="sc">+</span> age_s,</span>
-<span id="cb13-13"><a href="#cb13-13" tabindex="-1"></a>  <span class="at">model_var =</span> <span class="st">&quot;assigned_treatment&quot;</span>,</span>
-<span id="cb13-14"><a href="#cb13-14" tabindex="-1"></a>  <span class="at">switch_d_cov =</span> <span class="sc">~</span> X1 <span class="sc">+</span> X2 <span class="sc">+</span> X3 <span class="sc">+</span> X4 <span class="sc">+</span> age_s <span class="sc">+</span> follow_up <span class="sc">+</span> <span class="fu">I</span>(follow_up<span class="sc">^</span><span class="dv">2</span>),</span>
-<span id="cb13-15"><a href="#cb13-15" tabindex="-1"></a>  <span class="at">switch_n_cov =</span> <span class="sc">~</span> X3 <span class="sc">+</span> X4 <span class="sc">+</span> follow_up <span class="sc">+</span> <span class="fu">I</span>(follow_up<span class="sc">^</span><span class="dv">2</span>),</span>
-<span id="cb13-16"><a href="#cb13-16" tabindex="-1"></a>  <span class="at">use_censor_weights =</span> <span class="cn">TRUE</span>, </span>
-<span id="cb13-17"><a href="#cb13-17" tabindex="-1"></a>  <span class="at">cense =</span> <span class="st">&quot;C&quot;</span>,</span>
-<span id="cb13-18"><a href="#cb13-18" tabindex="-1"></a>  <span class="at">cense_d_cov =</span> <span class="sc">~</span> X1 <span class="sc">+</span> X2 <span class="sc">+</span> X3 <span class="sc">+</span> X4 <span class="sc">+</span> age_s,</span>
-<span id="cb13-19"><a href="#cb13-19" tabindex="-1"></a>  <span class="at">cense_n_cov =</span> <span class="sc">~</span> X3 <span class="sc">+</span> X4,</span>
-<span id="cb13-20"><a href="#cb13-20" tabindex="-1"></a>  <span class="at">pool_cense =</span> <span class="st">&quot;numerator&quot;</span>,</span>
-<span id="cb13-21"><a href="#cb13-21" tabindex="-1"></a>  <span class="at">data_dir =</span> working_dir, </span>
-<span id="cb13-22"><a href="#cb13-22" tabindex="-1"></a>  <span class="at">save_weight_models =</span> <span class="cn">TRUE</span>,</span>
-<span id="cb13-23"><a href="#cb13-23" tabindex="-1"></a>  <span class="at">chunk_size =</span> <span class="dv">500</span>, </span>
-<span id="cb13-24"><a href="#cb13-24" tabindex="-1"></a>  <span class="at">separate_files =</span> <span class="cn">TRUE</span>,</span>
-<span id="cb13-25"><a href="#cb13-25" tabindex="-1"></a>  <span class="at">quiet =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb13-26"><a href="#cb13-26" tabindex="-1"></a></span>
-<span id="cb13-27"><a href="#cb13-27" tabindex="-1"></a><span class="co"># Extract the fitted adherence models </span></span>
-<span id="cb13-28"><a href="#cb13-28" tabindex="-1"></a>adh.model.n0 <span class="ot">&lt;-</span> PP_data<span class="sc">$</span>switch_models<span class="sc">$</span>switch_n0</span>
-<span id="cb13-29"><a href="#cb13-29" tabindex="-1"></a>adh.model.d0 <span class="ot">&lt;-</span> PP_data<span class="sc">$</span>switch_models<span class="sc">$</span>switch_d0</span>
-<span id="cb13-30"><a href="#cb13-30" tabindex="-1"></a>adh.model.n1 <span class="ot">&lt;-</span> PP_data<span class="sc">$</span>switch_models<span class="sc">$</span>switch_n1</span>
-<span id="cb13-31"><a href="#cb13-31" tabindex="-1"></a>adh.model.d1 <span class="ot">&lt;-</span> PP_data<span class="sc">$</span>switch_models<span class="sc">$</span>switch_d1</span>
-<span id="cb13-32"><a href="#cb13-32" tabindex="-1"></a></span>
-<span id="cb13-33"><a href="#cb13-33" tabindex="-1"></a><span class="co"># Extract the fitted loss to follow-up models</span></span>
-<span id="cb13-34"><a href="#cb13-34" tabindex="-1"></a>cens.model.n <span class="ot">&lt;-</span> PP_data<span class="sc">$</span>censor_models<span class="sc">$</span>cens_pool_n <span class="co"># we asked to fit a single model for the numerator </span></span>
-<span id="cb13-35"><a href="#cb13-35" tabindex="-1"></a>cens.model.d0 <span class="ot">&lt;-</span> PP_data<span class="sc">$</span>censor_models<span class="sc">$</span>cens_d0</span>
-<span id="cb13-36"><a href="#cb13-36" tabindex="-1"></a>cens.model.d1 <span class="ot">&lt;-</span> PP_data<span class="sc">$</span>censor_models<span class="sc">$</span>cens_d1</span></code></pre></div>
-<ul>
-<li>?? Add code below to check the final weights generated using
-data_preparation function is the same as what we generated
-mannually</li>
-</ul>
+<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" tabindex="-1"></a>cutoff <span class="ot">&lt;-</span> <span class="fu">quantile</span>(obsdata11<span class="sc">$</span>weight_final, <span class="fl">0.95</span>)</span>
+<span id="cb11-2"><a href="#cb11-2" tabindex="-1"></a></span>
+<span id="cb11-3"><a href="#cb11-3" tabindex="-1"></a>obsdata12 <span class="ot">&lt;-</span> obsdata11 <span class="sc">%&gt;%</span></span>
+<span id="cb11-4"><a href="#cb11-4" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">weight_final_trun =</span> <span class="fu">if_else</span>(weight_final <span class="sc">&gt;</span> cutoff, cutoff, weight_final))</span>
+<span id="cb11-5"><a href="#cb11-5" tabindex="-1"></a></span>
+<span id="cb11-6"><a href="#cb11-6" tabindex="-1"></a><span class="fu">summary</span>(obsdata12<span class="sc">$</span>weight_final_trun)</span>
+<span id="cb11-7"><a href="#cb11-7" tabindex="-1"></a><span class="co">#&gt;    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. </span></span>
+<span id="cb11-8"><a href="#cb11-8" tabindex="-1"></a><span class="co">#&gt;  0.6568  1.4049  1.7417  1.9155  2.2136  3.7939</span></span></code></pre></div>
 </div>
 <div id="fit-a-weighted-pooled-logistic-model-to-estimate-the-average-treatment-effect" class="section level2">
 <h2>Fit a weighted pooled logistic model to estimate the average
@@ -847,106 +790,284 @@ due to nonadherence or lost to follow-up for estimating the time-varying
 weights</li>
 <li>When fitting the outcome model, we drop these rows to include only
 uncensored individuals whose outcomes are not missing</li>
-<li>We then use the outcomes of censored individuals to represent the
-outcomes of censored ones through a weighted model.</li>
+<li>We then use the outcomes of non-censored individuals to represent
+the outcomes of censored ones through a weighted model.</li>
 </ul>
-<div class="sourceCode" id="cb14"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" tabindex="-1"></a><span class="co"># Drop the rows where individuals are censored either due to nonadherence or lost to follow-up</span></span>
-<span id="cb14-2"><a href="#cb14-2" tabindex="-1"></a>outcome.data <span class="ot">&lt;-</span> obsdata12 <span class="sc">%&gt;%</span> <span class="fu">filter</span>(adherence<span class="sc">==</span><span class="dv">1</span> <span class="sc">&amp;</span> C<span class="sc">==</span><span class="dv">1</span>)</span>
-<span id="cb14-3"><a href="#cb14-3" tabindex="-1"></a></span>
-<span id="cb14-4"><a href="#cb14-4" tabindex="-1"></a><span class="co"># Fit a pooled logistic model</span></span>
-<span id="cb14-5"><a href="#cb14-5" tabindex="-1"></a>outcome.data.w <span class="ot">&lt;-</span> <span class="fu">svydesign</span>(<span class="at">ids =</span> <span class="sc">~</span><span class="dv">1</span>, <span class="at">weights =</span> <span class="sc">~</span>weight_final_trun, <span class="at">data =</span> outcome.data)</span>
-<span id="cb14-6"><a href="#cb14-6" tabindex="-1"></a>plr.model <span class="ot">&lt;-</span> <span class="fu">svyglm</span>(Y <span class="sc">~</span> assigned.trt <span class="sc">+</span> X1_0 <span class="sc">+</span> X2_0 <span class="sc">+</span> X3_0 <span class="sc">+</span> X4_0 <span class="sc">+</span> age_0 <span class="sc">+</span> follow_up <span class="sc">+</span> <span class="fu">I</span>(follow_up<span class="sc">^</span><span class="dv">2</span>),</span>
-<span id="cb14-7"><a href="#cb14-7" tabindex="-1"></a>                    <span class="at">design =</span> outcome.data.w,</span>
-<span id="cb14-8"><a href="#cb14-8" tabindex="-1"></a>                    <span class="at">family =</span> <span class="fu">binomial</span>(<span class="at">link =</span> <span class="st">&quot;logit&quot;</span>))</span>
-<span id="cb14-9"><a href="#cb14-9" tabindex="-1"></a><span class="fu">summary</span>(plr.model)</span>
-<span id="cb14-10"><a href="#cb14-10" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb14-11"><a href="#cb14-11" tabindex="-1"></a><span class="co">#&gt; Call:</span></span>
-<span id="cb14-12"><a href="#cb14-12" tabindex="-1"></a><span class="co">#&gt; svyglm(formula = Y ~ assigned.trt + X1_0 + X2_0 + X3_0 + X4_0 + </span></span>
-<span id="cb14-13"><a href="#cb14-13" tabindex="-1"></a><span class="co">#&gt;     age_0 + follow_up + I(follow_up^2), design = outcome.data.w, </span></span>
-<span id="cb14-14"><a href="#cb14-14" tabindex="-1"></a><span class="co">#&gt;     family = binomial(link = &quot;logit&quot;))</span></span>
-<span id="cb14-15"><a href="#cb14-15" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb14-16"><a href="#cb14-16" tabindex="-1"></a><span class="co">#&gt; Survey design:</span></span>
-<span id="cb14-17"><a href="#cb14-17" tabindex="-1"></a><span class="co">#&gt; svydesign(ids = ~1, weights = ~weight_final_trun, data = outcome.data)</span></span>
-<span id="cb14-18"><a href="#cb14-18" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb14-19"><a href="#cb14-19" tabindex="-1"></a><span class="co">#&gt; Coefficients:</span></span>
-<span id="cb14-20"><a href="#cb14-20" tabindex="-1"></a><span class="co">#&gt;                 Estimate Std. Error t value Pr(&gt;|t|)   </span></span>
-<span id="cb14-21"><a href="#cb14-21" tabindex="-1"></a><span class="co">#&gt; (Intercept)    -28.84286    8.66779  -3.328   0.0012 **</span></span>
-<span id="cb14-22"><a href="#cb14-22" tabindex="-1"></a><span class="co">#&gt; assigned.trt     0.24531    0.72945   0.336   0.7373   </span></span>
-<span id="cb14-23"><a href="#cb14-23" tabindex="-1"></a><span class="co">#&gt; X1_0            -0.25194    0.38093  -0.661   0.5098   </span></span>
-<span id="cb14-24"><a href="#cb14-24" tabindex="-1"></a><span class="co">#&gt; X2_0            -0.14940    0.21638  -0.690   0.4914   </span></span>
-<span id="cb14-25"><a href="#cb14-25" tabindex="-1"></a><span class="co">#&gt; X3_0            -0.02303    0.34471  -0.067   0.9469   </span></span>
-<span id="cb14-26"><a href="#cb14-26" tabindex="-1"></a><span class="co">#&gt; X4_0             0.02996    0.28180   0.106   0.9155   </span></span>
-<span id="cb14-27"><a href="#cb14-27" tabindex="-1"></a><span class="co">#&gt; age_0            0.04834    0.16804   0.288   0.7742   </span></span>
-<span id="cb14-28"><a href="#cb14-28" tabindex="-1"></a><span class="co">#&gt; follow_up        0.12984    0.12981   1.000   0.3194   </span></span>
-<span id="cb14-29"><a href="#cb14-29" tabindex="-1"></a><span class="co">#&gt; I(follow_up^2)  -0.01475    0.00787  -1.874   0.0636 . </span></span>
-<span id="cb14-30"><a href="#cb14-30" tabindex="-1"></a><span class="co">#&gt; ---</span></span>
-<span id="cb14-31"><a href="#cb14-31" tabindex="-1"></a><span class="co">#&gt; Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</span></span>
-<span id="cb14-32"><a href="#cb14-32" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb14-33"><a href="#cb14-33" tabindex="-1"></a><span class="co">#&gt; (Dispersion parameter for binomial family taken to be 6.910661e-14)</span></span>
-<span id="cb14-34"><a href="#cb14-34" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb14-35"><a href="#cb14-35" tabindex="-1"></a><span class="co">#&gt; Number of Fisher Scoring iterations: 25</span></span>
-<span id="cb14-36"><a href="#cb14-36" tabindex="-1"></a></span>
-<span id="cb14-37"><a href="#cb14-37" tabindex="-1"></a><span class="co"># Extract the treatment effect estimate and 95% confidence interval</span></span>
-<span id="cb14-38"><a href="#cb14-38" tabindex="-1"></a>est <span class="ot">&lt;-</span> <span class="fu">summary</span>(plr.model)<span class="sc">$</span>coefficients </span>
-<span id="cb14-39"><a href="#cb14-39" tabindex="-1"></a>est <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">variable =</span> <span class="fu">rownames</span>(est), est)</span>
-<span id="cb14-40"><a href="#cb14-40" tabindex="-1"></a>est <span class="ot">&lt;-</span> est <span class="sc">%&gt;%</span></span>
-<span id="cb14-41"><a href="#cb14-41" tabindex="-1"></a>  <span class="fu">filter</span>(variable <span class="sc">==</span> <span class="st">&quot;assigned.trt&quot;</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb14-42"><a href="#cb14-42" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">lower =</span> Estimate <span class="sc">-</span> <span class="fl">1.96</span> <span class="sc">*</span> Std..Error,</span>
-<span id="cb14-43"><a href="#cb14-43" tabindex="-1"></a>         <span class="at">upper =</span> Estimate <span class="sc">+</span> <span class="fl">1.96</span> <span class="sc">*</span> Std..Error) <span class="sc">%&gt;%</span></span>
-<span id="cb14-44"><a href="#cb14-44" tabindex="-1"></a>  <span class="fu">select</span>(variable, Estimate, lower, upper)</span>
-<span id="cb14-45"><a href="#cb14-45" tabindex="-1"></a>est</span>
-<span id="cb14-46"><a href="#cb14-46" tabindex="-1"></a><span class="co">#&gt;                  variable  Estimate     lower    upper</span></span>
-<span id="cb14-47"><a href="#cb14-47" tabindex="-1"></a><span class="co">#&gt; assigned.trt assigned.trt 0.2453106 -1.184413 1.675034</span></span></code></pre></div>
-<p>??What is the truth and how does the estimated results compare?</p>
+<div class="sourceCode" id="cb12"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" tabindex="-1"></a><span class="co"># Drop the rows where individuals are censored either due to nonadherence or lost to follow-up</span></span>
+<span id="cb12-2"><a href="#cb12-2" tabindex="-1"></a>outcome.data <span class="ot">&lt;-</span> obsdata12 <span class="sc">%&gt;%</span> <span class="fu">filter</span>(adherence <span class="sc">==</span> <span class="dv">1</span> <span class="sc">&amp;</span> C <span class="sc">==</span> <span class="dv">0</span>)</span>
+<span id="cb12-3"><a href="#cb12-3" tabindex="-1"></a></span>
+<span id="cb12-4"><a href="#cb12-4" tabindex="-1"></a><span class="co"># Fit a pooled logistic model</span></span>
+<span id="cb12-5"><a href="#cb12-5" tabindex="-1"></a>outcome.data.w <span class="ot">&lt;-</span> <span class="fu">svydesign</span>(<span class="at">ids =</span> <span class="sc">~</span><span class="dv">1</span>, <span class="at">weights =</span> <span class="sc">~</span>weight_final_trun, <span class="at">data =</span> outcome.data)</span>
+<span id="cb12-6"><a href="#cb12-6" tabindex="-1"></a>plr.model <span class="ot">&lt;-</span> <span class="fu">svyglm</span>(Y <span class="sc">~</span> assigned.trt <span class="sc">+</span> X3 <span class="sc">+</span> X4 <span class="sc">+</span>  X1_0 <span class="sc">+</span> X2_0 <span class="sc">+</span> age_0 <span class="sc">+</span> follow_up <span class="sc">+</span> <span class="fu">I</span>(follow_up<span class="sc">^</span><span class="dv">2</span>),</span>
+<span id="cb12-7"><a href="#cb12-7" tabindex="-1"></a>  <span class="at">design =</span> outcome.data.w,</span>
+<span id="cb12-8"><a href="#cb12-8" tabindex="-1"></a>  <span class="at">family =</span> <span class="fu">binomial</span>(<span class="at">link =</span> <span class="st">&quot;logit&quot;</span>))</span>
+<span id="cb12-9"><a href="#cb12-9" tabindex="-1"></a><span class="fu">summary</span>(plr.model)</span>
+<span id="cb12-10"><a href="#cb12-10" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb12-11"><a href="#cb12-11" tabindex="-1"></a><span class="co">#&gt; Call:</span></span>
+<span id="cb12-12"><a href="#cb12-12" tabindex="-1"></a><span class="co">#&gt; svyglm(formula = Y ~ assigned.trt + X3 + X4 + X1_0 + X2_0 + age_0 + </span></span>
+<span id="cb12-13"><a href="#cb12-13" tabindex="-1"></a><span class="co">#&gt;     follow_up + I(follow_up^2), design = outcome.data.w, family = binomial(link = &quot;logit&quot;))</span></span>
+<span id="cb12-14"><a href="#cb12-14" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb12-15"><a href="#cb12-15" tabindex="-1"></a><span class="co">#&gt; Survey design:</span></span>
+<span id="cb12-16"><a href="#cb12-16" tabindex="-1"></a><span class="co">#&gt; svydesign(ids = ~1, weights = ~weight_final_trun, data = outcome.data)</span></span>
+<span id="cb12-17"><a href="#cb12-17" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb12-18"><a href="#cb12-18" tabindex="-1"></a><span class="co">#&gt; Coefficients:</span></span>
+<span id="cb12-19"><a href="#cb12-19" tabindex="-1"></a><span class="co">#&gt;                  Estimate Std. Error t value Pr(&gt;|t|)    </span></span>
+<span id="cb12-20"><a href="#cb12-20" tabindex="-1"></a><span class="co">#&gt; (Intercept)    -8.401e+00  8.554e-01  -9.821  &lt; 2e-16 ***</span></span>
+<span id="cb12-21"><a href="#cb12-21" tabindex="-1"></a><span class="co">#&gt; assigned.trt   -1.106e+00  2.755e-01  -4.013 6.07e-05 ***</span></span>
+<span id="cb12-22"><a href="#cb12-22" tabindex="-1"></a><span class="co">#&gt; X3              7.246e-01  2.168e-01   3.342 0.000837 ***</span></span>
+<span id="cb12-23"><a href="#cb12-23" tabindex="-1"></a><span class="co">#&gt; X4             -4.609e-01  1.042e-01  -4.422 9.98e-06 ***</span></span>
+<span id="cb12-24"><a href="#cb12-24" tabindex="-1"></a><span class="co">#&gt; X1_0            3.678e-02  2.184e-01   0.168 0.866256    </span></span>
+<span id="cb12-25"><a href="#cb12-25" tabindex="-1"></a><span class="co">#&gt; X2_0            3.940e-02  1.109e-01   0.355 0.722440    </span></span>
+<span id="cb12-26"><a href="#cb12-26" tabindex="-1"></a><span class="co">#&gt; age_0           6.463e-02  1.215e-02   5.318 1.09e-07 ***</span></span>
+<span id="cb12-27"><a href="#cb12-27" tabindex="-1"></a><span class="co">#&gt; follow_up       3.274e-03  1.551e-03   2.111 0.034792 *  </span></span>
+<span id="cb12-28"><a href="#cb12-28" tabindex="-1"></a><span class="co">#&gt; I(follow_up^2) -4.145e-06  2.106e-06  -1.968 0.049064 *  </span></span>
+<span id="cb12-29"><a href="#cb12-29" tabindex="-1"></a><span class="co">#&gt; ---</span></span>
+<span id="cb12-30"><a href="#cb12-30" tabindex="-1"></a><span class="co">#&gt; Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</span></span>
+<span id="cb12-31"><a href="#cb12-31" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb12-32"><a href="#cb12-32" tabindex="-1"></a><span class="co">#&gt; (Dispersion parameter for binomial family taken to be 1.069222)</span></span>
+<span id="cb12-33"><a href="#cb12-33" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb12-34"><a href="#cb12-34" tabindex="-1"></a><span class="co">#&gt; Number of Fisher Scoring iterations: 7</span></span>
+<span id="cb12-35"><a href="#cb12-35" tabindex="-1"></a></span>
+<span id="cb12-36"><a href="#cb12-36" tabindex="-1"></a><span class="co"># Extract the treatment effect estimate and 95% confidence interval</span></span>
+<span id="cb12-37"><a href="#cb12-37" tabindex="-1"></a>est <span class="ot">&lt;-</span> <span class="fu">summary</span>(plr.model)<span class="sc">$</span>coefficients</span>
+<span id="cb12-38"><a href="#cb12-38" tabindex="-1"></a>est <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">variable =</span> <span class="fu">rownames</span>(est), est)</span>
+<span id="cb12-39"><a href="#cb12-39" tabindex="-1"></a>est <span class="ot">&lt;-</span> est <span class="sc">%&gt;%</span></span>
+<span id="cb12-40"><a href="#cb12-40" tabindex="-1"></a>  <span class="fu">filter</span>(variable <span class="sc">==</span> <span class="st">&quot;assigned.trt&quot;</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb12-41"><a href="#cb12-41" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">lower =</span> Estimate <span class="sc">-</span> <span class="fl">1.96</span> <span class="sc">*</span> Std..Error,</span>
+<span id="cb12-42"><a href="#cb12-42" tabindex="-1"></a>    <span class="at">upper =</span> Estimate <span class="sc">+</span> <span class="fl">1.96</span> <span class="sc">*</span> Std..Error) <span class="sc">%&gt;%</span></span>
+<span id="cb12-43"><a href="#cb12-43" tabindex="-1"></a>  <span class="fu">select</span>(variable, Estimate, lower, upper)</span>
+<span id="cb12-44"><a href="#cb12-44" tabindex="-1"></a></span>
+<span id="cb12-45"><a href="#cb12-45" tabindex="-1"></a>est</span>
+<span id="cb12-46"><a href="#cb12-46" tabindex="-1"></a><span class="co">#&gt;                  variable  Estimate     lower      upper</span></span>
+<span id="cb12-47"><a href="#cb12-47" tabindex="-1"></a><span class="co">#&gt; assigned.trt assigned.trt -1.105563 -1.645525 -0.5656021</span></span></code></pre></div>
 <ul>
-<li>Unadjusted or unweighted results</li>
+<li>For comparison, we fit an unadjusted model (without weights).</li>
 </ul>
-<div class="sourceCode" id="cb15"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" tabindex="-1"></a>plr.model.unadj <span class="ot">&lt;-</span> <span class="fu">glm</span>(Y <span class="sc">~</span> assigned.trt <span class="sc">+</span> X1_0 <span class="sc">+</span> X2_0 <span class="sc">+</span> X3_0 <span class="sc">+</span> X4_0 <span class="sc">+</span> age_0 <span class="sc">+</span> follow_up <span class="sc">+</span> <span class="fu">I</span>(follow_up<span class="sc">^</span><span class="dv">2</span>),</span>
-<span id="cb15-2"><a href="#cb15-2" tabindex="-1"></a>                       <span class="at">data =</span> outcome.data,</span>
-<span id="cb15-3"><a href="#cb15-3" tabindex="-1"></a>                       <span class="at">family =</span> <span class="fu">binomial</span>(<span class="at">link =</span> <span class="st">&quot;logit&quot;</span>))</span>
+<div class="sourceCode" id="cb13"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" tabindex="-1"></a>plr.model.unadj <span class="ot">&lt;-</span> <span class="fu">glm</span>(Y <span class="sc">~</span> assigned.trt,</span>
+<span id="cb13-2"><a href="#cb13-2" tabindex="-1"></a>  <span class="at">data =</span> outcome.data,</span>
+<span id="cb13-3"><a href="#cb13-3" tabindex="-1"></a>  <span class="at">family =</span> <span class="fu">binomial</span>(<span class="at">link =</span> <span class="st">&quot;logit&quot;</span>))</span>
+<span id="cb13-4"><a href="#cb13-4" tabindex="-1"></a></span>
+<span id="cb13-5"><a href="#cb13-5" tabindex="-1"></a><span class="fu">summary</span>(plr.model.unadj)</span>
+<span id="cb13-6"><a href="#cb13-6" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb13-7"><a href="#cb13-7" tabindex="-1"></a><span class="co">#&gt; Call:</span></span>
+<span id="cb13-8"><a href="#cb13-8" tabindex="-1"></a><span class="co">#&gt; glm(formula = Y ~ assigned.trt, family = binomial(link = &quot;logit&quot;), </span></span>
+<span id="cb13-9"><a href="#cb13-9" tabindex="-1"></a><span class="co">#&gt;     data = outcome.data)</span></span>
+<span id="cb13-10"><a href="#cb13-10" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb13-11"><a href="#cb13-11" tabindex="-1"></a><span class="co">#&gt; Coefficients:</span></span>
+<span id="cb13-12"><a href="#cb13-12" tabindex="-1"></a><span class="co">#&gt;              Estimate Std. Error z value Pr(&gt;|z|)    </span></span>
+<span id="cb13-13"><a href="#cb13-13" tabindex="-1"></a><span class="co">#&gt; (Intercept)   -3.4453     0.1102 -31.269  &lt; 2e-16 ***</span></span>
+<span id="cb13-14"><a href="#cb13-14" tabindex="-1"></a><span class="co">#&gt; assigned.trt  -1.4570     0.2500  -5.828 5.61e-09 ***</span></span>
+<span id="cb13-15"><a href="#cb13-15" tabindex="-1"></a><span class="co">#&gt; ---</span></span>
+<span id="cb13-16"><a href="#cb13-16" tabindex="-1"></a><span class="co">#&gt; Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</span></span>
+<span id="cb13-17"><a href="#cb13-17" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb13-18"><a href="#cb13-18" tabindex="-1"></a><span class="co">#&gt; (Dispersion parameter for binomial family taken to be 1)</span></span>
+<span id="cb13-19"><a href="#cb13-19" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb13-20"><a href="#cb13-20" tabindex="-1"></a><span class="co">#&gt;     Null deviance: 1037.81  on 5461  degrees of freedom</span></span>
+<span id="cb13-21"><a href="#cb13-21" tabindex="-1"></a><span class="co">#&gt; Residual deviance:  994.63  on 5460  degrees of freedom</span></span>
+<span id="cb13-22"><a href="#cb13-22" tabindex="-1"></a><span class="co">#&gt; AIC: 998.63</span></span>
+<span id="cb13-23"><a href="#cb13-23" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb13-24"><a href="#cb13-24" tabindex="-1"></a><span class="co">#&gt; Number of Fisher Scoring iterations: 7</span></span>
+<span id="cb13-25"><a href="#cb13-25" tabindex="-1"></a></span>
+<span id="cb13-26"><a href="#cb13-26" tabindex="-1"></a><span class="co"># Extract the treatment effect estimate and 95% confidence interval</span></span>
+<span id="cb13-27"><a href="#cb13-27" tabindex="-1"></a>est.unadj <span class="ot">&lt;-</span> <span class="fu">summary</span>(plr.model.unadj)<span class="sc">$</span>coefficients</span>
+<span id="cb13-28"><a href="#cb13-28" tabindex="-1"></a>est.unadj <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">variable =</span> <span class="fu">rownames</span>(est.unadj), est.unadj)</span>
+<span id="cb13-29"><a href="#cb13-29" tabindex="-1"></a>est.unadj <span class="ot">&lt;-</span> est.unadj <span class="sc">%&gt;%</span></span>
+<span id="cb13-30"><a href="#cb13-30" tabindex="-1"></a>  <span class="fu">filter</span>(variable <span class="sc">==</span> <span class="st">&quot;assigned.trt&quot;</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb13-31"><a href="#cb13-31" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">lower =</span> (Estimate <span class="sc">-</span> <span class="fl">1.96</span> <span class="sc">*</span> Std..Error),</span>
+<span id="cb13-32"><a href="#cb13-32" tabindex="-1"></a>    <span class="at">upper =</span> (Estimate <span class="sc">+</span> <span class="fl">1.96</span> <span class="sc">*</span> Std..Error)) <span class="sc">%&gt;%</span></span>
+<span id="cb13-33"><a href="#cb13-33" tabindex="-1"></a>  <span class="fu">select</span>(variable, Estimate, lower, upper)</span>
+<span id="cb13-34"><a href="#cb13-34" tabindex="-1"></a></span>
+<span id="cb13-35"><a href="#cb13-35" tabindex="-1"></a>est.unadj</span>
+<span id="cb13-36"><a href="#cb13-36" tabindex="-1"></a><span class="co">#&gt;                  variable  Estimate     lower      upper</span></span>
+<span id="cb13-37"><a href="#cb13-37" tabindex="-1"></a><span class="co">#&gt; assigned.trt assigned.trt -1.456999 -1.947013 -0.9669861</span></span></code></pre></div>
+<ul>
+<li>Compare the adjusted and unadjusted results with the true
+values.</li>
+</ul>
+<div class="sourceCode" id="cb14"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" tabindex="-1"></a>results <span class="ot">&lt;-</span> <span class="fu">rbind</span>(</span>
+<span id="cb14-2"><a href="#cb14-2" tabindex="-1"></a>  <span class="fu">data.frame</span>(<span class="at">variable =</span> <span class="st">&quot;assigned.trt&quot;</span>, <span class="at">Estimate =</span> <span class="sc">-</span><span class="fl">1.2</span>, <span class="at">lower =</span> <span class="cn">NA</span>, <span class="at">upper =</span> <span class="cn">NA</span>, <span class="at">Method =</span> <span class="st">&quot;Truth&quot;</span>),</span>
+<span id="cb14-3"><a href="#cb14-3" tabindex="-1"></a>  est.unadj <span class="sc">%&gt;%</span> <span class="fu">mutate</span>(<span class="at">Method =</span> <span class="st">&quot;Unadjusted analysis&quot;</span>),</span>
+<span id="cb14-4"><a href="#cb14-4" tabindex="-1"></a>  est <span class="sc">%&gt;%</span> <span class="fu">mutate</span>(<span class="at">Method =</span> <span class="st">&quot;Per-protocol analysis with IP weights&quot;</span>)</span>
+<span id="cb14-5"><a href="#cb14-5" tabindex="-1"></a>)</span>
+<span id="cb14-6"><a href="#cb14-6" tabindex="-1"></a></span>
+<span id="cb14-7"><a href="#cb14-7" tabindex="-1"></a><span class="fu">rownames</span>(results) <span class="ot">&lt;-</span> <span class="cn">NULL</span></span>
+<span id="cb14-8"><a href="#cb14-8" tabindex="-1"></a>results</span>
+<span id="cb14-9"><a href="#cb14-9" tabindex="-1"></a><span class="co">#&gt;       variable  Estimate     lower      upper</span></span>
+<span id="cb14-10"><a href="#cb14-10" tabindex="-1"></a><span class="co">#&gt; 1 assigned.trt -1.200000        NA         NA</span></span>
+<span id="cb14-11"><a href="#cb14-11" tabindex="-1"></a><span class="co">#&gt; 2 assigned.trt -1.456999 -1.947013 -0.9669861</span></span>
+<span id="cb14-12"><a href="#cb14-12" tabindex="-1"></a><span class="co">#&gt; 3 assigned.trt -1.105563 -1.645525 -0.5656021</span></span>
+<span id="cb14-13"><a href="#cb14-13" tabindex="-1"></a><span class="co">#&gt;                                  Method</span></span>
+<span id="cb14-14"><a href="#cb14-14" tabindex="-1"></a><span class="co">#&gt; 1                                 Truth</span></span>
+<span id="cb14-15"><a href="#cb14-15" tabindex="-1"></a><span class="co">#&gt; 2                   Unadjusted analysis</span></span>
+<span id="cb14-16"><a href="#cb14-16" tabindex="-1"></a><span class="co">#&gt; 3 Per-protocol analysis with IP weights</span></span></code></pre></div>
+<ul>
+<li>Create two counterfactual datasets such that all individuals are
+assigned to treatment or control.</li>
+</ul>
+<div class="sourceCode" id="cb15"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" tabindex="-1"></a>obsdata12_cf0 <span class="ot">&lt;-</span> obsdata12 <span class="sc">%&gt;%</span></span>
+<span id="cb15-2"><a href="#cb15-2" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">assigned.trt =</span> <span class="dv">0</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb15-3"><a href="#cb15-3" tabindex="-1"></a>  <span class="fu">select</span>(id, follow_up, X1, X2, X3, X4, age, X1_0, X2_0, X3, X4, age_0, assigned.trt, Y, C, follow_up)</span>
 <span id="cb15-4"><a href="#cb15-4" tabindex="-1"></a></span>
-<span id="cb15-5"><a href="#cb15-5" tabindex="-1"></a><span class="fu">summary</span>(plr.model.unadj)</span>
-<span id="cb15-6"><a href="#cb15-6" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb15-7"><a href="#cb15-7" tabindex="-1"></a><span class="co">#&gt; Call:</span></span>
-<span id="cb15-8"><a href="#cb15-8" tabindex="-1"></a><span class="co">#&gt; glm(formula = Y ~ assigned.trt + X1_0 + X2_0 + X3_0 + X4_0 + </span></span>
-<span id="cb15-9"><a href="#cb15-9" tabindex="-1"></a><span class="co">#&gt;     age_0 + follow_up + I(follow_up^2), family = binomial(link = &quot;logit&quot;), </span></span>
-<span id="cb15-10"><a href="#cb15-10" tabindex="-1"></a><span class="co">#&gt;     data = outcome.data)</span></span>
-<span id="cb15-11"><a href="#cb15-11" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb15-12"><a href="#cb15-12" tabindex="-1"></a><span class="co">#&gt; Coefficients:</span></span>
-<span id="cb15-13"><a href="#cb15-13" tabindex="-1"></a><span class="co">#&gt;                  Estimate Std. Error z value Pr(&gt;|z|)</span></span>
-<span id="cb15-14"><a href="#cb15-14" tabindex="-1"></a><span class="co">#&gt; (Intercept)    -2.657e+01  2.371e+06       0        1</span></span>
-<span id="cb15-15"><a href="#cb15-15" tabindex="-1"></a><span class="co">#&gt; assigned.trt   -3.884e-14  2.361e+05       0        1</span></span>
-<span id="cb15-16"><a href="#cb15-16" tabindex="-1"></a><span class="co">#&gt; X1_0           -3.703e-14  9.421e+04       0        1</span></span>
-<span id="cb15-17"><a href="#cb15-17" tabindex="-1"></a><span class="co">#&gt; X2_0            4.593e-16  4.109e+04       0        1</span></span>
-<span id="cb15-18"><a href="#cb15-18" tabindex="-1"></a><span class="co">#&gt; X3_0            2.341e-14  8.743e+04       0        1</span></span>
-<span id="cb15-19"><a href="#cb15-19" tabindex="-1"></a><span class="co">#&gt; X4_0           -3.590e-15  6.266e+04       0        1</span></span>
-<span id="cb15-20"><a href="#cb15-20" tabindex="-1"></a><span class="co">#&gt; age_0           1.445e-14  4.638e+04       0        1</span></span>
-<span id="cb15-21"><a href="#cb15-21" tabindex="-1"></a><span class="co">#&gt; follow_up      -1.025e-14  3.632e+04       0        1</span></span>
-<span id="cb15-22"><a href="#cb15-22" tabindex="-1"></a><span class="co">#&gt; I(follow_up^2)  6.497e-16  2.284e+03       0        1</span></span>
-<span id="cb15-23"><a href="#cb15-23" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb15-24"><a href="#cb15-24" tabindex="-1"></a><span class="co">#&gt; (Dispersion parameter for binomial family taken to be 1)</span></span>
-<span id="cb15-25"><a href="#cb15-25" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb15-26"><a href="#cb15-26" tabindex="-1"></a><span class="co">#&gt;     Null deviance: 0.0000e+00  on 117  degrees of freedom</span></span>
-<span id="cb15-27"><a href="#cb15-27" tabindex="-1"></a><span class="co">#&gt; Residual deviance: 6.8459e-10  on 109  degrees of freedom</span></span>
-<span id="cb15-28"><a href="#cb15-28" tabindex="-1"></a><span class="co">#&gt; AIC: 18</span></span>
-<span id="cb15-29"><a href="#cb15-29" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb15-30"><a href="#cb15-30" tabindex="-1"></a><span class="co">#&gt; Number of Fisher Scoring iterations: 25</span></span>
-<span id="cb15-31"><a href="#cb15-31" tabindex="-1"></a></span>
-<span id="cb15-32"><a href="#cb15-32" tabindex="-1"></a><span class="co"># Extract the treatment effect estimate and 95% confidence interval</span></span>
-<span id="cb15-33"><a href="#cb15-33" tabindex="-1"></a>est.unadj <span class="ot">&lt;-</span> <span class="fu">summary</span>(plr.model.unadj)<span class="sc">$</span>coefficients </span>
-<span id="cb15-34"><a href="#cb15-34" tabindex="-1"></a>est.unadj <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">variable =</span> <span class="fu">rownames</span>(est.unadj), est.unadj)</span>
-<span id="cb15-35"><a href="#cb15-35" tabindex="-1"></a>est.unadj <span class="ot">&lt;-</span> est.unadj <span class="sc">%&gt;%</span></span>
-<span id="cb15-36"><a href="#cb15-36" tabindex="-1"></a>   <span class="fu">filter</span>(variable <span class="sc">==</span> <span class="st">&quot;assigned.trt&quot;</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb15-37"><a href="#cb15-37" tabindex="-1"></a>   <span class="fu">mutate</span>(<span class="at">lower=</span>(Estimate <span class="sc">-</span> <span class="fl">1.96</span> <span class="sc">*</span> Std..Error),</span>
-<span id="cb15-38"><a href="#cb15-38" tabindex="-1"></a>          <span class="at">upper=</span>(Estimate <span class="sc">+</span> <span class="fl">1.96</span> <span class="sc">*</span> Std..Error)) <span class="sc">%&gt;%</span></span>
-<span id="cb15-39"><a href="#cb15-39" tabindex="-1"></a>  <span class="fu">select</span>(variable, Estimate, lower, upper)</span>
-<span id="cb15-40"><a href="#cb15-40" tabindex="-1"></a>est.unadj</span>
-<span id="cb15-41"><a href="#cb15-41" tabindex="-1"></a><span class="co">#&gt;                  variable      Estimate     lower    upper</span></span>
-<span id="cb15-42"><a href="#cb15-42" tabindex="-1"></a><span class="co">#&gt; assigned.trt assigned.trt -3.883943e-14 -462830.6 462830.6</span></span></code></pre></div>
+<span id="cb15-5"><a href="#cb15-5" tabindex="-1"></a>obsdata12_cf1 <span class="ot">&lt;-</span> obsdata12 <span class="sc">%&gt;%</span></span>
+<span id="cb15-6"><a href="#cb15-6" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">assigned.trt =</span> <span class="dv">1</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb15-7"><a href="#cb15-7" tabindex="-1"></a>  <span class="fu">select</span>(id, follow_up, X1, X2, X3, X4, age, X1_0, X2_0, X3, X4, age_0, assigned.trt, Y, C, follow_up)</span></code></pre></div>
 <ul>
-<li>Compare the adjusted and unadjusted results to truth</li>
+<li>Function to calculate the predicted cumulative incidence of the
+outcome.</li>
 </ul>
-<div class="sourceCode" id="cb16"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" tabindex="-1"></a><span class="co"># ?? add a table to present all three results with CIs with everything rounded to 2 decimal places</span></span></code></pre></div>
+<div class="sourceCode" id="cb16"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" tabindex="-1"></a>calc_condit_cum_inc <span class="ot">&lt;-</span> <span class="cf">function</span>(outcome_model, data) {</span>
+<span id="cb16-2"><a href="#cb16-2" tabindex="-1"></a></span>
+<span id="cb16-3"><a href="#cb16-3" tabindex="-1"></a>  pred_data <span class="ot">&lt;-</span> data <span class="sc">%&gt;%</span> <span class="fu">select</span>(<span class="fu">all_of</span>(<span class="fu">c</span>(<span class="st">&quot;id&quot;</span>, <span class="st">&quot;follow_up&quot;</span>, <span class="st">&quot;assigned.trt&quot;</span>)))</span>
+<span id="cb16-4"><a href="#cb16-4" tabindex="-1"></a></span>
+<span id="cb16-5"><a href="#cb16-5" tabindex="-1"></a>  <span class="co"># Predict probabilities</span></span>
+<span id="cb16-6"><a href="#cb16-6" tabindex="-1"></a>  pred_data<span class="sc">$</span>prob_outcome <span class="ot">&lt;-</span> <span class="fu">predict</span>(outcome_model, <span class="at">newdata =</span> data, <span class="at">type =</span> <span class="st">&quot;response&quot;</span>)</span>
+<span id="cb16-7"><a href="#cb16-7" tabindex="-1"></a></span>
+<span id="cb16-8"><a href="#cb16-8" tabindex="-1"></a>  <span class="co"># Calculate cumulative incidence for each subject</span></span>
+<span id="cb16-9"><a href="#cb16-9" tabindex="-1"></a>  cum_inc <span class="ot">&lt;-</span> pred_data <span class="sc">%&gt;%</span></span>
+<span id="cb16-10"><a href="#cb16-10" tabindex="-1"></a>    <span class="fu">arrange</span>(.data<span class="sc">$</span>id, .data<span class="sc">$</span>follow_up) <span class="sc">%&gt;%</span></span>
+<span id="cb16-11"><a href="#cb16-11" tabindex="-1"></a>    <span class="fu">group_by</span>(.data<span class="sc">$</span>id) <span class="sc">%&gt;%</span></span>
+<span id="cb16-12"><a href="#cb16-12" tabindex="-1"></a>    <span class="fu">mutate</span>(</span>
+<span id="cb16-13"><a href="#cb16-13" tabindex="-1"></a>      <span class="at">survival_prob =</span> <span class="fu">cumprod</span>(<span class="dv">1</span> <span class="sc">-</span> .data<span class="sc">$</span>prob_outcome), <span class="co"># P(alive up to current time)</span></span>
+<span id="cb16-14"><a href="#cb16-14" tabindex="-1"></a>      <span class="at">survival_prob_lag =</span> <span class="fu">lag</span>(.data<span class="sc">$</span>survival_prob, <span class="at">default =</span> <span class="dv">1</span>), <span class="co"># P(alive up to last time)</span></span>
+<span id="cb16-15"><a href="#cb16-15" tabindex="-1"></a>      <span class="at">death_prob =</span> .data<span class="sc">$</span>survival_prob_lag <span class="sc">*</span> .data<span class="sc">$</span>prob_outcome, <span class="co"># P(dead at current time)</span></span>
+<span id="cb16-16"><a href="#cb16-16" tabindex="-1"></a>      <span class="at">cumulative_incidence =</span> <span class="fu">cumsum</span>(.data<span class="sc">$</span>death_prob)</span>
+<span id="cb16-17"><a href="#cb16-17" tabindex="-1"></a>    ) <span class="sc">%&gt;%</span> <span class="fu">ungroup</span>()</span>
+<span id="cb16-18"><a href="#cb16-18" tabindex="-1"></a></span>
+<span id="cb16-19"><a href="#cb16-19" tabindex="-1"></a>  <span class="fu">return</span>(cum_inc)</span>
+<span id="cb16-20"><a href="#cb16-20" tabindex="-1"></a>}</span></code></pre></div>
+<ul>
+<li>Calculate marginal cumulative incidence using the unadjusted
+model.</li>
+</ul>
+<div class="sourceCode" id="cb17"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" tabindex="-1"></a>condit_cum_inc_untreated <span class="ot">&lt;-</span> <span class="fu">calc_condit_cum_inc</span>(plr.model.unadj, obsdata12_cf0)</span>
+<span id="cb17-2"><a href="#cb17-2" tabindex="-1"></a>condit_cum_inc_treated <span class="ot">&lt;-</span> <span class="fu">calc_condit_cum_inc</span>(plr.model.unadj, obsdata12_cf1)</span>
+<span id="cb17-3"><a href="#cb17-3" tabindex="-1"></a></span>
+<span id="cb17-4"><a href="#cb17-4" tabindex="-1"></a>marginal_res <span class="ot">&lt;-</span> <span class="fu">bind_rows</span>(</span>
+<span id="cb17-5"><a href="#cb17-5" tabindex="-1"></a>  condit_cum_inc_treated <span class="sc">%&gt;%</span> <span class="fu">mutate</span>(<span class="at">follow_up_month =</span> <span class="fu">as.integer</span>(follow_up <span class="sc">/</span> <span class="dv">30</span>)) <span class="sc">%&gt;%</span></span>
+<span id="cb17-6"><a href="#cb17-6" tabindex="-1"></a>    <span class="fu">group_by</span>(follow_up_month) <span class="sc">%&gt;%</span></span>
+<span id="cb17-7"><a href="#cb17-7" tabindex="-1"></a>    <span class="fu">summarise</span>(<span class="at">mean_cum_inc =</span> <span class="fu">mean</span>(cumulative_incidence, <span class="at">na.rm =</span> <span class="cn">TRUE</span>), <span class="at">.groups =</span> <span class="st">&quot;drop&quot;</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb17-8"><a href="#cb17-8" tabindex="-1"></a>    <span class="fu">mutate</span>(<span class="at">treatment =</span> <span class="st">&quot;Treated&quot;</span>),</span>
+<span id="cb17-9"><a href="#cb17-9" tabindex="-1"></a></span>
+<span id="cb17-10"><a href="#cb17-10" tabindex="-1"></a>  condit_cum_inc_untreated <span class="sc">%&gt;%</span> <span class="fu">mutate</span>(<span class="at">follow_up_month =</span> <span class="fu">as.integer</span>(follow_up <span class="sc">/</span> <span class="dv">30</span>)) <span class="sc">%&gt;%</span></span>
+<span id="cb17-11"><a href="#cb17-11" tabindex="-1"></a>    <span class="fu">group_by</span>(follow_up_month) <span class="sc">%&gt;%</span></span>
+<span id="cb17-12"><a href="#cb17-12" tabindex="-1"></a>    <span class="fu">summarise</span>(<span class="at">mean_cum_inc =</span> <span class="fu">mean</span>(cumulative_incidence, <span class="at">na.rm =</span> <span class="cn">TRUE</span>), <span class="at">.groups =</span> <span class="st">&quot;drop&quot;</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb17-13"><a href="#cb17-13" tabindex="-1"></a>    <span class="fu">mutate</span>(<span class="at">treatment =</span> <span class="st">&quot;Untreated&quot;</span>)</span>
+<span id="cb17-14"><a href="#cb17-14" tabindex="-1"></a>)</span>
+<span id="cb17-15"><a href="#cb17-15" tabindex="-1"></a></span>
+<span id="cb17-16"><a href="#cb17-16" tabindex="-1"></a><span class="co"># Calculate incidence differences and ratios</span></span>
+<span id="cb17-17"><a href="#cb17-17" tabindex="-1"></a>inc_comp <span class="ot">&lt;-</span> marginal_res <span class="sc">%&gt;%</span></span>
+<span id="cb17-18"><a href="#cb17-18" tabindex="-1"></a>  <span class="fu">select</span>(follow_up_month, treatment, mean_cum_inc) <span class="sc">%&gt;%</span></span>
+<span id="cb17-19"><a href="#cb17-19" tabindex="-1"></a>  <span class="fu">pivot_wider</span>(<span class="at">names_from =</span> treatment, <span class="at">values_from =</span> mean_cum_inc) <span class="sc">%&gt;%</span></span>
+<span id="cb17-20"><a href="#cb17-20" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">incidence_diff =</span> Treated <span class="sc">-</span> Untreated, <span class="at">incidence_ratio =</span> Treated <span class="sc">/</span> Untreated)</span>
+<span id="cb17-21"><a href="#cb17-21" tabindex="-1"></a></span>
+<span id="cb17-22"><a href="#cb17-22" tabindex="-1"></a><span class="co"># Marginal Cumulative Incidences at different Time Points</span></span>
+<span id="cb17-23"><a href="#cb17-23" tabindex="-1"></a>key_times <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="dv">6</span>, <span class="dv">12</span>) <span class="co"># 6 months and 1 year</span></span>
+<span id="cb17-24"><a href="#cb17-24" tabindex="-1"></a></span>
+<span id="cb17-25"><a href="#cb17-25" tabindex="-1"></a><span class="co"># Find the closest time points in the data stratified by treatment</span></span>
+<span id="cb17-26"><a href="#cb17-26" tabindex="-1"></a>results <span class="ot">&lt;-</span> marginal_res <span class="sc">%&gt;%</span></span>
+<span id="cb17-27"><a href="#cb17-27" tabindex="-1"></a>  tidyr<span class="sc">::</span><span class="fu">crossing</span>(<span class="at">assess_time =</span> key_times) <span class="sc">%&gt;%</span></span>
+<span id="cb17-28"><a href="#cb17-28" tabindex="-1"></a>  <span class="fu">filter</span>(follow_up_month <span class="sc">&gt;=</span> assess_time) <span class="sc">%&gt;%</span></span>
+<span id="cb17-29"><a href="#cb17-29" tabindex="-1"></a>  <span class="fu">group_by</span>(treatment, assess_time) <span class="sc">%&gt;%</span></span>
+<span id="cb17-30"><a href="#cb17-30" tabindex="-1"></a>  <span class="fu">slice_min</span>(follow_up_month, <span class="at">n =</span> <span class="dv">1</span>, <span class="at">with_ties =</span> <span class="cn">FALSE</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb17-31"><a href="#cb17-31" tabindex="-1"></a>  <span class="fu">ungroup</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb17-32"><a href="#cb17-32" tabindex="-1"></a>  <span class="fu">select</span>(treatment, assess_time, mean_cum_inc) <span class="sc">%&gt;%</span></span>
+<span id="cb17-33"><a href="#cb17-33" tabindex="-1"></a>  <span class="fu">arrange</span>(treatment, assess_time) <span class="sc">%&gt;%</span></span>
+<span id="cb17-34"><a href="#cb17-34" tabindex="-1"></a>  <span class="fu">pivot_wider</span>(<span class="at">names_from =</span> treatment, <span class="at">values_from =</span> mean_cum_inc)</span>
+<span id="cb17-35"><a href="#cb17-35" tabindex="-1"></a>results</span>
+<span id="cb17-36"><a href="#cb17-36" tabindex="-1"></a><span class="co">#&gt; # A tibble: 2 × 3</span></span>
+<span id="cb17-37"><a href="#cb17-37" tabindex="-1"></a><span class="co">#&gt;   assess_time Treated Untreated</span></span>
+<span id="cb17-38"><a href="#cb17-38" tabindex="-1"></a><span class="co">#&gt;         &lt;dbl&gt;   &lt;dbl&gt;     &lt;dbl&gt;</span></span>
+<span id="cb17-39"><a href="#cb17-39" tabindex="-1"></a><span class="co">#&gt; 1           6  0.0505     0.197</span></span>
+<span id="cb17-40"><a href="#cb17-40" tabindex="-1"></a><span class="co">#&gt; 2          12  0.0917     0.335</span></span>
+<span id="cb17-41"><a href="#cb17-41" tabindex="-1"></a></span>
+<span id="cb17-42"><a href="#cb17-42" tabindex="-1"></a><span class="co"># Risk Differences and Ratios at different Time Points</span></span>
+<span id="cb17-43"><a href="#cb17-43" tabindex="-1"></a>results1 <span class="ot">&lt;-</span> inc_comp <span class="sc">%&gt;%</span></span>
+<span id="cb17-44"><a href="#cb17-44" tabindex="-1"></a>  <span class="fu">crossing</span>(<span class="at">assess_time =</span> key_times) <span class="sc">%&gt;%</span></span>
+<span id="cb17-45"><a href="#cb17-45" tabindex="-1"></a>  <span class="fu">filter</span>(follow_up_month <span class="sc">&gt;=</span> assess_time) <span class="sc">%&gt;%</span></span>
+<span id="cb17-46"><a href="#cb17-46" tabindex="-1"></a>  <span class="fu">group_by</span>(assess_time) <span class="sc">%&gt;%</span></span>
+<span id="cb17-47"><a href="#cb17-47" tabindex="-1"></a>  <span class="fu">slice_min</span>(follow_up_month, <span class="at">n =</span> <span class="dv">1</span>, <span class="at">with_ties =</span> <span class="cn">FALSE</span>) <span class="sc">%&gt;%</span> </span>
+<span id="cb17-48"><a href="#cb17-48" tabindex="-1"></a>  <span class="fu">select</span>(assess_time, Treated, Untreated, incidence_diff, incidence_ratio) <span class="sc">%&gt;%</span></span>
+<span id="cb17-49"><a href="#cb17-49" tabindex="-1"></a>  <span class="fu">ungroup</span>()</span>
+<span id="cb17-50"><a href="#cb17-50" tabindex="-1"></a></span>
+<span id="cb17-51"><a href="#cb17-51" tabindex="-1"></a>results.unadj <span class="ot">&lt;-</span> results1 <span class="sc">%&gt;%</span> <span class="fu">mutate</span>(<span class="at">method =</span> <span class="st">&quot;Unadjusted&quot;</span>)</span></code></pre></div>
+<ul>
+<li>Calculate marginal cumulative incidence using the PP approach.</li>
+</ul>
+<div class="sourceCode" id="cb18"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" tabindex="-1"></a>condit_cum_inc_untreated <span class="ot">&lt;-</span> <span class="fu">calc_condit_cum_inc</span>(plr.model, obsdata12_cf0)</span>
+<span id="cb18-2"><a href="#cb18-2" tabindex="-1"></a>condit_cum_inc_treated <span class="ot">&lt;-</span> <span class="fu">calc_condit_cum_inc</span>(plr.model, obsdata12_cf1)</span>
+<span id="cb18-3"><a href="#cb18-3" tabindex="-1"></a></span>
+<span id="cb18-4"><a href="#cb18-4" tabindex="-1"></a>marginal_res <span class="ot">&lt;-</span> <span class="fu">bind_rows</span>(</span>
+<span id="cb18-5"><a href="#cb18-5" tabindex="-1"></a>  condit_cum_inc_treated <span class="sc">%&gt;%</span> <span class="fu">mutate</span>(<span class="at">follow_up_month =</span> <span class="fu">as.integer</span>(follow_up <span class="sc">/</span> <span class="dv">30</span>)) <span class="sc">%&gt;%</span></span>
+<span id="cb18-6"><a href="#cb18-6" tabindex="-1"></a>    <span class="fu">group_by</span>(follow_up_month) <span class="sc">%&gt;%</span></span>
+<span id="cb18-7"><a href="#cb18-7" tabindex="-1"></a>    <span class="fu">summarise</span>(<span class="at">mean_cum_inc =</span> <span class="fu">mean</span>(cumulative_incidence, <span class="at">na.rm =</span> <span class="cn">TRUE</span>), <span class="at">.groups =</span> <span class="st">&quot;drop&quot;</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb18-8"><a href="#cb18-8" tabindex="-1"></a>    <span class="fu">mutate</span>(<span class="at">treatment =</span> <span class="st">&quot;Treated&quot;</span>),</span>
+<span id="cb18-9"><a href="#cb18-9" tabindex="-1"></a></span>
+<span id="cb18-10"><a href="#cb18-10" tabindex="-1"></a>  condit_cum_inc_untreated <span class="sc">%&gt;%</span> <span class="fu">mutate</span>(<span class="at">follow_up_month =</span> <span class="fu">as.integer</span>(follow_up <span class="sc">/</span> <span class="dv">30</span>)) <span class="sc">%&gt;%</span></span>
+<span id="cb18-11"><a href="#cb18-11" tabindex="-1"></a>    <span class="fu">group_by</span>(follow_up_month) <span class="sc">%&gt;%</span></span>
+<span id="cb18-12"><a href="#cb18-12" tabindex="-1"></a>    <span class="fu">summarise</span>(<span class="at">mean_cum_inc =</span> <span class="fu">mean</span>(cumulative_incidence, <span class="at">na.rm =</span> <span class="cn">TRUE</span>), <span class="at">.groups =</span> <span class="st">&quot;drop&quot;</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb18-13"><a href="#cb18-13" tabindex="-1"></a>    <span class="fu">mutate</span>(<span class="at">treatment =</span> <span class="st">&quot;Untreated&quot;</span>)</span>
+<span id="cb18-14"><a href="#cb18-14" tabindex="-1"></a>)</span>
+<span id="cb18-15"><a href="#cb18-15" tabindex="-1"></a></span>
+<span id="cb18-16"><a href="#cb18-16" tabindex="-1"></a><span class="co"># Calculate incidence differences and ratios</span></span>
+<span id="cb18-17"><a href="#cb18-17" tabindex="-1"></a>inc_comp <span class="ot">&lt;-</span> marginal_res <span class="sc">%&gt;%</span></span>
+<span id="cb18-18"><a href="#cb18-18" tabindex="-1"></a>  <span class="fu">select</span>(follow_up_month, treatment, mean_cum_inc) <span class="sc">%&gt;%</span></span>
+<span id="cb18-19"><a href="#cb18-19" tabindex="-1"></a>  <span class="fu">pivot_wider</span>(<span class="at">names_from =</span> treatment, <span class="at">values_from =</span> mean_cum_inc) <span class="sc">%&gt;%</span></span>
+<span id="cb18-20"><a href="#cb18-20" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">incidence_diff =</span> Treated <span class="sc">-</span> Untreated, <span class="at">incidence_ratio =</span> Treated <span class="sc">/</span> Untreated)</span>
+<span id="cb18-21"><a href="#cb18-21" tabindex="-1"></a></span>
+<span id="cb18-22"><a href="#cb18-22" tabindex="-1"></a><span class="co"># Marginal Cumulative Incidences at different Time Points</span></span>
+<span id="cb18-23"><a href="#cb18-23" tabindex="-1"></a>key_times <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="dv">6</span>, <span class="dv">12</span>) <span class="co"># 6 months and 1 year</span></span>
+<span id="cb18-24"><a href="#cb18-24" tabindex="-1"></a></span>
+<span id="cb18-25"><a href="#cb18-25" tabindex="-1"></a><span class="co"># Find the closest time points in the data stratified by treatment</span></span>
+<span id="cb18-26"><a href="#cb18-26" tabindex="-1"></a>results <span class="ot">&lt;-</span> marginal_res <span class="sc">%&gt;%</span></span>
+<span id="cb18-27"><a href="#cb18-27" tabindex="-1"></a>  tidyr<span class="sc">::</span><span class="fu">crossing</span>(<span class="at">assess_time =</span> key_times) <span class="sc">%&gt;%</span></span>
+<span id="cb18-28"><a href="#cb18-28" tabindex="-1"></a>  <span class="fu">filter</span>(follow_up_month <span class="sc">&gt;=</span> assess_time) <span class="sc">%&gt;%</span></span>
+<span id="cb18-29"><a href="#cb18-29" tabindex="-1"></a>  <span class="fu">group_by</span>(treatment, assess_time) <span class="sc">%&gt;%</span></span>
+<span id="cb18-30"><a href="#cb18-30" tabindex="-1"></a>  <span class="fu">slice_min</span>(follow_up_month, <span class="at">n =</span> <span class="dv">1</span>, <span class="at">with_ties =</span> <span class="cn">FALSE</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb18-31"><a href="#cb18-31" tabindex="-1"></a>  <span class="fu">ungroup</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb18-32"><a href="#cb18-32" tabindex="-1"></a>  <span class="fu">select</span>(treatment, assess_time, mean_cum_inc) <span class="sc">%&gt;%</span></span>
+<span id="cb18-33"><a href="#cb18-33" tabindex="-1"></a>  <span class="fu">arrange</span>(treatment, assess_time) <span class="sc">%&gt;%</span></span>
+<span id="cb18-34"><a href="#cb18-34" tabindex="-1"></a>  <span class="fu">pivot_wider</span>(<span class="at">names_from =</span> treatment, <span class="at">values_from =</span> mean_cum_inc)</span>
+<span id="cb18-35"><a href="#cb18-35" tabindex="-1"></a>results</span>
+<span id="cb18-36"><a href="#cb18-36" tabindex="-1"></a><span class="co">#&gt; # A tibble: 2 × 3</span></span>
+<span id="cb18-37"><a href="#cb18-37" tabindex="-1"></a><span class="co">#&gt;   assess_time Treated Untreated</span></span>
+<span id="cb18-38"><a href="#cb18-38" tabindex="-1"></a><span class="co">#&gt;         &lt;dbl&gt;   &lt;dbl&gt;     &lt;dbl&gt;</span></span>
+<span id="cb18-39"><a href="#cb18-39" tabindex="-1"></a><span class="co">#&gt; 1           6  0.0551     0.150</span></span>
+<span id="cb18-40"><a href="#cb18-40" tabindex="-1"></a><span class="co">#&gt; 2          12  0.112      0.279</span></span>
+<span id="cb18-41"><a href="#cb18-41" tabindex="-1"></a></span>
+<span id="cb18-42"><a href="#cb18-42" tabindex="-1"></a><span class="co"># Risk Differences and Ratios at different Time Points</span></span>
+<span id="cb18-43"><a href="#cb18-43" tabindex="-1"></a>results1 <span class="ot">&lt;-</span> inc_comp <span class="sc">%&gt;%</span></span>
+<span id="cb18-44"><a href="#cb18-44" tabindex="-1"></a>  <span class="fu">crossing</span>(<span class="at">assess_time =</span> key_times) <span class="sc">%&gt;%</span></span>
+<span id="cb18-45"><a href="#cb18-45" tabindex="-1"></a>  <span class="fu">filter</span>(follow_up_month <span class="sc">&gt;=</span> assess_time) <span class="sc">%&gt;%</span></span>
+<span id="cb18-46"><a href="#cb18-46" tabindex="-1"></a>  <span class="fu">group_by</span>(assess_time) <span class="sc">%&gt;%</span></span>
+<span id="cb18-47"><a href="#cb18-47" tabindex="-1"></a>  <span class="fu">slice_min</span>(follow_up_month, <span class="at">n =</span> <span class="dv">1</span>, <span class="at">with_ties =</span> <span class="cn">FALSE</span>) <span class="sc">%&gt;%</span> </span>
+<span id="cb18-48"><a href="#cb18-48" tabindex="-1"></a>  <span class="fu">select</span>(assess_time, Treated, Untreated, incidence_diff, incidence_ratio) <span class="sc">%&gt;%</span></span>
+<span id="cb18-49"><a href="#cb18-49" tabindex="-1"></a>  <span class="fu">ungroup</span>()</span>
+<span id="cb18-50"><a href="#cb18-50" tabindex="-1"></a></span>
+<span id="cb18-51"><a href="#cb18-51" tabindex="-1"></a>result.pp <span class="ot">&lt;-</span> results1 <span class="sc">%&gt;%</span> <span class="fu">mutate</span>(<span class="at">method =</span> <span class="st">&quot;Per Protocol&quot;</span>)</span></code></pre></div>
+<ul>
+<li>Obtain the truth from the data-generating model.</li>
+</ul>
+<div class="sourceCode" id="cb19"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" tabindex="-1"></a>truth <span class="ot">&lt;-</span> <span class="fu">readRDS</span>(<span class="st">&quot;risk_truth.rds&quot;</span>)</span>
+<span id="cb19-2"><a href="#cb19-2" tabindex="-1"></a>PP.truth <span class="ot">&lt;-</span> truth<span class="sc">$</span>PP.truth</span>
+<span id="cb19-3"><a href="#cb19-3" tabindex="-1"></a>assess_time <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="dv">6</span>, <span class="dv">12</span>)</span>
+<span id="cb19-4"><a href="#cb19-4" tabindex="-1"></a>PP.truth1 <span class="ot">&lt;-</span> PP.truth <span class="sc">%&gt;%</span> <span class="fu">filter</span>(time <span class="sc">%in%</span> assess_time) <span class="sc">%&gt;%</span> </span>
+<span id="cb19-5"><a href="#cb19-5" tabindex="-1"></a>  <span class="fu">rename</span>(<span class="at">assess_time =</span> time, <span class="at">Treated =</span> cumulative_incidence_trt1, <span class="at">Untreated =</span> cumulative_incidence_trt0, </span>
+<span id="cb19-6"><a href="#cb19-6" tabindex="-1"></a>         <span class="at">incidence_diff =</span> risk_difference, <span class="at">incidence_ratio =</span> risk_ratio) <span class="sc">%&gt;%</span> </span>
+<span id="cb19-7"><a href="#cb19-7" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">method =</span> <span class="st">&quot;Truth&quot;</span>)</span></code></pre></div>
+<ul>
+<li>Combine all results.</li>
+</ul>
+<div class="sourceCode" id="cb20"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1" tabindex="-1"></a>final_results <span class="ot">&lt;-</span> <span class="fu">rbind</span>(results.unadj, result.pp, PP.truth1)</span>
+<span id="cb20-2"><a href="#cb20-2" tabindex="-1"></a>final_results <span class="sc">%&gt;%</span> <span class="fu">arrange</span>(assess_time)</span>
+<span id="cb20-3"><a href="#cb20-3" tabindex="-1"></a><span class="co">#&gt; # A tibble: 6 × 6</span></span>
+<span id="cb20-4"><a href="#cb20-4" tabindex="-1"></a><span class="co">#&gt;   assess_time Treated Untreated incidence_diff incidence_ratio method      </span></span>
+<span id="cb20-5"><a href="#cb20-5" tabindex="-1"></a><span class="co">#&gt;         &lt;dbl&gt;   &lt;dbl&gt;     &lt;dbl&gt;          &lt;dbl&gt;           &lt;dbl&gt; &lt;chr&gt;       </span></span>
+<span id="cb20-6"><a href="#cb20-6" tabindex="-1"></a><span class="co">#&gt; 1           6  0.0505     0.197        -0.147            0.256 Unadjusted  </span></span>
+<span id="cb20-7"><a href="#cb20-7" tabindex="-1"></a><span class="co">#&gt; 2           6  0.0551     0.150        -0.0945           0.368 Per Protocol</span></span>
+<span id="cb20-8"><a href="#cb20-8" tabindex="-1"></a><span class="co">#&gt; 3           6  0.0574     0.147        -0.0899           0.390 Truth       </span></span>
+<span id="cb20-9"><a href="#cb20-9" tabindex="-1"></a><span class="co">#&gt; 4          12  0.0917     0.335        -0.243            0.274 Unadjusted  </span></span>
+<span id="cb20-10"><a href="#cb20-10" tabindex="-1"></a><span class="co">#&gt; 5          12  0.112      0.279        -0.167            0.400 Per Protocol</span></span>
+<span id="cb20-11"><a href="#cb20-11" tabindex="-1"></a><span class="co">#&gt; 6          12  0.103      0.287        -0.184            0.36  Truth</span></span></code></pre></div>
 </div>
 <div id="funding" class="section level2">
 <h2>Funding</h2>

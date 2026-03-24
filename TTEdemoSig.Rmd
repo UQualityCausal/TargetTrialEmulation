@@ -1,4 +1,3 @@
-
 ---
 title: "Target Trial Emulation"
 author: "Peirong Hao, Kevin Ying, Adam Bress, Tom Greene, Yizhe Xu*"
@@ -13,7 +12,7 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
-```{r}
+```{r, echo = FALSE, message = FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>"
@@ -32,7 +31,7 @@ library(slider)
 # Introduction
 Randomized controlled trials (RCTs) are the gold standard for evaluating medical interventions, but they are often impractical, slow, or costly. Modern causal inference methods, coupled with real-world data (RWD), provide a faster, well-powered approach to estimating treatment effects in diverse patient populations. Yet several barriers hinder their effective use in translational research. A key challenge is aligning "time zero," the moment the cohort is defined, eligibility is assessed, and treatment strategies are assigned, which leads to intractable bias. <br>
 
-Target trial emulation (TTE) addresses these barriers by emulating RCT protocols with observational data, e.g., electronic health records (EHRs) [@Hernn2016; @Hernan2022-sp]. The TTE framework has proven especially useful in improving communication between statisticians and clinicians and better integrate clinical insight with sound study design and incisive data analysis to enhance the quality of research. High-quality observational studies built on TTE can complement findings from RCTs and provide actionable evidence [@Wang2023]. <br>
+Target trial emulation (TTE) addresses these barriers by emulating RCT protocols with observational data, e.g., electronic health records (EHRs) [@Hernn2016; @Hernan2022-sp]. The TTE framework has proven especially useful in improving communication between statisticians and clinicians and better integrating clinical insight with sound study design and incisive data analysis to enhance the quality of research. High-quality observational studies built on TTE can complement findings from RCTs and provide actionable evidence [@Wang2023]. <br>
 
 This vignette shows how to build a fit-for-purpose dataset that minimizes bias. We briefly review the five key components of the TTE framework and explain why clear definitions for each are essential.   
 
@@ -44,7 +43,7 @@ This vignette shows how to build a fit-for-purpose dataset that minimizes bias. 
 ## Treatment Strategies 
 - Observational data is best used to emulate **a pragmatic trial** in the sense that 
   - Open-label design: patients are aware of the treatment they are prescribed
-  - Treatment are compared under the usual conditions used 
+  - Treatments are compared under the usual conditions used 
   - Cannot compare new treatment due to lack of data
 - New user design is highly recommended to avoid **prevalent user bias**
   - Treatment of interest: Hormone therapy versus no treatment [@Hernn2016]
@@ -55,18 +54,17 @@ This vignette shows how to build a fit-for-purpose dataset that minimizes bias. 
   - Treatment of interest:  ACEI versus ARB 
   - Both medications are first-line antihypertensive medications that are prescribed interchangeably by physicians
   - Thus, patients in these two treatment groups are much more similar, which leads to smaller confounding by indication bias before any adjustment. We refer to this situation as **pseudo-randomization**
-  - In contrast, in the example of hormone therapy versus no treatment, patients who use hormone therapy can be very different than those do not use the therapy in terms of socioeconomic status and body mass index
+  - In contrast, in the example of hormone therapy versus no treatment, patients who use hormone therapy can be very different than those who do not use the therapy in terms of socioeconomic status and body mass index
 
 ## Assignment Procedures
-- It is infeasible to emulation trials with blind assignment as individuals are aware of the treatment they received in observational data
+- It is infeasible to emulate trials with blind assignment as individuals are aware of the treatment they received in observational data
 - To mimic the randomized treatment assignment in RCTs, we restore comparability between treatment groups within strata defined by baseline covariates, and we refer to this as **conditional exchangeability**
-- To achieve conditional exchangeability, we need to adjust for all confounding covariates using causal inference methods (see [@Hernan2020] for more etails)
+- To achieve conditional exchangeability, we need to adjust for all confounding covariates using causal inference methods (see [@Hernan2020] for more details)
 
 ## Outcome Identification and Validation 
 - Outcomes can be identified using International Classification of Disease (ICD) codes (Version 9 or 10), medication use, or natural language processing of clinical notes 
-- It is challenging to conduct blind outcome ascertainment in observational data since healthcare providers are often aware of the treatment
-a patient received
-  - Death outcome is an exception as it can be independently ascertained by death registry
+- It is challenging to conduct blind outcome ascertainment in observational data since healthcare providers are often aware of the treatment a patient received
+- Death outcome is an exception as it can be independently ascertained by death registry
 
 ## Time Zero
 - <span style="color:red">This is the most important component in TTE</span> 
@@ -91,7 +89,7 @@ Suppose we are interested in comparing the effectiveness of ARB versus ACEI anti
 
 - **Step 3: Build a data set that fits the purpose of the study**
   - A data set can be used to answer these questions with minimal bias
-  - It is a false believe that one data set can be used to answer any questions. 
+  - It is a false belief that one data set can be used to answer any questions. 
   - To build a fit-for-purpose dataset, we demonstrate how to implement TTE framework with observational data through manual coding.  
 
 Before we begin, we import a simulated observational dataset representing patients with hypertension who are followed over time to compare the risk of incident cardiovascular disease (CVD) under ACEI versus ARB treatment. The dataset includes baseline covariates, time-varying covariates, treatment, and outcome indicators, allowing us to demonstrate the implementation of TTE and causal inference methods in a realistic longitudinal setting. For details on data-generating mechanism and parameter settings, please refer to the [data simulation function](https://github.com/UQualityCausal/TargetTrialEmulation/blob/main/generateObsData.R).
@@ -116,44 +114,41 @@ dict <- data.frame(
 knitr::kable(dict, caption = "Data Dictionary", row.names = FALSE)
 ```
 
-
 ## Write your own code to implement TTE
 **Table 1** shows the protocol of the target trial that I wish to run and my emulating plan with observational data side by side 
 
 ![](documents/sidebysideTTE.png){width=95%}
 
-**Component 1: Time 0: the time point a subject satisfies the eligibility criteria and initial treatment** 
+**Component 1: Time 0: the time point a subject satisfies the eligibility criteria and initiates treatment** 
 
 - Patients without hypertension and with CVD are already excluded from our observational data in another pre-processing step
-- We apply the rest of eligibility criteria (the first two) in Table 1 to our data and create a "eligible" indicator
+- We apply the rest of eligibility criteria (the first two) in Table 1 to our data and create an "eligible" indicator
 ```{r}
 obsdata1 <- obsdata %>%
   group_by(id) %>%
-  mutate(eligible = as.integer(age >= 50 & cumsum(Y) == 0 & ( slide_dbl(
-    is.na(A), 
-    sum, 
-    .before = 24,   # Look back 24 rows
-    .after = -1,    # Exclude the current row
+  mutate(eligible = as.integer(age >= 50 & cumsum(Y) == 0 & (slide_dbl(
+    is.na(A),
+    sum,
+    .before = 24, # Look back 24 rows
+    .after = -1, # Exclude the current row
     .complete = T
-  )>=24) )) %>% 
-  # Age over 50, no history of CVD, and no ACEI or ARB treatment in last 24 months.
-  mutate(eligible = ifelse(is.na(eligible), 0, eligible)) %>% #if unknown, then not eligible
+  ) >= 24))) %>% # Age over 50, no history of CVD, and no ACEI or ARB treatment in last 24 months.
+  mutate(eligible = ifelse(is.na(eligible), 0, eligible)) %>% # If unknown, then not eligible
   ungroup()
 ```
 
-
-Let us see when Subject 15 becomes eligible: 
-- Subject 15 is not eligible from time 1997-11-01 to 2000-09-01 due to age below 50. Subject 21 becomes eligible at time 2000-10-01 when he turns 50 and he did not take ACEI or ARB treatment in the last 24 months.
+Let us see when Subject 24 becomes eligible: 
+- Subject 24 is not eligible from time 2001-03-01 to 2002-06-01 due to age below 50. He is still not eligible until 2003-03-01 when he has enough records to show that he did not receive ACEI or ARB treatment in the last 24 months.
 ```{r}
-obsdata1 %>% filter(id==15)
+obsdata1 %>% filter(id == 24)
 ```
 
-Next, we identify time 0 ($T_0$) at which a subject becomes eligible and initials a treatment.
+Next, we identify time 0 ($T_0$) at which a subject becomes eligible and initiates a treatment.
 ```{r}
-time0 <- obsdata1 %>%filter(eligible==1 & !is.na(A)) %>%
+time0 <- obsdata1 %>% filter(eligible == 1 & !is.na(A)) %>%
   group_by(id) %>%
   summarise(
-    t0=min(time)) %>%
+    t0 = min(time)) %>%
   ungroup()
 ```
 
@@ -162,56 +157,52 @@ Check the number of subjects enrolled in analysis.
 nrow(time0)
 ```
 
-Let’s verify one example. Subject 15 first becomes eligible at time 2000-07-0,and he initials treatment at time 2002-10-01. So ($T_0$) is 2002-10-01 for him.
+Let’s verify one example. Subject 24 first becomes eligible at time 2003-03-01, and he initiates treatment at time 2004-05-01. So ($T_0$) is 2004-05-01 for him.
 ```{r}
-time0 %>% filter(id == 15)
+time0 %>% filter(id == 24)
 
-obsdata1 %>% filter(id ==15)
+obsdata1 %>% filter(id == 24)
 ```
 
 Filter out ineligible subjects
 ```{r}
 obsdata2 <- obsdata1 %>%
-  left_join(time0, by = "id") # merge the eligibility information to our observational data
+  left_join(time0, by = "id") # Merge the eligibility information to our observational data
 attr(obsdata2$eligible, "label") <- "Eligibility indicator at each time in records"
 attr(obsdata2$t0, "label") <- "Start of follow-up"
 
 obsdata3 <- obsdata2 %>%
-  filter(time >= (t0-31))   # include only eligible subjects who initials treatment and previous month to get the baseline
-#check every subject has exactly one month of data before time 0
-obsdata3 %>%filter(time<t0)%>% group_by(id) %>% summarise(n=n()) %>% filter(n!=1) #expect 0 rows
-  
-```
+  filter(time >= (t0 - 31)) # Include only eligible subjects who initiates treatment and previous month to get the baseline
 
+# Check every subject has exactly one month of data before time 0
+obsdata3 %>% filter(time < t0) %>% group_by(id) %>% summarise(n = n()) %>% filter(n != 1) # expect 0 rows
+```
 
 **Component 2: Treatment strategies**
 
 - We group patients into ARB or ACEI initiators based on their outpatient pharmacy dispense
 - ARB initiators are coded as 1 and ACEI initiators are coded as 0 in our data (code is not shown)
-- Individuals initiated both ARB and ACEI medications are excluded 
-
+- Individuals who initiated both ARB and ACEI medications are excluded 
 
 **Component 3: Treatment assignment**
 
-- Although ARBs and ACEIs are both first-line treatment and used interchangeably at clinic, they are not completly randomized to patients in our observational data, which may lead to imbalance in patient characteristics between treatment groups
+- Although ARBs and ACEIs are both first-line treatment and used interchangeably at clinic, they are not completely randomized to patients in our observational data, which may lead to imbalance in patient characteristics between treatment groups
 - It is perhaps more plausible to consider ARB or ACEI medications are randomized among patients with the same age, sex, blood pressure, and other antihypertensive medication use
-- Formally, we assume treatment assignment is independent of the CVD outcome conditional on all the baseline covariates mentioned above, i.e., conditional changeability assumption
+- Formally, we assume treatment assignment is independent of the CVD outcome conditional on all the baseline covariates mentioned above, i.e., conditional exchangeability assumption
 - We mostly worry about the baseline covariates that impact treatment assignment and outcome and they are called **confounders**
-- The conditional changeability assumption becomes more plausible as more confounders are measured and considered though we can never verify the assumption completely holds true
-- We will demonstrate how to restore the conditional changeability using causal inference methods in the tutorial of [Intetion-to-treat Analysis](https://uqualitycausal.github.io/TTECausalR/IntentionToTreat.html).
-
+- The conditional exchangeability assumption becomes more plausible as more confounders are measured and considered though we can never verify the assumption completely holds true
+- We will demonstrate how to restore the conditional exchangeability using causal inference methods in the tutorial of [Intention-to-treat Analysis](https://uqualitycausal.github.io/TTECausalR/IntentionToTreat.html).
 
 **Components 4 & 5: Follow-up and Outcome**
 
 - The start of follow-up or time zero ($T_0$) is when individuals first become eligible and initiate ARB or ACEI
 - In our long-format data, the follow-up at each month is the number of months being followed up to the current month
-- We acrual subjects in period 01/01/2001 - 01/01/2004,and stop collect data at 01/01/2008, so the maximum follow-up time is 84 months.
+- We accrue subjects in period 01/01/2001 - 01/01/2004, and stop collecting data at 01/01/2008, so the maximum follow-up time is 84 months.
 ```{r}
-obsdata4 <- obsdata3 %>% filter(t0>= as.Date("2001-01-01") & t0< as.Date("2004-01-01") & time < as.Date("2008-01-01")) %>%
-  mutate(follow_up = as.integer(time - t0)) %>% # 
-  select(-t0, -eligible) 
+obsdata4 <- obsdata3 %>% filter(t0 >= as.Date("2001-01-01") & t0 < as.Date("2004-01-01") & time < as.Date("2008-01-01")) %>%
+  mutate(follow_up = as.integer(time - t0)) %>%
+  select(-t0, -eligible)
 ```
-
 
 Finally, we save the data for downstream statistical analysis 
 ```{r}
@@ -219,21 +210,19 @@ Finally, we save the data for downstream statistical analysis
 baseline <- obsdata4 %>%
   filter(follow_up < 0) %>%
   group_by(id) %>%
-  slice_max(order_by = follow_up, n = 1, with_ties = FALSE) %>%  # closest to 0 from below
+  slice_max(order_by = follow_up, n = 1, with_ties = FALSE) %>%  # Closest to 0 from below
   ungroup() %>%
-  select(id, X1, X2, X3, X4, age) %>%
+  select(id, X1, X2, age) %>%
   rename(
     X1_0  = X1,
     X2_0  = X2,
-    X3_0  = X3,
-    X4_0  = X4,
     age_0 = age
-  ) #the baseline values are the values of the month before treatment initiation. 
+  ) # The baseline values are the values of the month before treatment initiation.
 
 assigned.trt <- obsdata4 %>%
-  filter(follow_up==0) %>%
+  filter(follow_up == 0) %>%
   select(id, A) %>%
-  rename(assigned_treatment = A) #the assigned treatment is the treatment at initiation. 
+  rename(assigned_treatment = A) # The assigned treatment is the treatment at initiation.
 
 baseline <- baseline %>%
   left_join(assigned.trt, by = "id") %>%
@@ -242,17 +231,17 @@ baseline <- baseline %>%
 # Merge baseline data to longitudinal data
 obsdata5 <- obsdata4 %>%
   left_join(baseline, by = "id") %>%
-  filter(follow_up>=0)%>% 
+  filter(follow_up >= 0) %>%
   arrange(id, follow_up)
 attr(obsdata5$X1_0, "label") <- "Baseline value of X1"
 attr(obsdata5$X2_0, "label") <- "Baseline value of X2"
 attr(obsdata5$age_0, "label") <- "Baseline value of age"
-obsdata5 %>% slice_head(n=10)
+attr(obsdata5$follow_up, "label") <- "Follow-up time"
+obsdata5 %>% slice_head(n = 10)
 
-# Save the data 
+# Save the data
 saveRDS(obsdata5, "obsdata5.rds")
 ```
-
 
 ## Funding
 The research reported in this publication was supported in part by the National Center for Advancing Translational Sciences of the National Institutes of Health under Award Number UM1 TR 004409. The content is solely the responsibility of the authors and does not necessarily represent the official views of the National Institutes of Health.
